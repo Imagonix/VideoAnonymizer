@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="VideoAnonymizer.ApiService/VideoAnonymizer.ApiService.csproj" />
+  <Project Path="VideoAnonymizer.AppHost/VideoAnonymizer.AppHost.csproj" />
+  <Project Path="VideoAnonymizer.ServiceDefaults/VideoAnonymizer.ServiceDefaults.csproj" />
+  <Project Path="VideoAnonymizer.Web/VideoAnonymizer.Web.csproj" />
+</Solution>
