@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Testing" Version="13.1.2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="Reqnroll.NUnit" Version="3.2.0" />
     <PackageReference Include="nunit" Version="4.4.0" />
@@ -14,8 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Drivers\" />
-    <Folder Include="Support\" />
+    <Folder Include="Samples\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\VideoAnonymizer.ApiService\VideoAnonymizer.ApiService.csproj" />
+    <ProjectReference Include="..\VideoAnonymizer.AppHost\VideoAnonymizer.AppHost.csproj" />
   </ItemGroup>
 
   <ItemGroup>
