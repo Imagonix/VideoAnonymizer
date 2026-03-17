@@ -103,7 +103,11 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
                 .WithAutomaticReconnect()
                 .Build();
 
-            connection.On<LongRunningJobFinishedMessage>("JobCompleted", message =>
+            connection.On<LongRunningJobFinishedMessage>("videoAnalyzed", message =>
+            {
+                TaskCompletionSourceLongRunningJobFinishedMessage.TrySetResult(message);
+            });
+            connection.On<LongRunningJobFinishedMessage>("videoAnonymized", message =>
             {
                 TaskCompletionSourceLongRunningJobFinishedMessage.TrySetResult(message);
             });

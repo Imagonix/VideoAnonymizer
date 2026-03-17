@@ -5,7 +5,6 @@ using VideoAnonymizer.Contracts;
 namespace VideoAnonymizer.ApiService
 {
     [ApiController]
-    //[Route("api/anonymizer")]
     public class VideoAnonymizerApi(IPublishEndpoint publishEndpoint) : ControllerBase
     {
         [HttpGet("health")]
