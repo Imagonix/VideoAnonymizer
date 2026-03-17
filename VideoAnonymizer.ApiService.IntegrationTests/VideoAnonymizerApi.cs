@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
+using Reqnroll.Assist;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -77,9 +78,20 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             {
                 clientBuilder.AddStandardResilienceHandler();
             });
+            //appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
+            //{
+            //    clientBuilder.AddStandardResilienceHandler(options =>
+            //     {
+            //         options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
+            //         options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(3);
+            //     });
+            // });
 
             App = await appHost.BuildAsync();
             await App.StartAsync();
+            var client = CreteApiServiceHttpClient();
+            //client.Timeout = TimeSpan.FromMinutes(3);
+            await client.GetAsync("/");
 
             TaskCompletionSourceLongRunningJobFinishedMessage = new TaskCompletionSource<LongRunningJobFinishedMessage>(
                 TaskCreationOptions.RunContinuationsAsynchronously);
@@ -103,9 +115,8 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         {
             var currentDirectory = Environment.CurrentDirectory;
             var vodeoPath = Path.Combine(currentDirectory, "Samples/grok-video-a33c5aac-1cb9-4b9b-bcfb-8dcb1dfcd15e.mp4");
-            var content = new StringContent(vodeoPath, Encoding.UTF8, MediaTypeNames.Text.Plain);
             using var httpclient = CreteApiServiceHttpClient();
-            var response = await httpclient.PostAsync("/analyze", content);
+            var response = await httpclient.PostAsJsonAsync("/analyze", "vodeoPath");
             PostVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
         }
 

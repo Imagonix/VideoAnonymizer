@@ -3,11 +3,12 @@ using VideoAnonymizer.Contracts;
 
 namespace VideoAnonymizer.VideoProcessor;
 
-public class VideoAnonomyzer(ILogger<VideoAnonomyzer> logger, IPublishEndpoint publishEndpoint) : SingleJobQueingWorker<AnonomyzeVideo>(logger)
+public class VideoAnonomyzer(ILogger<VideoAnonomyzer> logger, IServiceProvider serviceProvider) : SingleJobQueingWorker<AnonomyzeVideo>(logger)
 {
     protected override async Task HandleJob(AnonomyzeVideo job, CancellationToken stoppingToken)
     {
         throw new NotImplementedException();
+        var publishEndpoint = serviceProvider.CreateScope().ServiceProvider.GetService<IPublishEndpoint>();
         publishEndpoint.Publish(new AnonomyzedVideo(job.jobId, DateTime.Now));
     }
 }

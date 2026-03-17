@@ -6,6 +6,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddServiceDefaults();
 builder.Services.AddSingletonAsHostedService<VideoAnalyzer>();
+builder.Services.AddSingletonAsHostedService<VideoAnonomyzer>();
 
 builder.Services.AddMassTransit(x =>
 {

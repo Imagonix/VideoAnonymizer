@@ -1,4 +1,6 @@
+using MassTransit;
 using VideoAnonymizer.ApiService;
+using VideoAnonymizer.Contracts;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +32,13 @@ if (builder.Environment.IsDevelopment())
         });
     });
 }
+
+builder.Services.AddMassTransit(x =>
+{
+    x.AddConsumer<AsyncNotificationService>();
+    x.ConfigureRabbitMq(builder);
+});
+builder.Services.AddSingleton<LongRunningJobsHub>();
 
 var app = builder.Build();
 
