@@ -32,8 +32,21 @@ namespace VideoAnonymizer.ApiService
             throw new NotImplementedException();
         }
 
-        [HttpPost("anonymizedVideo/{jobId:guid}")]
-        public IActionResult AnalyzedResult([FromRoute] Guid jobId)
+
+        [HttpPost("anonymize")]
+        public IActionResult Anonymize([FromBody] string videoPath)
+        {
+            var jobId = Guid.NewGuid();
+            publishEndpoint.Publish(new AnalyzeVideo(jobId, videoPath, DateTime.Now));
+            return Ok(new
+            {
+                jobId = jobId,
+                message = "analysis started"
+            });
+        }
+
+        [HttpPost("anonymized/{jobId:guid}")]
+        public IActionResult GetAnalyzedResult([FromRoute] Guid jobId)
         {
             throw new NotImplementedException();
         }
