@@ -5,9 +5,9 @@ namespace VideoAnonymizer.VideoProcessor;
 
 public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IPublishEndpoint publishEndpoint) : SingleJobQueingWorker<AnalyzeVideo>(logger)
 {
-    protected override Task HandleJob(AnalyzeVideo job, CancellationToken stoppingToken)
+    protected override async Task HandleJob(AnalyzeVideo job, CancellationToken stoppingToken)
     {
-        throw new NotImplementedException();
+        //throw new NotImplementedException();
         publishEndpoint.Publish(new AnalyzedVideo(job.jobId, DateTime.Now));
     }
 }

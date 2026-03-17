@@ -1,4 +1,5 @@
 using MassTransit;
+using VideoAnonymizer.Contracts;
 using VideoAnonymizer.VideoProcessor;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -8,7 +9,8 @@ builder.Services.AddSingletonAsHostedService<VideoAnalyzer>();
 
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<CalculateTrendsConsumer>();
+    x.AddConsumer<AnalyzeVideoConsumer>();
+    x.AddConsumer<AnonomyzeVideoConsumer>();
     x.ConfigureRabbitMq(builder);
 });
 

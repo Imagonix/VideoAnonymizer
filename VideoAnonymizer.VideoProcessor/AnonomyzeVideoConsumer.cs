@@ -6,7 +6,7 @@ using VideoAnonymizer.Contracts;
 
 namespace VideoAnonymizer.VideoProcessor
 {
-    internal class AnalyzeVideoConsumer(VideoAnalyzer Worker) : IConsumer<AnalyzeVideo>
+    internal class AnonomyzeVideoConsumer(VideoAnalyzer Worker) : IConsumer<AnalyzeVideo>
     {
         public async Task Consume(ConsumeContext<AnalyzeVideo> context)
         {
