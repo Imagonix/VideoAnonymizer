@@ -4,6 +4,7 @@ using FluentAssertions;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Mime;
@@ -28,10 +29,10 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             set => _scenarioContext[nameof(TaskCompletionSourceLongRunningJobFinishedMessage)] = value;
         }
 
-        private LongRunningJobFinishedMessage VideoAnalyzedMessage
+        private LongRunningJobFinishedMessage VideoFinishedMessage
         {
-            get => (LongRunningJobFinishedMessage)_scenarioContext[nameof(VideoAnalyzedMessage)];
-            set => _scenarioContext[nameof(VideoAnalyzedMessage)] = value;
+            get => (LongRunningJobFinishedMessage)_scenarioContext[nameof(VideoFinishedMessage)];
+            set => _scenarioContext[nameof(VideoFinishedMessage)] = value;
         }
 
         private ApiResponse<Guid>? PostVideoResponse
@@ -111,14 +112,14 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         [When("the video has been analyzed")]
         public async Task WhenTheVideoHasBeenAnalyzed()
         {
-            VideoAnalyzedMessage = await TaskCompletionSourceLongRunningJobFinishedMessage.Task.WaitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(60)).Token);
+            VideoFinishedMessage = await TaskCompletionSourceLongRunningJobFinishedMessage.Task.WaitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(60)).Token);
         }
 
         [Then("I get a notification")]
         public void ThenIGetANotification()
         {
-            VideoAnalyzedMessage.Should().NotBeNull();
-            VideoAnalyzedMessage.Status.Should().Be("Completed");
+            VideoFinishedMessage.Should().NotBeNull();
+            VideoFinishedMessage.Status.Should().Be("Completed");
         }
 
         [Then("the response contains a list of detected objects per frame")]
@@ -126,7 +127,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         {
             PostVideoResponse.Should().NotBeNull();
             using var httpClient = CreteApiServiceHttpClient();
-            AnalyzedVideoResponse = await httpClient.GetFromJsonAsync<ApiResponse<VideoAnalysis>>($"analyze/{PostVideoResponse.Payload}");
+            AnalyzedVideoResponse = await httpClient.GetFromJsonAsync<ApiResponse<VideoAnalysis>>($"analyzed/{PostVideoResponse.Payload}");
         }
 
         [Given("the video has been analyzed")]
@@ -142,12 +143,15 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             using var httpClient = CreteApiServiceHttpClient();
             var response = await httpClient.PostAsJsonAsync("anonymize", selectedObjects);
             AnonymizeVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
+            VideoFinishedMessage = await TaskCompletionSourceLongRunningJobFinishedMessage.Task.WaitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(60)).Token);
         }
 
         [Then("I get video with blurred sensitive data")]
-        public void ThenIGetVideoWithBlurredSensitiveData()
+        public async Task ThenIGetVideoWithBlurredSensitiveData()
         {
-            throw new PendingStepException();
+            using var httpClient = CreteApiServiceHttpClient();
+            var response = await httpClient.GetAsync($"anonymized/{VideoFinishedMessage.JobId}");
+            response.StatusCode.Should().Be(HttpStatusCode.OK);
         }
 
     }
