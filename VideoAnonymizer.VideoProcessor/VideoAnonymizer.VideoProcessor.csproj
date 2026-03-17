@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.ServiceDefaults\VideoAnonymizer.ServiceDefaults.csproj" />
   </ItemGroup>
 </Project>
