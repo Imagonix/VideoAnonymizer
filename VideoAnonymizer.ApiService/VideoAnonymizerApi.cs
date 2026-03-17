@@ -21,5 +21,25 @@ namespace VideoAnonymizer.ApiService
                 message = "Analysis started"
             });
         }
+
+        [HttpGet("analyze/{jobId:guid}")]
+        public IActionResult GetAnalyzedVideo([FromRoute] Guid jobId)
+        {
+            return Ok(new
+            {
+                jobId = Guid.NewGuid(),
+                message = "Analysis started"
+            });
+        }
+
+        [HttpPost("anonymizedVideo/{jobId:guid}")]
+        public IActionResult AnalyzedResult([FromRoute] Guid jobId)
+        {
+            return Ok(new
+            {
+                jobId = Guid.NewGuid(),
+                message = "Analysis started"
+            });
+        }
     }
 }
