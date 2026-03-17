@@ -1,10 +1,12 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using MassTransit;
+using Microsoft.AspNetCore.Mvc;
+using VideoAnonymizer.Contracts;
 
 namespace VideoAnonymizer.ApiService
 {
     [ApiController]
-    [Route("api/anonymizer")]
-    public class VideoAnonymizerApi : ControllerBase
+    //[Route("api/anonymizer")]
+    public class VideoAnonymizerApi(IPublishEndpoint publishEndpoint) : ControllerBase
     {
         [HttpGet("health")]
         public IActionResult Health()
@@ -15,31 +17,25 @@ namespace VideoAnonymizer.ApiService
         [HttpPost("analyze")]
         public IActionResult Analyze([FromBody] string videoPath)
         {
+            var jobId = Guid.NewGuid();
+            publishEndpoint.Publish(new AnalyzeVideo(jobId, videoPath, DateTime.Now));
             return Ok(new
             {
-                jobId = Guid.NewGuid(),
-                message = "Analysis started"
+                jobId = jobId,
+                message = "analysis started"
             });
         }
 
-        [HttpGet("analyze/{jobId:guid}")]
+        [HttpGet("analyzed/{jobId:guid}")]
         public IActionResult GetAnalyzedVideo([FromRoute] Guid jobId)
         {
-            return Ok(new
-            {
-                jobId = Guid.NewGuid(),
-                message = "Analysis started"
-            });
+            throw new NotImplementedException();
         }
 
         [HttpPost("anonymizedVideo/{jobId:guid}")]
         public IActionResult AnalyzedResult([FromRoute] Guid jobId)
         {
-            return Ok(new
-            {
-                jobId = Guid.NewGuid(),
-                message = "Analysis started"
-            });
+            throw new NotImplementedException();
         }
     }
 }

@@ -2,6 +2,8 @@
   <Project Path="VideoAnonymizer.ApiService.IntegrationTests/VideoAnonymizer.ApiService.IntegrationTests.csproj" Id="e3a211bd-a83e-44ad-875f-02a1b633fffa" />
   <Project Path="VideoAnonymizer.ApiService/VideoAnonymizer.ApiService.csproj" />
   <Project Path="VideoAnonymizer.AppHost/VideoAnonymizer.AppHost.csproj" />
+  <Project Path="VideoAnonymizer.Contracts/VideoAnonymizer.Contracts.csproj" Id="6ea7098a-7402-491c-bae9-a2399587014d" />
   <Project Path="VideoAnonymizer.ServiceDefaults/VideoAnonymizer.ServiceDefaults.csproj" />
+  <Project Path="VideoAnonymizer.VideoProcessor/VideoAnonymizer.VideoProcessor.csproj" />
   <Project Path="VideoAnonymizer.Web/VideoAnonymizer.Web.csproj" />
 </Solution>

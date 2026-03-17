@@ -1,3 +1,5 @@
+using VideoAnonymizer.ApiService;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add service defaults & Aspire client integrations.
@@ -9,6 +11,7 @@ builder.Services.AddProblemDetails();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -43,5 +46,6 @@ if (app.Environment.IsDevelopment())
 }
 app.MapDefaultEndpoints();
 app.MapControllers();
+app.MapHub<LongRunningJobsHub>("/hubs/jobs");
 
 app.Run();

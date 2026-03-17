@@ -2,7 +2,7 @@
 {
     public class LongRunningJobFinishedMessage
     {
-        public string JobId { get; set; } = "";
+        public Guid JobId { get; set; }
         public string Status { get; set; } = "";
     }
 }
