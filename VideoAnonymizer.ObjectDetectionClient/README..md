@@ -1,0 +1,1 @@
+nswag openapi2csclient "/input:https://localhost:`<port>`/openapi.json" "/classname:ObjectDetectionClient" "/namespace:VideoAnonymizer.ObjectDetectionClient" "/output:ObjectDetectionClient.cs" "/JsonLibrary:SystemTextJson" "/OperationGenerationMode:SingleClientFromOperationId"
