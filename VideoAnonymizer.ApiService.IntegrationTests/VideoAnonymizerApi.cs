@@ -134,7 +134,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         public void ThenIGetANotification()
         {
             VideoFinishedMessage.Should().NotBeNull();
-            VideoFinishedMessage.Status.Should().Be("Completed");
+            VideoFinishedMessage.Status.Should().Be("completed");
         }
 
         [Then("the response contains a list of detected objects per frame")]

@@ -8,7 +8,7 @@ namespace VideoAnonymizer.ApiService
     {
         public async Task Consume(ConsumeContext<AnalyzedVideo> context)
         {
-            await hub.Clients.All.SendAsync("videoAnalyzed", new LongRunningJobFinishedMessage() { JobId = context.Message.jobId});
+            await hub.Clients.All.SendAsync("videoAnalyzed", new LongRunningJobFinishedMessage() { JobId = context.Message.jobId, Status = "completed"});
         }
 
         public async Task Consume(ConsumeContext<AnonomyzedVideo> context)
