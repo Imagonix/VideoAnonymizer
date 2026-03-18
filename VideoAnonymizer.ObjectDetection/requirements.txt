@@ -1,2 +1,6 @@
 fastapi
 uvicorn[standard]
+onnxruntime-gpu
+opencv-python 
+numpy 
+pydantic
