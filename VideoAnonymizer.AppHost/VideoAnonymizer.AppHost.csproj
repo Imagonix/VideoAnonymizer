@@ -17,5 +17,6 @@
 
 	<ItemGroup>
 		<PackageReference Include="Aspire.Hosting.RabbitMQ" Version="13.1.0" />
+		<PackageReference Include="Aspire.Hosting.Python" Version="13.1" />
 	</ItemGroup>
 </Project>

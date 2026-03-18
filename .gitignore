@@ -1,3 +1,5 @@
 /.vs
 obj
 bin
+/VideoAnonymizer.ObjectDetection/.venv
+/VideoAnonymizer.ObjectDetection/__pycache__

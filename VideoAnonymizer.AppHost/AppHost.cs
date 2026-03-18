@@ -4,6 +4,13 @@ var rabbitPassword = builder.AddParameter("rabbit-password", secret: true);
 var rabbitUser = builder.AddParameter("rabbit-user", "rabbit");
 var rabbit = builder.AddRabbitMQ("rabbit", rabbitUser, rabbitPassword).WithManagementPlugin();
 
+var faceDetection = builder.AddUvicornApp(
+        name: "objectDetection",
+        appDirectory: "../VideoAnonymizer.ObjectDetection",
+        app: "main:app"
+    )
+    .WithExternalHttpEndpoints();
+
 var apiService = builder.AddProject<Projects.VideoAnonymizer_ApiService>("apiservice")
     .WithHttpHealthCheck("/health")
     .WithReference(rabbit)
@@ -16,7 +23,9 @@ builder.AddProject<Projects.VideoAnonymizer_Web>("webfrontend")
     .WaitFor(apiService);
 
 builder.AddProject<Projects.VideoAnonymizer_VideoProcessor>("videoanonymizer-videoprocessor")
+    .WithReference(faceDetection)
     .WithReference(rabbit)
     .WaitFor(rabbit);
+
 
 builder.Build().Run();
