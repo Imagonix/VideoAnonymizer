@@ -118,9 +118,16 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         public async Task GivenIUploadAVideoContainingSensitiveData()
         {
             var currentDirectory = Environment.CurrentDirectory;
-            var vodeoPath = Path.Combine(currentDirectory, "Samples/grok-video-a33c5aac-1cb9-4b9b-bcfb-8dcb1dfcd15e.mp4");
-            using var httpclient = CreteApiServiceHttpClient();
-            var response = await httpclient.PostAsJsonAsync("/analyze", "vodeoPath");
+            var videoPath = Path.Combine(currentDirectory, "Samples/grok-video-a33c5aac-1cb9-4b9b-bcfb-8dcb1dfcd15e.mp4");
+            using var httpClient = CreteApiServiceHttpClient();
+
+            using var form = new MultipartFormDataContent();
+            await using var fileStream = File.OpenRead(videoPath);
+            using var fileContent = new StreamContent(fileStream);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("video/mp4");
+            form.Add(fileContent, "video", Path.GetFileName(videoPath));
+
+            var response = await httpClient.PostAsync("/analyze", form);
             PostVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
         }
 
