@@ -1,5 +1,6 @@
 using MassTransit;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.VideoProcessor;
 
@@ -31,6 +32,8 @@ builder.Services.AddScoped<ObjectDetectionClient>(sp =>
     var baseUrl = objectDetectionUrl;
     return new ObjectDetectionClient(baseUrl, httpClient);
 });
+
+builder.AddVideoAnonymizerDbContextFactory();
 
 var host = builder.Build();
 host.Run();

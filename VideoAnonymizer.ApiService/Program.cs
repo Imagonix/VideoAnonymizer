@@ -1,6 +1,7 @@
 using MassTransit;
 using VideoAnonymizer.ApiService;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Database;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,6 +40,8 @@ builder.Services.AddMassTransit(x =>
     x.ConfigureRabbitMq(builder);
 });
 builder.Services.AddSingleton<LongRunningJobsHub>();
+
+builder.AddVideoAnonymizerDbContextFactory();
 
 var app = builder.Build();
 

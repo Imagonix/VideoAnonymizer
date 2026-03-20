@@ -1,6 +1,9 @@
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using OpenCvSharp;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
 namespace VideoAnonymizer.VideoProcessor;
@@ -27,6 +30,10 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
 
         logger.LogInformation("Processing video {VideoPath} with FPS {Fps}", job.Path, fps);
 
+        var dbFactory = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
+        using var db = await dbFactory.CreateDbContextAsync();
+        var video = await db.Videos.FindAsync(job.videoId);
+
         using var frame = new Mat();
 
         var frameIndex = 0;
@@ -35,10 +42,17 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         // Example: only analyze 1 frame per second
         var frameStep = Math.Max(1, (int)Math.Round(fps));
 
-        var allDetections = new List<FrameDetectionResult>();
+        var analyzedFrames = new List<AnalyzedFrame>();
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var analyzedFrame = new AnalyzedFrame
+            {
+                TimeSeconds = frameIndex / fps,
+            };
+            analyzedFrames.Add(analyzedFrame);
+            await db.AddAsync(analyzedFrame);
+
             var success = capture.Read(frame);
             if (!success || frame.Empty())
                 break;
@@ -58,12 +72,18 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
                 },
                 stoppingToken);
 
-            allDetections.Add(new FrameDetectionResult
+            var detectedObjects = detections.Select(detection => new DetectedObject()
             {
-                FrameIndex = frameIndex,
-                Timestamp = TimeSpan.FromSeconds(frameIndex / fps),
-                Detections = detections?.ToList() ?? new List<DetectionResult>()
-            });
+                AnalyzedFrameId = analyzedFrame.Id,
+                Height = detection.Height,
+                Width = detection.Width,
+                X = detection.X,
+                Y = detection.Y,
+                ClassName = detection.ClassName,
+                Confidence = detection.Confidence,
+            }).ToList();
+            await db.AddRangeAsync(detectedObjects);
+
 
             logger.LogInformation(
                 "Frame {FrameIndex} at {Timestamp} processed. Detections: {Count}",
@@ -81,21 +101,16 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
             "Finished processing video {VideoPath}. Analyzed frames: {ProcessedFrameCount}",
             job.Path,
             processedFrameCount);
+        video.AnalyzedFrames = analyzedFrames;
+        await db.SaveChangesAsync();
 
         var publishEndpoint = serviceProvider.CreateScope().ServiceProvider.GetService<IPublishEndpoint>();
-        await publishEndpoint.Publish(new AnalyzedVideo(job.jobId, DateTime.Now));
+        await publishEndpoint.Publish(new AnalyzedVideo(job.videoId, DateTime.Now));
     }
 
     private static string ConvertMatToBase64Jpeg(Mat frame)
     {
         Cv2.ImEncode(".jpg", frame, out var imageBytes);
         return Convert.ToBase64String(imageBytes);
-    }
-
-    private sealed class FrameDetectionResult
-    {
-        public required int FrameIndex { get; init; }
-        public required TimeSpan Timestamp { get; init; }
-        public required List<DetectionResult> Detections { get; init; }
     }
 }

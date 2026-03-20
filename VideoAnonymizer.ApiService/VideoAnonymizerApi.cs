@@ -1,11 +1,14 @@
 ﻿using MassTransit;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Database;
 
 namespace VideoAnonymizer.ApiService
 {
     [ApiController]
-    public class VideoAnonymizerApi(IPublishEndpoint publishEndpoint, IWebHostEnvironment environment) : ControllerBase
+    public class VideoAnonymizerApi(IPublishEndpoint publishEndpoint, IWebHostEnvironment environment, IDbContextFactory<VideoAnonymizerDbContext> dbFactory) : ControllerBase
     {
         [HttpGet("health")]
         public IActionResult Health()
@@ -30,13 +33,14 @@ namespace VideoAnonymizer.ApiService
                 return BadRequest("Unsupported file type.");
             }
 
-            var jobId = Guid.NewGuid();
+            var videoEntity = new Video();
 
             var uploadsRoot = Path.Combine(environment.ContentRootPath, "App_Data", "Uploads");
             Directory.CreateDirectory(uploadsRoot);
 
-            var safeFileName = $"{jobId}{extension}";
+            var safeFileName = $"{videoEntity.Id}{extension}";
             var fullPath = Path.Combine(uploadsRoot, safeFileName);
+            videoEntity.Path = fullPath;
 
             await using (var fileStream = new FileStream(
                 fullPath,
@@ -49,21 +53,31 @@ namespace VideoAnonymizer.ApiService
                 await video.CopyToAsync(fileStream, cancellationToken);
             }
 
+            using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
+            await db.Videos.AddAsync(videoEntity, cancellationToken);
+            await db.SaveChangesAsync();
+
             await publishEndpoint.Publish(
-                new AnalyzeVideo(jobId, fullPath, DateTime.UtcNow),
+                new AnalyzeVideo(videoEntity.Id, fullPath, DateTime.UtcNow),
                 cancellationToken);
 
-            return Ok(new
+            return Ok(new ApiResponse<Guid>()
             {
-                jobId,
-                message = "analysis started"
+                Payload = videoEntity.Id,
+                Message = "analysis started"
             });
         }
 
-        [HttpGet("analyzed/{jobId:guid}")]
-        public IActionResult GetAnalyzedVideo([FromRoute] Guid jobId)
+        [HttpGet("analyzed/{videoId:guid}")]
+        public async Task<IActionResult> GetAnalyzedVideo([FromRoute] Guid videoId)
         {
-            throw new NotImplementedException();
+            using var db = await dbFactory.CreateDbContextAsync();
+            var video = db.Videos.Where(x => x.Id.Equals(videoId)).Include(x => x.AnalyzedFrames).ThenInclude(x => x.DetectedObjects).SingleOrDefault();
+            return Ok(
+                new ApiResponse<Video>() { 
+                    IsSuccess = true, 
+                    Payload = video,
+                });
         }
 
 
@@ -72,10 +86,10 @@ namespace VideoAnonymizer.ApiService
         {
             var jobId = Guid.NewGuid();
             publishEndpoint.Publish(new AnalyzeVideo(jobId, videoPath, DateTime.Now));
-            return Ok(new
+            return Ok(new ApiResponse<Guid>()
             {
-                jobId = jobId,
-                message = "analysis started"
+                Payload = jobId,
+                Message = "analysis started"
             });
         }
 

@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Mime;
 using System.Text;
+using VideoAnonymizer.Database;
 
 namespace VideoAnonymizer.ApiService.IntegrationTests
 {
@@ -42,9 +43,9 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             set => _scenarioContext[nameof(PostVideoResponse)] = value;
         }
 
-        private ApiResponse<VideoAnalysis>? AnalyzedVideoResponse
+        private ApiResponse<Video>? AnalyzedVideoResponse
         {
-            get => (ApiResponse<VideoAnalysis>?)_scenarioContext[nameof(AnalyzedVideoResponse)];
+            get => (ApiResponse<Video>?)_scenarioContext[nameof(AnalyzedVideoResponse)];
             set => _scenarioContext[nameof(AnalyzedVideoResponse)] = value;
         }
 
@@ -90,7 +91,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             App = await appHost.BuildAsync();
             await App.StartAsync();
             var client = CreteApiServiceHttpClient();
-            //client.Timeout = TimeSpan.FromMinutes(3);
+            client.Timeout = TimeSpan.FromMinutes(1);
             await client.GetAsync("/");
 
             TaskCompletionSourceLongRunningJobFinishedMessage = new TaskCompletionSource<LongRunningJobFinishedMessage>(
@@ -149,7 +150,13 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         {
             PostVideoResponse.Should().NotBeNull();
             using var httpClient = CreteApiServiceHttpClient();
-            AnalyzedVideoResponse = await httpClient.GetFromJsonAsync<ApiResponse<VideoAnalysis>>($"analyzed/{PostVideoResponse.Payload}");
+            AnalyzedVideoResponse = await httpClient.GetFromJsonAsync<ApiResponse<Video>>($"analyzed/{PostVideoResponse.Payload}");
+            AnalyzedVideoResponse.Should().NotBeNull();
+            AnalyzedVideoResponse.IsSuccess.Should().BeTrue();
+            AnalyzedVideoResponse.Payload.Should().NotBeNull();
+            AnalyzedVideoResponse.Payload.AnalyzedFrames.Should().NotBeNull();
+            AnalyzedVideoResponse.Payload.AnalyzedFrames.Count.Should().BeGreaterThan(0);
+            AnalyzedVideoResponse.Payload.AnalyzedFrames.SelectMany(x => x.DetectedObjects).Count().Should().BeGreaterThan(0);
         }
 
         [Given("the video has been analyzed")]
@@ -161,7 +168,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         [When("I upload my selection of objects to blur")]
         public async Task WhenIUploadMySelectionOfObjectsToBlur()
         {
-            var selectedObjects = new List<VideoAnalysis>();
+            var selectedObjects = new List<Video>();
             using var httpClient = CreteApiServiceHttpClient();
             var response = await httpClient.PostAsJsonAsync("anonymize", selectedObjects);
             AnonymizeVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();

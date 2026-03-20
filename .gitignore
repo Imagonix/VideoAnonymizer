@@ -3,3 +3,4 @@ obj
 bin
 /VideoAnonymizer.ObjectDetection/.venv
 /VideoAnonymizer.ObjectDetection/__pycache__
+/VideoAnonymizer.ApiService/App_Data/Uploads
