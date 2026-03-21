@@ -8,8 +8,8 @@ var rabbit = builder.AddRabbitMQ("rabbit", rabbitUser, rabbitPassword).WithManag
 
 var postgresPassword = builder.AddParameter("postgres-password", secret: true);
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
-    .WithEnvironment("POSTGRES_DB", "postgresdb")
-    .WithVolume("video-anonomyzer-postgres-data", "/var/lib/postgresql/data");
+    .WithEnvironment("POSTGRES_DB", "postgresdb");
+    //.WithVolume("video-anonomyzer-postgres-data", "/var/lib/postgresql/data");
 if (builder.Environment.IsDevelopment())
 {
     //postgres.WithPgAdmin();

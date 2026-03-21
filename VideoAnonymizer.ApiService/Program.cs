@@ -40,6 +40,7 @@ builder.Services.AddMassTransit(x =>
     x.ConfigureRabbitMq(builder);
 });
 builder.Services.AddSingleton<LongRunningJobsHub>();
+builder.Services.AddScoped<VideoDataService>();
 
 builder.AddVideoAnonymizerDbContextFactory();
 
