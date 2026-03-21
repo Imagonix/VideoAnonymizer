@@ -78,21 +78,20 @@ public class VideoAnonomyzer(
             throw new InvalidOperationException($"Could not create output video '{outputPath}'.");
         }
 
-        // Build a lookup from video frame index -> objects to blur on that frame.
-        var objectsByFrameIndex = selectedFrames
-            .Select(frame => new
-            {
-                FrameIndex = Math.Max(0, (int)Math.Round(frame.TimeSeconds * fps)),
-                Objects = frame.DetectedObjects.ToList()
-            })
-            .GroupBy(x => x.FrameIndex)
-            .ToDictionary(
-                g => g.Key,
-                g => g.SelectMany(x => x.Objects).ToList());
+        var analyzedFramesByIndex = selectedFrames
+             .Select(frame => new
+             {
+                 FrameIndex = Math.Max(0, (int)Math.Round(frame.TimeSeconds * fps)),
+                 Objects = frame.DetectedObjects.ToList()
+             })
+             .OrderBy(x => x.FrameIndex)
+             .ToList();
 
         using var frameMat = new Mat();
 
         var currentFrameIndex = 0;
+        var nearestPointer = 0;
+
         while (!stoppingToken.IsCancellationRequested)
         {
             if (!capture.Read(frameMat) || frameMat.Empty())
@@ -100,8 +99,27 @@ public class VideoAnonomyzer(
                 break;
             }
 
-            if (objectsByFrameIndex.TryGetValue(currentFrameIndex, out var objectsToBlur))
+            if (analyzedFramesByIndex.Count > 0)
             {
+                // Pointer nach vorne schieben, solange der nächste analysierte Frame
+                // näher oder gleich nah am aktuellen Frame ist.
+                while (nearestPointer < analyzedFramesByIndex.Count - 1)
+                {
+                    var currentDistance = Math.Abs(analyzedFramesByIndex[nearestPointer].FrameIndex - currentFrameIndex);
+                    var nextDistance = Math.Abs(analyzedFramesByIndex[nearestPointer + 1].FrameIndex - currentFrameIndex);
+
+                    if (nextDistance <= currentDistance)
+                    {
+                        nearestPointer++;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                var objectsToBlur = analyzedFramesByIndex[nearestPointer].Objects;
+
                 foreach (var detectedObject in objectsToBlur)
                 {
                     BlurRegion(frameMat, detectedObject);
