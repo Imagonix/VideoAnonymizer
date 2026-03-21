@@ -58,8 +58,8 @@ namespace VideoAnonymizer.ApiService
             db.RemoveRange(existingVideo.AnalyzedFrames);
             var framesEntities = Mapper.ToEntities(frames);
             await db.AddRangeAsync(framesEntities);
-            var detectedObjectEntities = Mapper.ToEntities(frames.SelectMany(x => x.DetectedObjects));
-            await db.AddRangeAsync(detectedObjectEntities);
+            //var detectedObjectEntities = Mapper.ToEntities(frames.SelectMany(x => x.DetectedObjects));
+            //await db.AddRangeAsync(detectedObjectEntities);
             await db.SaveChangesAsync();
             return existingVideo;
         }
