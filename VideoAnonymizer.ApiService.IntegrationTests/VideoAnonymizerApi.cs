@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Mime;
 using System.Text;
+using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;
 
 namespace VideoAnonymizer.ApiService.IntegrationTests
@@ -43,9 +44,9 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             set => _scenarioContext[nameof(PostVideoResponse)] = value;
         }
 
-        private ApiResponse<Video>? AnalyzedVideoResponse
+        private ApiResponse<List<AnalyzedFrameDto>>? AnalyzedVideoResponse
         {
-            get => (ApiResponse<Video>?)_scenarioContext[nameof(AnalyzedVideoResponse)];
+            get => (ApiResponse<List<AnalyzedFrameDto>>?)_scenarioContext[nameof(AnalyzedVideoResponse)];
             set => _scenarioContext[nameof(AnalyzedVideoResponse)] = value;
         }
 
@@ -150,20 +151,20 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         {
             PostVideoResponse.Should().NotBeNull();
             using var httpClient = CreteApiServiceHttpClient();
-            AnalyzedVideoResponse = await httpClient.GetFromJsonAsync<ApiResponse<Video>>($"analyzed/{PostVideoResponse.Payload}");
+            AnalyzedVideoResponse = await httpClient.GetFromJsonAsync<ApiResponse<List<AnalyzedFrameDto>>>($"analyzed/{PostVideoResponse.Payload}");
             AnalyzedVideoResponse.Should().NotBeNull();
             AnalyzedVideoResponse.IsSuccess.Should().BeTrue();
             AnalyzedVideoResponse.Payload.Should().NotBeNull();
-            AnalyzedVideoResponse.Payload.AnalyzedFrames.Should().NotBeNull();
-            AnalyzedVideoResponse.Payload.AnalyzedFrames.Count.Should().BeGreaterThan(0);
-            AnalyzedVideoResponse.Payload.AnalyzedFrames.SelectMany(x => x.DetectedObjects).Count().Should().BeGreaterThan(0);
+            AnalyzedVideoResponse.Payload.Should().NotBeNull();
+            AnalyzedVideoResponse.Payload.Count.Should().BeGreaterThan(0);
+            AnalyzedVideoResponse.Payload.SelectMany(x => x.DetectedObjects).Count().Should().BeGreaterThan(0);
         }
 
         [Given("the video has been analyzed")]
         public async Task GivenTheVideoHasBeenAnalyzed()
         {
             await WhenTheVideoHasBeenAnalyzed();
-            AnalyzedVideoResponse = await CreteApiServiceHttpClient().GetFromJsonAsync<ApiResponse<Video>>($"analyzed/{PostVideoResponse.Payload}");
+            AnalyzedVideoResponse = await CreteApiServiceHttpClient().GetFromJsonAsync<ApiResponse<List<AnalyzedFrameDto>>>($"analyzed/{PostVideoResponse.Payload}");
         }
 
         [When("I upload my selection of objects to blur")]
@@ -173,7 +174,8 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
                 TaskCreationOptions.RunContinuationsAsynchronously);
             var selectedObjects = new List<AnalyzedFrame>();
             using var httpClient = CreteApiServiceHttpClient();
-            var response = await httpClient.PostAsJsonAsync($"anonymize/{AnalyzedVideoResponse.Payload.Id}", AnalyzedVideoResponse.Payload.AnalyzedFrames);
+            var firstFrame = AnalyzedVideoResponse.Payload.First();
+            var response = await httpClient.PostAsJsonAsync($"anonymize/{firstFrame.VideoId}", AnalyzedVideoResponse.Payload);
             AnonymizeVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
         }
 
@@ -183,7 +185,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             AnonymizeVideoResponse.Should().NotBeNull();
             VideoFinishedMessage = await TaskCompletionSourceLongRunningJobFinishedMessage.Task.WaitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(60)).Token);
             using var httpClient = CreteApiServiceHttpClient();
-            var response = await httpClient.GetAsync($"anonymized/{AnalyzedVideoResponse.Payload.Id}");
+            var response = await httpClient.GetAsync($"anonymized/{AnalyzedVideoResponse.Payload.First().VideoId}");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
             response.Content.Headers.ContentType.Should().NotBeNull();
             response.Content.Headers.ContentType!.MediaType

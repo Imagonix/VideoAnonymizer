@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
+using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
 
@@ -53,7 +54,7 @@ namespace VideoAnonymizer.ApiService
             {
                 var video = await videoDataService.GetAnalyzedVideo(videoId);
                 return Ok(
-                    new ApiResponse<Video>()
+                    new ApiResponse<List<AnalyzedFrameDto>>()
                     {
                         IsSuccess = true,
                         Payload = video,
@@ -67,7 +68,7 @@ namespace VideoAnonymizer.ApiService
 
 
         [HttpPost("anonymize/{videoId:guid}")]
-        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrame> frames)
+        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrameDto> frames)
         {
             var jobId = Guid.NewGuid();
             try
@@ -89,15 +90,10 @@ namespace VideoAnonymizer.ApiService
         {
             try
             {
-                var video = await videoDataService.LoadVideo(videoId);
-
-                if (string.IsNullOrWhiteSpace(video.AnonomizedPath) || !System.IO.File.Exists(video.AnonomizedPath))
-                    return NotFound();
-
-                var fileName = Path.GetFileName(video.AnonomizedPath);
-
+                var video = await videoDataService.LoadAnonomyzedVideoPath(videoId);
+                var fileName = Path.GetFileName(video);
                 var stream = new FileStream(
-                    video.AnonomizedPath,
+                    video,
                     FileMode.Open,
                     FileAccess.Read,
                     FileShare.Read);
