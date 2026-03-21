@@ -6,7 +6,8 @@ namespace VideoAnonymizer.Database
 {
     public class Video : EntityBase
     {
-        public string Path { get; set; }
+        public string SourcePath { get; set; }
+        public string? AnonomizedPath { get; set; }
         public virtual ICollection<AnalyzedFrame> AnalyzedFrames { get; set; }
     }
 }

@@ -16,16 +16,16 @@ namespace VideoAnonymizer.ApiService
             return video;
         }
 
-        public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile video, string extension, string contentRootPath, CancellationToken cancellationToken)
+        public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile uploadedVideo, string extension, string contentRootPath, CancellationToken cancellationToken)
         {
-            var videoEntity = new Video();
+            var video = new Video();
 
             var uploadsRoot = Path.Combine(contentRootPath, "App_Data", "Uploads");
             Directory.CreateDirectory(uploadsRoot);
 
-            var safeFileName = $"{videoEntity.Id}{extension}";
+            var safeFileName = $"{video.Id}{extension}";
             var fullPath = Path.Combine(uploadsRoot, safeFileName);
-            videoEntity.Path = fullPath;
+            video.SourcePath = fullPath;
 
             await using (var fileStream = new FileStream(
                 fullPath,
@@ -35,28 +35,40 @@ namespace VideoAnonymizer.ApiService
                 bufferSize: 1024 * 64,
                 useAsync: true))
             {
-                await video.CopyToAsync(fileStream, cancellationToken);
+                await uploadedVideo.CopyToAsync(fileStream, cancellationToken);
             }
 
             using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
-            await db.Videos.AddAsync(videoEntity, cancellationToken);
+            await db.Videos.AddAsync(video, cancellationToken);
             await db.SaveChangesAsync();
-            return (videoEntity.Id, fullPath);
+            return (video.Id, fullPath);
         }
 
-        internal async Task UpdateFramesAndObjects(Video video)
+        public async Task<Video> UpdateFramesAndObjects(Guid videoId, List<AnalyzedFrame> frames)
         {
             using var db = await dbFactory.CreateDbContextAsync();
-            var existingVideo = db.Videos.Where(x => x.Id.Equals(video.Id)).Include(x => x.AnalyzedFrames).ThenInclude(x => x.DetectedObjects).SingleOrDefault();
+            var existingVideo = db.Videos.Where(x => x.Id.Equals(videoId)).Include(x => x.AnalyzedFrames).ThenInclude(x => x.DetectedObjects).SingleOrDefault();
             if (existingVideo == null)
             {
                 throw new NotFoundException();
             }
             db.RemoveRange(existingVideo.AnalyzedFrames.SelectMany(x => x.DetectedObjects));
             db.RemoveRange(existingVideo.AnalyzedFrames);
-            await db.AddRangeAsync(video.AnalyzedFrames);
-            await db.AddRangeAsync(video.AnalyzedFrames.SelectMany(x => x.DetectedObjects));
+            await db.AddRangeAsync(frames);
+            await db.AddRangeAsync(frames.SelectMany(x => x.DetectedObjects));
             await db.SaveChangesAsync();
+            return existingVideo;
+        }
+
+        public async Task<Video> LoadVideo(Guid id)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+            var video = db.Videos.Where(x => x.Id.Equals(id)).SingleOrDefault();
+            if (video == null)
+            {
+                throw new NotFoundException();
+            }
+            return video;
         }
     }
 }

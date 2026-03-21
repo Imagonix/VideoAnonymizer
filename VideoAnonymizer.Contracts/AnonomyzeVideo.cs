@@ -2,5 +2,5 @@
 
 namespace VideoAnonymizer.Contracts
 {
-    public record AnonomyzeVideo(Guid jobId, string Path, DateTimeOffset AddedAt);
+    public record AnonomyzeVideo(Guid jobId, Guid videoId, DateTimeOffset AddedAt);
 }

@@ -6,9 +6,9 @@ using VideoAnonymizer.Contracts;
 
 namespace VideoAnonymizer.VideoProcessor
 {
-    internal class AnonomyzeVideoConsumer(VideoAnalyzer Worker) : IConsumer<AnalyzeVideo>
+    internal class AnonomyzeVideoConsumer(VideoAnonomyzer Worker) : IConsumer<AnonomyzeVideo>
     {
-        public async Task Consume(ConsumeContext<AnalyzeVideo> context)
+        public async Task Consume(ConsumeContext<AnonomyzeVideo> context)
         {
             await Worker.EnqueueAsync(context.Message);
         }

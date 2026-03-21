@@ -67,27 +67,47 @@ namespace VideoAnonymizer.ApiService
 
 
         [HttpPost("anonymize/{videoId:guid}")]
-        public async Task<IActionResult> Anonymize([FromRoute] string videoPath, [FromBody] Video video)
+        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrame> frames)
         {
             var jobId = Guid.NewGuid();
             try
             {
-                await videoDataService.UpdateFramesAndObjects(video);
+                var video = await videoDataService.UpdateFramesAndObjects(videoId, frames);
+                await publishEndpoint.Publish(new AnonomyzeVideo(jobId, video.Id, DateTime.Now));
+                return Ok(new ApiResponse<Guid>()
+                {
+                    Payload = jobId,
+                    Message = "video creation started"
+                });
             } catch (NotFoundException e) { 
                 return NotFound();
             }
-            await publishEndpoint.Publish(new AnonomyzeVideo(jobId, videoPath, DateTime.Now));
-            return Ok(new ApiResponse<Guid>()
-            {
-                Payload = jobId,
-                Message = "video creation started"
-            });
         }
 
-        [HttpPost("anonymized/{videoId:guid}")]
-        public IActionResult GetAnonymizedVideo([FromRoute] Guid videoId)
+        [HttpGet("anonymized/{videoId:guid}")]
+        public async Task<IActionResult> GetAnonymizedVideo([FromRoute] Guid videoId)
         {
-            throw new NotImplementedException();
+            try
+            {
+                var video = await videoDataService.LoadVideo(videoId);
+
+                if (string.IsNullOrWhiteSpace(video.AnonomizedPath) || !System.IO.File.Exists(video.AnonomizedPath))
+                    return NotFound();
+
+                var fileName = Path.GetFileName(video.AnonomizedPath);
+
+                var stream = new FileStream(
+                    video.AnonomizedPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read);
+
+                return File(stream, "video/mp4", fileName);
+            }
+            catch (NotFoundException e)
+            {
+                return NotFound();
+            }
         }
     }
 }

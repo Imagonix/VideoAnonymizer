@@ -10,4 +10,5 @@ Scenario: Create Video
 	Given I upload a video containing sensitive data
 	And the video has been analyzed
 	When I upload my selection of objects to blur
-	Then I get video with blurred sensitive data
+	Then I get a notification
+	And I get video with blurred sensitive data

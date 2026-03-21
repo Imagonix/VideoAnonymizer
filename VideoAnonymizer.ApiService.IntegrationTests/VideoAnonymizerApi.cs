@@ -163,24 +163,35 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         public async Task GivenTheVideoHasBeenAnalyzed()
         {
             await WhenTheVideoHasBeenAnalyzed();
+            AnalyzedVideoResponse = await CreteApiServiceHttpClient().GetFromJsonAsync<ApiResponse<Video>>($"analyzed/{PostVideoResponse.Payload}");
         }
 
         [When("I upload my selection of objects to blur")]
         public async Task WhenIUploadMySelectionOfObjectsToBlur()
         {
-            var selectedObjects = new List<Video>();
+            TaskCompletionSourceLongRunningJobFinishedMessage = new TaskCompletionSource<LongRunningJobFinishedMessage>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var selectedObjects = new List<AnalyzedFrame>();
             using var httpClient = CreteApiServiceHttpClient();
-            var response = await httpClient.PostAsJsonAsync("anonymize", selectedObjects);
+            var response = await httpClient.PostAsJsonAsync($"anonymize/{AnalyzedVideoResponse.Payload.Id}", AnalyzedVideoResponse.Payload.AnalyzedFrames);
             AnonymizeVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
-            VideoFinishedMessage = await TaskCompletionSourceLongRunningJobFinishedMessage.Task.WaitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(60)).Token);
         }
 
         [Then("I get video with blurred sensitive data")]
         public async Task ThenIGetVideoWithBlurredSensitiveData()
         {
+            AnonymizeVideoResponse.Should().NotBeNull();
+            VideoFinishedMessage = await TaskCompletionSourceLongRunningJobFinishedMessage.Task.WaitAsync(new CancellationTokenSource(TimeSpan.FromSeconds(60)).Token);
             using var httpClient = CreteApiServiceHttpClient();
-            var response = await httpClient.GetAsync($"anonymized/{VideoFinishedMessage.JobId}");
+            var response = await httpClient.GetAsync($"anonymized/{AnalyzedVideoResponse.Payload.Id}");
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+            response.Content.Headers.ContentType.Should().NotBeNull();
+            response.Content.Headers.ContentType!.MediaType
+                .Should().StartWith("video/");
+            var bytes = await response.Content.ReadAsByteArrayAsync();
+
+            bytes.Should().NotBeNullOrEmpty();
+            bytes.Length.Should().BeGreaterThan(1000);
         }
 
     }
