@@ -46,13 +46,6 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            var analyzedFrame = new AnalyzedFrame
-            {
-                TimeSeconds = frameIndex / fps,
-            };
-            analyzedFrames.Add(analyzedFrame);
-            await db.AddAsync(analyzedFrame);
-
             var success = capture.Read(frame);
             if (!success || frame.Empty())
                 break;
@@ -62,6 +55,14 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
                 frameIndex++;
                 continue;
             }
+
+            var analyzedFrame = new AnalyzedFrame
+            {
+                TimeSeconds = frameIndex / fps,
+                VideoId = video.Id
+            };
+            analyzedFrames.Add(analyzedFrame);
+            await db.AddAsync(analyzedFrame);
 
             var imageBase64 = ConvertMatToBase64Jpeg(frame);
 
@@ -74,6 +75,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
 
             var detectedObjects = detections.Select(detection => new DetectedObject()
             {
+                Selected = true,
                 AnalyzedFrameId = analyzedFrame.Id,
                 Height = detection.Height,
                 Width = detection.Width,
