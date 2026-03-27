@@ -15,15 +15,11 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         var objectDetectionClient = serviceProvider.CreateScope().ServiceProvider.GetService<ObjectDetectionClient.ObjectDetectionClient>();
         if (string.IsNullOrWhiteSpace(job.Path))
             throw new ArgumentException("Video path is empty.", nameof(job.Path));
-
         if (!File.Exists(job.Path))
             throw new FileNotFoundException("Video file not found.", job.Path);
-
         using var capture = new VideoCapture(job.Path);
-
         if (!capture.IsOpened())
             throw new InvalidOperationException($"Could not open video: {job.Path}");
-
         var fps = capture.Fps;
         if (fps <= 0 || double.IsNaN(fps))
             fps = 25;
@@ -32,15 +28,14 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
 
         var dbFactory = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
         using var db = await dbFactory.CreateDbContextAsync();
+
         var video = await db.Videos.FindAsync(job.videoId);
 
         using var frame = new Mat();
-
         var frameIndex = 0;
         var processedFrameCount = 0;
 
-        // Example: only analyze 1 frame per second
-        var frameStep = Math.Max(1, (int)Math.Round(fps));
+        var frameStep = Math.Max(1, (int)Math.Round(fps / 4.0));
 
         var analyzedFrames = new List<AnalyzedFrame>();
 
@@ -65,13 +60,11 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
             await db.AddAsync(analyzedFrame);
 
             var imageBase64 = ConvertMatToBase64Jpeg(frame);
-
             var detections = await objectDetectionClient.DetectObjects_detectObjects_postAsync(
                 new DetectRequest
                 {
                     ImageBase64 = imageBase64
-                },
-                stoppingToken);
+                }, stoppingToken);
 
             var detectedObjects = detections.Select(detection => new DetectedObject()
             {
@@ -84,8 +77,8 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
                 ClassName = detection.ClassName,
                 Confidence = detection.Confidence,
             }).ToList();
-            await db.AddRangeAsync(detectedObjects);
 
+            await db.AddRangeAsync(detectedObjects);
 
             logger.LogInformation(
                 "Frame {FrameIndex} at {Timestamp} processed. Detections: {Count}",
@@ -98,11 +91,11 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         }
 
         stoppingToken.ThrowIfCancellationRequested();
-
         logger.LogInformation(
             "Finished processing video {VideoPath}. Analyzed frames: {ProcessedFrameCount}",
             job.Path,
             processedFrameCount);
+
         video.AnalyzedFrames = analyzedFrames;
         await db.SaveChangesAsync();
 

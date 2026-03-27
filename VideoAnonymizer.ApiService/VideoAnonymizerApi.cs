@@ -18,7 +18,8 @@ namespace VideoAnonymizer.ApiService
         }
 
         [HttpPost("analyze")]
-        public async Task<IActionResult> Analyze([FromForm] IFormFile video, CancellationToken cancellationToken)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Analyze(IFormFile video, CancellationToken cancellationToken)
         {
             if (video is null || video.Length == 0)
             {
