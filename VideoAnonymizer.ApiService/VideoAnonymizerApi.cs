@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
+using System.ComponentModel.DataAnnotations;
 using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
@@ -19,7 +20,10 @@ namespace VideoAnonymizer.ApiService
 
         [HttpPost("analyze")]
         [Consumes("multipart/form-data")]
-        public async Task<IActionResult> Analyze(IFormFile video, CancellationToken cancellationToken)
+        public async Task<IActionResult> Analyze(IFormFile video, CancellationToken cancellationToken,
+            [FromQuery]
+            [Range(50, 5000, ErrorMessage = "detectionIntervalMs must be between 50 and 5000 ms")]
+            int detectionIntervalMs = 200)
         {
             if (video is null || video.Length == 0)
             {
@@ -38,7 +42,7 @@ namespace VideoAnonymizer.ApiService
             (Guid videoId, string fullPath) = await videoDataService.SaveVideoFileAndCreateDbEntry(video, extension, environment.ContentRootPath, cancellationToken);
 
             await publishEndpoint.Publish(
-                new AnalyzeVideo(videoId, fullPath, DateTime.UtcNow),
+                new AnalyzeVideo(videoId, fullPath, DateTime.UtcNow, detectionIntervalMs),
                 cancellationToken);
 
             return Ok(new ApiResponse<Guid>()
@@ -81,7 +85,9 @@ namespace VideoAnonymizer.ApiService
                     Payload = jobId,
                     Message = "video creation started"
                 });
-            } catch (NotFoundException e) { 
+            }
+            catch (NotFoundException e)
+            {
                 return NotFound();
             }
         }
