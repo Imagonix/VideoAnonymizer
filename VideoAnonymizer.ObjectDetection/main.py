@@ -5,6 +5,8 @@ import cv2
 import numpy as np
 import onnxruntime as ort
 from typing import List
+from models import DetectRequest, DetectionResult      
+from object_tracker_manager import ObjectTrackerManager
 
 app = FastAPI(title="VideoAnonymizer Object Detection API")
 
@@ -15,16 +17,7 @@ def health():
         "cuda_available": "CUDAExecutionProvider" in ort.get_available_providers(),
         }
 
-class DetectRequest(BaseModel):
-    imageBase64: str
-
-class DetectionResult(BaseModel):
-    className: str
-    confidence: float
-    x: int
-    y: int
-    width: int
-    height: int
+tracker_manager = ObjectTrackerManager()
 
 MODEL_PATH = r".\models\FaceDetector.onnx"
 INPUT_SIZE = (640, 640)
@@ -197,4 +190,23 @@ def detectObjects(request: DetectRequest):
     outputs = session.run(None, {input_name: input_tensor})
 
     detections = postprocess(outputs, scale_x, scale_y)
-    return detections
+
+    tracked_results = tracker_manager.track_detections(
+        detections_list=detections,
+        session_id=request.sessionId,
+        fps=request.fps,
+        class_name="face"
+    )
+
+    return tracked_results
+
+@app.post("/resetTracker")
+def reset_tracker_endpoint(sessionId: str):
+    tracker_manager.reset_tracker(sessionId)
+    return {"status": "ok", "message": f"Tracker für Session {sessionId} zurückgesetzt"}
+
+
+@app.post("/cleanupTracker")
+def cleanup_tracker_endpoint(sessionId: str):
+    tracker_manager.cleanup_tracker(sessionId)
+    return {"status": "ok", "message": f"Tracker für Session {sessionId} entfernt"}

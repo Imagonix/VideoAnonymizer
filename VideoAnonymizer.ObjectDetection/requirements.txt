@@ -4,3 +4,4 @@ onnxruntime-gpu
 opencv-python 
 numpy 
 pydantic
+supervision
