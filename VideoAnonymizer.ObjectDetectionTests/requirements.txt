@@ -8,3 +8,4 @@ fastapi
 uvicorn
 supervision
 onnxruntime-gpu
+onnx

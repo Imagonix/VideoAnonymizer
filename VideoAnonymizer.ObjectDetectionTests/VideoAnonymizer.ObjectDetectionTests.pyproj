@@ -22,6 +22,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="create_dummy_model.py" />
     <Compile Include="tests\conftest.py" />
     <Compile Include="tests\test_detection_api.py" />
   </ItemGroup>
