@@ -2,15 +2,16 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>5091c743-7c8e-4e9b-98ec-585e2ff34d3d</ProjectGuid>
+    <ProjectGuid>3579ac8c-a459-4786-9cdf-3c024f082ddc</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>
+    </StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
-    <Name>VideoAnonymizer.ObjectDetection</Name>
-    <RootNamespace>VideoAnonymizer.ObjectDetection</RootNamespace>
+    <Name>VideoAnonymizer.ObjectDetectionTests</Name>
+    <RootNamespace>VideoAnonymizer.ObjectDetectionTests</RootNamespace>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,16 +22,17 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="debugging.py" />
-    <Compile Include="main.py" />
-    <Compile Include="models.py" />
-    <Compile Include="object_tracker_manager.py" />
+    <Compile Include="tests\conftest.py" />
+    <Compile Include="tests\test_detection_api.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="models\" />
+    <Folder Include="tests\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="models\FaceDetector.onnx" />
+    <Content Include="pytest.ini" />
+    <Content Include="README.md" />
     <Content Include="requirements.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />

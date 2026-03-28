@@ -16,7 +16,8 @@ namespace VideoAnonymizer.Database.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Path = table.Column<string>(type: "text", nullable: false)
+                    SourcePath = table.Column<string>(type: "text", nullable: false),
+                    AnonomizedPath = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -48,9 +49,9 @@ namespace VideoAnonymizer.Database.Migrations
                 {
                     Id = table.Column<Guid>(type: "uuid", nullable: false),
                     Confidence = table.Column<double>(type: "double precision", nullable: false),
-                    ClassName = table.Column<string>(type: "text", nullable: false),
+                    ClassName = table.Column<string>(type: "text", nullable: true),
                     Selected = table.Column<bool>(type: "boolean", nullable: false),
-                    TrackId = table.Column<string>(type: "text", nullable: false),
+                    TrackId = table.Column<int>(type: "integer", nullable: true),
                     X = table.Column<int>(type: "integer", nullable: false),
                     Y = table.Column<int>(type: "integer", nullable: false),
                     Width = table.Column<int>(type: "integer", nullable: false),

@@ -9,6 +9,9 @@
     <Build Project="false" />
   </Project>
   <Project Path="VideoAnonymizer.ObjectDetectionClient/VideoAnonymizer.ObjectDetectionClient.csproj" Id="9603d289-4fc8-4d67-8c26-0293e6a97cb2" />
+  <Project Path="VideoAnonymizer.ObjectDetectionTests/VideoAnonymizer.ObjectDetectionTests.pyproj" Type="888888a0-9f3d-457c-b088-3a5042f75d52" Id="3579ac8c-a459-4786-9cdf-3c024f082ddc">
+    <Build Project="false" />
+  </Project>
   <Project Path="VideoAnonymizer.ServiceDefaults/VideoAnonymizer.ServiceDefaults.csproj" />
   <Project Path="VideoAnonymizer.VideoProcessor/VideoAnonymizer.VideoProcessor.csproj" />
   <Project Path="VideoAnonymizer.Web/VideoAnonymizer.Web.csproj" />

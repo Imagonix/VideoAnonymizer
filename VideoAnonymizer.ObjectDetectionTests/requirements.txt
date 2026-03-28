@@ -1,0 +1,10 @@
+pytest>=8.0.0
+pytest-asyncio
+httpx
+Pillow
+numpy
+opencv-python-headless
+fastapi
+uvicorn
+supervision
+onnxruntime-gpu

@@ -28,8 +28,9 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
 
         var dbFactory = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
         using var db = await dbFactory.CreateDbContextAsync();
-
         var video = await db.Videos.FindAsync(job.videoId);
+
+        var sessionId = $"{Guid.NewGuid()}";
 
         using var frame = new Mat();
         var frameIndex = 0;
@@ -63,7 +64,8 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
             var detections = await objectDetectionClient.DetectObjects_detectObjects_postAsync(
                 new DetectRequest
                 {
-                    ImageBase64 = imageBase64
+                    ImageBase64 = imageBase64,
+                    SessionId = sessionId,
                 }, stoppingToken);
 
             var detectedObjects = detections.Select(detection => new DetectedObject()

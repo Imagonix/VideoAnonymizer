@@ -12,8 +12,8 @@ using VideoAnonymizer.Database;
 namespace VideoAnonymizer.Database.Migrations
 {
     [DbContext(typeof(VideoAnonymizerDbContext))]
-    [Migration("20260321133604_anonomizedPathNullable")]
-    partial class anonomizedPathNullable
+    [Migration("20260328132923_initial")]
+    partial class initial
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -65,8 +65,8 @@ namespace VideoAnonymizer.Database.Migrations
                     b.Property<bool>("Selected")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("TrackId")
-                        .HasColumnType("text");
+                    b.Property<int?>("TrackId")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Width")
                         .HasColumnType("integer");

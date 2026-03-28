@@ -7,6 +7,9 @@ import onnxruntime as ort
 from typing import List
 from models import DetectRequest, DetectionResult      
 from object_tracker_manager import ObjectTrackerManager
+from debugging import enable_debugpy_if_dev
+
+enable_debugpy_if_dev()
 
 app = FastAPI(title="VideoAnonymizer Object Detection API")
 

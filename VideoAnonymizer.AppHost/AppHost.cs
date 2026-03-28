@@ -27,6 +27,17 @@ var objectDetection = builder.AddUvicornApp(
     )
     .WithExternalHttpEndpoints();
 
+if (builder.Environment.IsDevelopment())
+{
+    objectDetection.WithEnvironment("PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT", "0")
+      .WithEnvironment("PYTHON_ENV", "Development")
+      .WithEnvironment("DEBUGPY", "1")
+      .WithEnvironment("DEBUGPY_PORT", "5678")
+      // when setting DEBUGPY_WAIT to 1 FAST API wont start up, until a debugger attaches
+      .WithEnvironment("DEBUGPY_WAIT", "0")
+      .WithEnvironment("PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT", "10.0"); ;
+}
+
 var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
 
 var apiService = builder.AddProject<Projects.VideoAnonymizer_ApiService>("apiservice")

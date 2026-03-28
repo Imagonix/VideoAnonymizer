@@ -6,31 +6,24 @@ from models import DetectionResult
 
 
 class ObjectTrackerManager:
-    """
-    Verwalter mehrere ByteTrack-Instanzen pro Session.
-    Unterstützt später auch andere Objekttypen (Personen, Kennzeichen, etc.).
-    """
-
     def __init__(self):
         self.trackers: Dict[str, sv.ByteTrack] = {}
 
     def get_or_create_tracker(self, session_id: str, fps: float = 25.0) -> sv.ByteTrack:
         if session_id not in self.trackers:
             self.trackers[session_id] = sv.ByteTrack(
-                track_thresh=0.5,
-                track_buffer=45,
-                match_thresh=0.8,
-                frame_rate=fps,
+                track_activation_threshold=0.25,  
+                lost_track_buffer=30,             
+                minimum_matching_threshold=0.8,   
+                frame_rate=int(fps)               
             )
         return self.trackers[session_id]
 
     def reset_tracker(self, session_id: str):
-        """Setzt den Tracker für eine Session zurück."""
         if session_id in self.trackers:
             self.trackers[session_id].reset()
 
     def cleanup_tracker(self, session_id: str):
-        """Entfernt den Tracker nach Abschluss eines Videos."""
         self.trackers.pop(session_id, None)
 
     def cleanup_all(self):
@@ -43,16 +36,11 @@ class ObjectTrackerManager:
         fps: float = 25.0,
         class_name: str = "face"
     ) -> List[DetectionResult]:
-        """
-        Führt Tracking auf einer Liste von DetectionResult durch
-        und gibt die Ergebnisse mit Track-IDs zurück.
-        """
         if not detections_list:
             return []
 
         tracker = self.get_or_create_tracker(session_id, fps)
 
-        # --- Umwandlung in supervision Detections ---
         xyxy = []
         confidence = []
         class_id = []
@@ -65,7 +53,7 @@ class ObjectTrackerManager:
 
             xyxy.append([x1, y1, x2, y2])
             confidence.append(det.confidence)
-            class_id.append(0)   # vorerst 0 für alle Klassen (später erweiterbar)
+            class_id.append(0)
 
         sv_detections = sv.Detections(
             xyxy=np.array(xyxy, dtype=np.float32),
@@ -73,10 +61,8 @@ class ObjectTrackerManager:
             class_id=np.array(class_id, dtype=int)
         )
 
-        # --- Tracking ausführen ---
         tracked_detections = tracker.update_with_detections(sv_detections)
 
-        # --- Ergebnis mit Track-IDs aufbauen ---
         results: List[DetectionResult] = []
         for i in range(len(tracked_detections.xyxy)):
             x1, y1, x2, y2 = tracked_detections.xyxy[i]
