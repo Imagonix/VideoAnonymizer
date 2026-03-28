@@ -1,5 +1,5 @@
 # models.py
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 class DetectRequest(BaseModel):
@@ -9,11 +9,13 @@ class DetectRequest(BaseModel):
 
 
 class DetectionResult(BaseModel):
-    """Standard Response-Modell für Detektionen mit optionaler Track-ID"""
     className: str
     confidence: float
     x: int
     y: int
     width: int
     height: int
-    trackId: Optional[int] = None
+    trackId: Optional[int] = Field(
+        default=None,
+        json_schema_extra={"type": "integer", "nullable": True}
+    )

@@ -76,6 +76,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
                 Y = detection.Y,
                 ClassName = detection.ClassName,
                 Confidence = detection.Confidence,
+                TrackId = detection.TrackId,
             }).ToList();
 
             await db.AddRangeAsync(detectedObjects);
