@@ -20,6 +20,8 @@ namespace VideoAnonymizer.ApiService
 
         [HttpPost("analyze")]
         [Consumes("multipart/form-data")]
+        [DisableRequestSizeLimit]
+        [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
         public async Task<IActionResult> Analyze(IFormFile video, CancellationToken cancellationToken,
             [FromQuery]
             [Range(50, 5000, ErrorMessage = "detectionIntervalMs must be between 50 and 5000 ms")]

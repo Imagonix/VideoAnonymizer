@@ -1,4 +1,5 @@
 using MassTransit;
+using Microsoft.AspNetCore.Http.Features;
 using VideoAnonymizer.ApiService;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
@@ -43,6 +44,20 @@ builder.Services.AddSingleton<LongRunningJobsHub>();
 builder.Services.AddScoped<VideoDataService>();
 
 builder.AddVideoAnonymizerDbContextFactory();
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024;
+});
+
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.MultipartBodyLengthLimit = 500 * 1024 * 1024;
+    options.MultipartHeadersLengthLimit = 32 * 1024;
+    options.MultipartBoundaryLengthLimit = 256;
+    options.MemoryBufferThreshold = 128 * 1024;
+    options.ValueLengthLimit = int.MaxValue;
+});
 
 var app = builder.Build();
 

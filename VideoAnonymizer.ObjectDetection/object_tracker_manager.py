@@ -12,10 +12,11 @@ class ObjectTrackerManager:
     def get_or_create_tracker(self, session_id: str, fps: float = 25.0) -> sv.ByteTrack:
         if session_id not in self.trackers:
             self.trackers[session_id] = sv.ByteTrack(
-                track_activation_threshold=0.25,  
-                lost_track_buffer=30,             
-                minimum_matching_threshold=0.8,   
-                frame_rate=int(fps)               
+                track_activation_threshold=0.35,
+                lost_track_buffer=45,           
+                minimum_matching_threshold=0.55,
+                frame_rate=int(fps),
+                minimum_consecutive_frames=3    
             )
         return self.trackers[session_id]
 

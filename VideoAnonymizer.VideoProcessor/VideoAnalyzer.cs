@@ -12,7 +12,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
 {
     protected override async Task HandleJob(AnalyzeVideo job, CancellationToken stoppingToken)
     {
-        var objectDetectionClient = serviceProvider.CreateScope().ServiceProvider.GetService<ObjectDetectionClient.ObjectDetectionClient>();
+        var objectDetectionClient = serviceProvider.CreateScope().ServiceProvider.GetService<ObjectDetectionClient.ObjectDetectionClient>()!;
         if (string.IsNullOrWhiteSpace(job.path))
             throw new ArgumentException("Video path is empty.", nameof(job.path));
         if (!File.Exists(job.path))
@@ -92,6 +92,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
             processedFrameCount++;
             frameIndex++;
         }
+        await objectDetectionClient.Cleanup_tracker_endpoint_cleanupTracker_postAsync(sessionId);
 
         stoppingToken.ThrowIfCancellationRequested();
         logger.LogInformation(
@@ -102,7 +103,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         video.AnalyzedFrames = analyzedFrames;
         await db.SaveChangesAsync();
 
-        var publishEndpoint = serviceProvider.CreateScope().ServiceProvider.GetService<IPublishEndpoint>();
+        var publishEndpoint = serviceProvider.CreateScope().ServiceProvider.GetService<IPublishEndpoint>()!;
         await publishEndpoint.Publish(new AnalyzedVideo(job.videoId, DateTime.Now));
     }
 

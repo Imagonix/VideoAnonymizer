@@ -24,7 +24,7 @@ tracker_manager = ObjectTrackerManager()
 
 MODEL_PATH = r".\models\FaceDetector.onnx"
 INPUT_SIZE = (640, 640)
-CONF_THRESHOLD = 0.7
+CONF_THRESHOLD = 0.75
 NMS_THRESHOLD = 0.4
 
 
