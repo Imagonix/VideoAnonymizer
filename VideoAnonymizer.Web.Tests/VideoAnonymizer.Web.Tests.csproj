@@ -13,4 +13,8 @@
     <PackageReference Include="NUnit3TestAdapter" Version="5.1.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VideoAnonymizer.Web\VideoAnonymizer.Web.csproj" />
+  </ItemGroup>
+
 </Project>

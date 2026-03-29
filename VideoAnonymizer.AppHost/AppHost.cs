@@ -47,11 +47,11 @@ var apiService = builder.AddProject<Projects.VideoAnonymizer_ApiService>("apiser
     .WithReference(postgresdb)
     .WaitFor(postgresdb);
 
-//builder.AddProject<Projects.VideoAnonymizer_Web>("webfrontend")
-//    .WithExternalHttpEndpoints()
-//    .WithHttpHealthCheck("/health")
-//    .WithReference(apiService)
-//    .WaitFor(apiService);
+builder.AddProject<Projects.VideoAnonymizer_Web>("webfrontend")
+    .WithExternalHttpEndpoints()
+    .WithHttpHealthCheck("/health")
+    .WithReference(apiService)
+    .WaitFor(apiService);
 
 builder.AddProject<Projects.VideoAnonymizer_VideoProcessor>("videoanonymizer-videoprocessor")
     .WithReference(objectDetection)
