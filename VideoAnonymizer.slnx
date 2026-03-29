@@ -14,5 +14,6 @@
   </Project>
   <Project Path="VideoAnonymizer.ServiceDefaults/VideoAnonymizer.ServiceDefaults.csproj" />
   <Project Path="VideoAnonymizer.VideoProcessor/VideoAnonymizer.VideoProcessor.csproj" />
+  <Project Path="VideoAnonymizer.Web.Tests/VideoAnonymizer.Web.Tests.csproj" Id="c0f9f403-5f34-4b33-ac5e-09db0da2eec6" />
   <Project Path="VideoAnonymizer.Web/VideoAnonymizer.Web.csproj" />
 </Solution>
