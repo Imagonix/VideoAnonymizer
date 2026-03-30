@@ -1,4 +1,5 @@
 ﻿using VideoAnonymizer.Database;
+using VideoAnonymizer.Web.Contracts.DTO;
 
 namespace VideoAnonymizer.ApiService.DTO
 {

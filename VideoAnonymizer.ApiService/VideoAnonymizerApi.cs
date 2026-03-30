@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using System.ComponentModel.DataAnnotations;
-using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.Web.Contracts.DTO;
 
 namespace VideoAnonymizer.ApiService
 {

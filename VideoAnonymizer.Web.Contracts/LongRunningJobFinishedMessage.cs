@@ -1,4 +1,4 @@
-﻿namespace VideoAnonymizer.ApiService
+﻿namespace VideoAnonymizer.Web.Contracts
 {
     public class LongRunningJobFinishedMessage
     {

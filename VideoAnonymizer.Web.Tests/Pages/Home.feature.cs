@@ -11,7 +11,7 @@
 #region Designer generated code
 #pragma warning disable
 using Reqnroll;
-namespace VideoAnonymizer.Web.Tests.Components.Pages
+namespace VideoAnonymizer.Web.Tests.Pages
 {
     
     
@@ -27,7 +27,7 @@ namespace VideoAnonymizer.Web.Tests.Components.Pages
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Components/Pages", "Home", null, global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Pages", "Home", null, global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "Home.feature"
 #line hidden
@@ -105,7 +105,7 @@ namespace VideoAnonymizer.Web.Tests.Components.Pages
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/Pages/Home.feature.ndjson", 4);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Pages/Home.feature.ndjson", 4);
         }
         
         [global::NUnit.Framework.TestAttribute()]

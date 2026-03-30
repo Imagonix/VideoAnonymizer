@@ -1,5 +1,6 @@
 ﻿using MassTransit;
 using Microsoft.AspNetCore.SignalR;
+using VideoAnonymizer.Web.Contracts;
 using VideoAnonymizer.Contracts;
 
 namespace VideoAnonymizer.ApiService

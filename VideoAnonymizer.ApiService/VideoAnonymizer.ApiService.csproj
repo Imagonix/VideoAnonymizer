@@ -10,11 +10,12 @@
 		<ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Database\VideoAnonymizer.Database.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.ServiceDefaults\VideoAnonymizer.ServiceDefaults.csproj" />
+		<ProjectReference Include="..\VideoAnonymizer.Web.Contracts\VideoAnonymizer.Web.Contracts.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.1" />
-		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.5" />
+		<PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+		<PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.7" />
 	</ItemGroup>
 
 	<ItemGroup>

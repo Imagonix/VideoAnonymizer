@@ -1,4 +1,4 @@
-﻿namespace VideoAnonymizer.ApiService.DTO
+﻿namespace VideoAnonymizer.Web.Contracts.DTO
 {
     public class DetectedObjectDto
     {
