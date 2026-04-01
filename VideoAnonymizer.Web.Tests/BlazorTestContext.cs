@@ -37,7 +37,7 @@ namespace VideoAnonymizer.Web.Tests
         protected BlazorTestBase(ScenarioContext scenarioContext)
         {
             _scenarioContext = scenarioContext;
-
+            MockHttpMessageHandler = new MockHttpMessageHandler();
             SetupServices();
         }
 
