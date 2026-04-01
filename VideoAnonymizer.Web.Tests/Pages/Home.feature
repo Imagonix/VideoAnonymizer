@@ -6,5 +6,6 @@ Scenario: Open
 
 Scenario: AnonomyzeVideo
 	Given I open the homepage
-	When I upload a video
-	Then I get an anonomyzed video back
+	Given I uploaded a video
+	When I press download
+	Then I get an anonymized video back

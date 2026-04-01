@@ -14,7 +14,17 @@ namespace VideoAnonymizer.Web.Tests.Pages
     [Binding]
     public class HomeStepDefinitions : BlazorTestBase<Home>
     {
-        private Guid? _currentVideoId;
+        private Guid? CurrentVideoId
+        {
+            get => _scenarioContext.Get<Guid>(nameof(CurrentVideoId));
+            set => _scenarioContext.Set(value, nameof(CurrentVideoId));
+        }
+        
+        private Guid? CurrentAnonimizationJobId
+        {
+            get => _scenarioContext.Get<Guid>(nameof(CurrentAnonimizationJobId));
+            set => _scenarioContext.Set(value, nameof(CurrentAnonimizationJobId));
+        }
 
         public HomeStepDefinitions(ScenarioContext scenarioContext)
             : base(scenarioContext)
@@ -22,11 +32,6 @@ namespace VideoAnonymizer.Web.Tests.Pages
         }
 
         [Given("I open the homepage")]
-        public void GivenIOpenTheHomepage()
-        {
-            SetupAnalyzeMock();
-        }
-
         [When("I open the homepage")]
         public void WhenIOpenTheHomepage()
         {
@@ -42,7 +47,7 @@ namespace VideoAnonymizer.Web.Tests.Pages
             uploadButton.TextContent.Should().Contain("Upload", "No upload button!", StringComparison.OrdinalIgnoreCase);
         }
 
-        [When("I upload a video")]
+        [Given("I uploaded a video")]
         public async Task WhenIUploadAVideo()
         {
             var mudFileUpload = ComponentUnderTest.FindComponent<MudFileUpload<IBrowserFile>>();
@@ -54,40 +59,84 @@ namespace VideoAnonymizer.Web.Tests.Pages
 
             mudFileUpload.FindComponent<InputFile>()
                        .UploadFiles([dummyVideo]);
+        }
 
-            await Task.Delay(20); 
-            var message = new LongRunningJobFinishedMessage
+        [When("I press download")]
+        public async Task WhenIPressDownload()
+        {
+            await ComponentUnderTest.WaitForAssertionAsync(() =>
             {
-                JobId = _currentVideoId ?? Guid.NewGuid(),
-                Status = "Completed",
-            };
-            HubConnection.SendAsync("videoAnalyzed", message);
+                ComponentUnderTest.Instance.IsAnonymized.Should().BeTrue();
+            }, TimeSpan.FromSeconds(5));
+            var downloadButton = ComponentUnderTest.Find("button:contains('Download')");
+            downloadButton.Click();
         }
 
         [Then("I get an anonymized video back")]
         public void ThenIGetAnAnonymizedVideoBack()
         {
-            // TODO download should start
-
+            var callCount = MockHttpMessageHandler.GetMatchCount(
+                MockHttpMessageHandler.When(HttpMethod.Get, $"/anonymized/{CurrentAnonimizationJobId}")
+                );
+            callCount.Should().Be(1,
+                $"The endpoint /anonymized/{CurrentAnonimizationJobId} should have been called exactly once.");
             MockHttpMessageHandler.VerifyNoOutstandingExpectation();
         }
 
-        private void SetupAnalyzeMock()
+
+        protected override void SetupMockClient()
         {
-            _currentVideoId = Guid.NewGuid();
+            CurrentVideoId = Guid.NewGuid();
+            CurrentAnonimizationJobId = Guid.NewGuid();
 
             MockHttpMessageHandler
                 .When(HttpMethod.Post, "/analyze*")
                 .Respond(req =>
                 {
+                    _ = Task.Delay(50).ContinueWith(async _ =>
+                    {
+                        // send message shortly after return to simulate the video analyzing finished
+                        var message = new LongRunningJobFinishedMessage
+                        {
+                            JobId = CurrentVideoId ?? Guid.NewGuid(),
+                            Status = "Completed",
+                        };
+                        await HubConnection.SendAsync("videoAnalyzed", message);
+                    }, TaskScheduler.FromCurrentSynchronizationContext());
+
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
-                        Content = new StringContent($"{{\"videoId\": \"{_currentVideoId}\" }}")
+                        Content = new StringContent($"{{\"videoId\": \"{CurrentVideoId}\" }}")
                     };
                 });
 
             MockHttpMessageHandler
-                .When(HttpMethod.Get, $"/analyzed/{_currentVideoId}")
+                .When(HttpMethod.Get, $"/analyzed/{CurrentVideoId}")
+                .Respond("application/json", "{}");
+
+            MockHttpMessageHandler
+                .When(HttpMethod.Post, $"/anonymize/{CurrentVideoId}")
+                .Respond(req =>
+                {
+                    _ = Task.Delay(50).ContinueWith(async _ =>
+                    {
+                        // send message shortly after return to simulate the video anonimization finished
+                        var message = new LongRunningJobFinishedMessage
+                        {
+                            JobId = CurrentVideoId ?? Guid.NewGuid(),
+                            Status = "Completed",
+                        };
+                        await HubConnection.SendAsync("videoAnnonymzed", message);
+                    }, TaskScheduler.FromCurrentSynchronizationContext());
+
+                    return new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent($"{{\"videoId\": \"{CurrentAnonimizationJobId}\" }}")
+                    };
+                });
+
+            MockHttpMessageHandler
+                .When(HttpMethod.Get, $"/anonymized/{CurrentAnonimizationJobId}")
                 .Respond("application/json", "{}");
         }
 

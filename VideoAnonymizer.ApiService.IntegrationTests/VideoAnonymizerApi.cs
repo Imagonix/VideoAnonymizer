@@ -10,6 +10,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Mime;
 using System.Text;
+using VideoAnonymizer.AppHost;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Contracts;
 using VideoAnonymizer.Web.Contracts.DTO;
@@ -17,7 +18,7 @@ using VideoAnonymizer.Web.Contracts.DTO;
 namespace VideoAnonymizer.ApiService.IntegrationTests
 {
     [Binding]
-    public sealed class VideoAnonymizerApi
+    public sealed class VideoAnonymizerApiStepDefinitions
     {
         private ScenarioContext _scenarioContext;
 
@@ -60,7 +61,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         private const string AspireApiServiceKey = "apiservice";
 
 
-        public VideoAnonymizerApi(ScenarioContext scenarioContext)
+        public VideoAnonymizerApiStepDefinitions(ScenarioContext scenarioContext)
         {
             _scenarioContext = scenarioContext;
         }
@@ -74,6 +75,9 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         [BeforeScenario]
         public async Task SetupEnvironment()
         {
+            //Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", HostEnvironmentExtensions.ENVIRONMENT_TEST);
+            //Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", HostEnvironmentExtensions.ENVIRONMENT_TEST); 
+
             var appHost =
             await DistributedApplicationTestingBuilder
                     .CreateAsync<Projects.VideoAnonymizer_AppHost>();
@@ -81,17 +85,16 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             {
                 clientBuilder.AddStandardResilienceHandler();
             });
-            //appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
-            //{
-            //    clientBuilder.AddStandardResilienceHandler(options =>
-            //     {
-            //         options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(3);
-            //         options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(3);
-            //     });
-            // });
 
             App = await appHost.BuildAsync();
-            await App.StartAsync();
+            await App.StartAsync(); 
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("objectDetection");
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("postgres");
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("videoAnonymizerDb");
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("rabbit");
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("apiservice");
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("videoanonymizer-videoprocessor"); 
+            //await App.ResourceNotifications.WaitForResourceHealthyAsync("videoanonymizer-database-migrationservice");
             var client = CreteApiServiceHttpClient();
             client.Timeout = TimeSpan.FromMinutes(1);
             await client.GetAsync("/");
@@ -197,5 +200,16 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             bytes.Length.Should().BeGreaterThan(1000);
         }
 
+        [AfterScenario]
+        public async Task TearDown()
+        {
+            if (App is not null)
+            {
+                await App.DisposeAsync();
+            }
+
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", null);
+            Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", null);
+        }
     }
 }

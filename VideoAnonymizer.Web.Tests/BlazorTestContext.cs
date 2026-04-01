@@ -14,7 +14,7 @@ namespace VideoAnonymizer.Web.Tests
     public abstract class BlazorTestBase<TComponent> : BunitContext, IDisposable
         where TComponent : ComponentBase
     {
-        private readonly ScenarioContext _scenarioContext;
+        protected readonly ScenarioContext _scenarioContext;
 
         protected IRenderedComponent<TComponent> ComponentUnderTest
         {
@@ -37,7 +37,7 @@ namespace VideoAnonymizer.Web.Tests
         protected BlazorTestBase(ScenarioContext scenarioContext)
         {
             _scenarioContext = scenarioContext;
-            
+
             SetupServices();
         }
 
@@ -50,7 +50,7 @@ namespace VideoAnonymizer.Web.Tests
             Services.AddSingleton(httpClient);
 
             var factory = new WebApplicationFactory<Program>();
-            SetupMockClient(factory);
+            SetupMockClient();
             SetupMockClientSignalR(factory);
             var client = factory.CreateClient();
             var hubUrl = new Uri(client.BaseAddress!, "/hubs/jobs");
@@ -61,7 +61,7 @@ namespace VideoAnonymizer.Web.Tests
             Services.AddSingleton(HubConnection);
         }
 
-        protected void SetupMockClient(WebApplicationFactory<Program> webAppFactory)        {        }
+        protected virtual void SetupMockClient() { }
 
         private void SetupMockClientSignalR(WebApplicationFactory<Program> webAppFactory)
         {

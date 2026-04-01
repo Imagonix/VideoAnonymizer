@@ -1,0 +1,17 @@
+﻿using Microsoft.Extensions.Hosting;
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+using System.Text;
+
+namespace VideoAnonymizer.AppHost
+{
+    public static class HostEnvironmentExtensions
+    {
+        public const string ENVIRONMENT_TEST = "Test";
+        public static bool IsTest(this IHostEnvironment environment)
+        {
+            return environment.IsEnvironment(ENVIRONMENT_TEST);
+        }
+    }
+}

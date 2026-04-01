@@ -1,18 +1,19 @@
 using Microsoft.Extensions.Hosting;
+using VideoAnonymizer.AppHost;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-var rabbitPassword = builder.AddParameter("rabbit-password", secret: true);
+var rabbitPassword = DefaultLoadSecret(builder, "rabbit-password");
 var rabbitUser = builder.AddParameter("rabbit-user", "rabbit");
 var rabbit = builder.AddRabbitMQ("rabbit", rabbitUser, rabbitPassword).WithManagementPlugin();
 
-var postgresPassword = builder.AddParameter("postgres-password", secret: true);
+var postgresPassword = DefaultLoadSecret(builder, "postgres-password");
 var postgres = builder.AddPostgres("postgres", password: postgresPassword)
     .WithEnvironment("POSTGRES_DB", "postgresdb");
     //.WithVolume("video-anonomyzer-postgres-data", "/var/lib/postgresql/data");
 if (builder.Environment.IsDevelopment())
 {
-    //postgres.WithPgAdmin();
+    postgres.WithPgAdmin();
 }
 var postgresdb = postgres.AddDatabase("videoAnonymizerDb");
 
@@ -26,6 +27,7 @@ var objectDetection = builder.AddUvicornApp(
         app: "main:app"
     )
     .WithExternalHttpEndpoints();
+objectDetection.WithHttpEndpoint(name: "object-detection-http");
 
 if (builder.Environment.IsDevelopment())
 {
@@ -63,3 +65,13 @@ builder.AddProject<Projects.VideoAnonymizer_VideoProcessor>("videoanonymizer-vid
 
 
 builder.Build().Run();
+
+static IResourceBuilder<ParameterResource> DefaultLoadSecret(IDistributedApplicationBuilder builder, string key)
+{
+    return LoadSecret(builder, key, $"{key}-test");
+}
+
+static IResourceBuilder<ParameterResource> LoadSecret(IDistributedApplicationBuilder builder, string key, string testValue)
+{
+    return builder.Environment.IsTest() ? builder.AddParameter(key, testValue) : builder.AddParameter(key, secret: true);
+}
