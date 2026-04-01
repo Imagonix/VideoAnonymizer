@@ -1,7 +1,6 @@
 using Bunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
-using Microsoft.AspNetCore.SignalR.Client;
 using MudBlazor;
 using Reqnroll;
 using RichardSzalay.MockHttp;
@@ -19,7 +18,7 @@ namespace VideoAnonymizer.Web.Tests.Pages
             get => _scenarioContext.Get<Guid>(nameof(CurrentVideoId));
             set => _scenarioContext.Set(value, nameof(CurrentVideoId));
         }
-        
+
         private Guid? CurrentAnonimizationJobId
         {
             get => _scenarioContext.Get<Guid>(nameof(CurrentAnonimizationJobId));
@@ -35,13 +34,14 @@ namespace VideoAnonymizer.Web.Tests.Pages
         [When("I open the homepage")]
         public void WhenIOpenTheHomepage()
         {
-            // redered in [BeforeScenario]
+            // rendered in [BeforeScenario]
         }
 
         [Then("I see a upload video form")]
         public void ThenISeeAUploadVideoForm()
         {
-            ComponentUnderTest.Find("input[type='file']").Should().NotBeNull("There should be a file uplod field!");
+            ComponentUnderTest.Find("input[type='file']")
+                .Should().NotBeNull("There should be a file upload field!");
 
             var uploadButton = ComponentUnderTest.Find("button");
             uploadButton.TextContent.Should().Contain("Upload", "No upload button!", StringComparison.OrdinalIgnoreCase);
@@ -58,7 +58,7 @@ namespace VideoAnonymizer.Web.Tests.Pages
                 contentType: "video/mp4");
 
             mudFileUpload.FindComponent<InputFile>()
-                       .UploadFiles([dummyVideo]);
+                .UploadFiles([dummyVideo]);
         }
 
         [When("I press download")]
@@ -77,12 +77,11 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
             var callCount = MockHttpMessageHandler.GetMatchCount(
                 MockHttpMessageHandler.When(HttpMethod.Get, $"/anonymized/{CurrentAnonimizationJobId}")
-                );
+            );
             callCount.Should().Be(1,
                 $"The endpoint /anonymized/{CurrentAnonimizationJobId} should have been called exactly once.");
             MockHttpMessageHandler.VerifyNoOutstandingExpectation();
         }
-
 
         protected override void SetupMockClient()
         {
@@ -101,8 +100,10 @@ namespace VideoAnonymizer.Web.Tests.Pages
                             JobId = CurrentVideoId ?? Guid.NewGuid(),
                             Status = "Completed",
                         };
-                        await HubConnection.SendAsync("videoAnalyzed", message);
-                    }, TaskScheduler.FromCurrentSynchronizationContext());
+                        await JobHubClient.RaiseVideoAnalyzedAsync(message);
+                    }, TaskScheduler.FromCurrentSynchronizationContext()
+                    );
+
 
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
@@ -123,11 +124,13 @@ namespace VideoAnonymizer.Web.Tests.Pages
                         // send message shortly after return to simulate the video anonimization finished
                         var message = new LongRunningJobFinishedMessage
                         {
-                            JobId = CurrentVideoId ?? Guid.NewGuid(),
+                            JobId = CurrentAnonimizationJobId ?? Guid.NewGuid(),
                             Status = "Completed",
                         };
-                        await HubConnection.SendAsync("videoAnnonymzed", message);
-                    }, TaskScheduler.FromCurrentSynchronizationContext());
+
+                        await JobHubClient.RaiseVideoAnonymizedAsync(message);
+                    }, TaskScheduler.FromCurrentSynchronizationContext()
+                    );
 
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {

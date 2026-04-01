@@ -1,4 +1,5 @@
 ﻿@page "/"
+@inject VideoAnonymizer.Web.Services.IJobHubClient JobHubClient
 
 <PageTitle>Home</PageTitle>
 
@@ -9,4 +10,28 @@ Welcome to your new app.
 @code
 {
     public bool IsAnonymized { get; set; } = false;
+    private IDisposable? _videoAnalyzedSubscription;
+    private IDisposable? _videoAnonymizedSubscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _videoAnalyzedSubscription = JobHubClient.OnVideoAnalyzed(async message =>
+        {
+            await InvokeAsync(StateHasChanged);
+        });
+
+        _videoAnonymizedSubscription = JobHubClient.OnVideoAnonymized(async message =>
+        {
+            IsAnonymized = true;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        await JobHubClient.StartAsync();
+    }
+
+    public void Dispose()
+    {
+        _videoAnalyzedSubscription?.Dispose();
+        _videoAnonymizedSubscription?.Dispose();
+    }
 }

@@ -1,0 +1,37 @@
+﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.SignalR.Client;
+using VideoAnonymizer.Web.Contracts;
+
+namespace VideoAnonymizer.Web.Services;
+
+public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
+{
+    private readonly HubConnection _hubConnection;
+
+    public JobHubClient(NavigationManager navigationManager)
+    {
+        var hubUrl = navigationManager.ToAbsoluteUri("/hubs/jobs");
+
+        _hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+    }
+
+    public Task StartAsync(CancellationToken cancellationToken = default)
+        => _hubConnection.StartAsync(cancellationToken);
+
+    public Task StopAsync(CancellationToken cancellationToken = default)
+        => _hubConnection.StopAsync(cancellationToken);
+
+    public IDisposable OnVideoAnalyzed(Func<LongRunningJobFinishedMessage, Task> handler)
+        => _hubConnection.On("videoAnalyzed", handler);
+
+    public IDisposable OnVideoAnonymized(Func<LongRunningJobFinishedMessage, Task> handler)
+        => _hubConnection.On("videoAnnonymzed", handler);
+
+    public async ValueTask DisposeAsync()
+    {
+        await _hubConnection.DisposeAsync();
+    }
+}
