@@ -23,12 +23,9 @@ var migrationService = builder.AddProject<Projects.VideoAnonymizer_Database_Migr
     .WaitFor(postgresdb);
 
 var objectDetection = builder.AddUvicornApp(
-    name: "objectDetection",
-    appDirectory: "../VideoAnonymizer.ObjectDetection",
-    app: "main:app")
-    .WithExternalHttpEndpoints();
-
-objectDetection.WithHttpEndpoint(name: "object-detection-http");
+        name: "objectDetection",
+        appDirectory: "../VideoAnonymizer.ObjectDetection",
+        app: "main:app");
 
 if (builder.Environment.IsDevelopment())
 {

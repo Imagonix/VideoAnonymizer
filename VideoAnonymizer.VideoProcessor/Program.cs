@@ -17,8 +17,7 @@ builder.Services.AddMassTransit(x =>
     x.ConfigureRabbitMq(builder);
 });
 
-//var objectDetectionUrl = builder.Configuration["services:objectDetection:https:0"]
-var objectDetectionUrl = builder.Configuration["services:objectDetection:http:0"]
+var objectDetectionUrl = builder.Configuration["services:objectDetection:https:0"]
     ?? throw new InvalidOperationException("objectDetection URL not found");
 
 builder.Services.AddHttpClient("objectDetection", client =>

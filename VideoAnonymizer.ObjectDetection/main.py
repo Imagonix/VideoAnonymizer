@@ -2,16 +2,30 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 import base64
 import cv2
+import logging
 import numpy as np
 import onnxruntime as ort
+import os
 from typing import List
 from models import DetectRequest, DetectionResult      
 from object_tracker_manager import ObjectTrackerManager
 from debugging import enable_debugpy_if_dev
 
+logger = logging.getLogger("uvicorn.error")
 enable_debugpy_if_dev()
 
 app = FastAPI(title="VideoAnonymizer Object Detection API")
+
+@app.on_event("startup")
+async def startup_event():
+    port = os.getenv("PORT")
+    
+    if port:
+        logger.info(f"FastAPI Server started on http://0.0.0.0:{port}")
+        logger.info(f"   Health: http://0.0.0.0:{port}/health")
+        logger.info(f"   Detect: http://0.0.0.0:{port}/detectObjects")
+    else:
+        logger.warning("PORT environment variable is not set!")
 
 @app.get("/health")
 def health():
