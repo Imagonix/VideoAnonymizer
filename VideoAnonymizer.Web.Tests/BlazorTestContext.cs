@@ -1,6 +1,7 @@
 ﻿using Bunit;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor.Services;
 using Reqnroll;
 using RichardSzalay.MockHttp;
 using VideoAnonymizer.Web.Services;
@@ -36,6 +37,7 @@ namespace VideoAnonymizer.Web.Tests
             _scenarioContext = scenarioContext;
             MockHttpMessageHandler = new MockHttpMessageHandler();
             JobHubClient = new FakeJobHubClient();
+            JSInterop.Mode = JSRuntimeMode.Loose;
 
             SetupServices();
         }
@@ -49,7 +51,7 @@ namespace VideoAnonymizer.Web.Tests
 
             Services.AddSingleton(httpClient);
             Services.AddSingleton<IJobHubClient>(JobHubClient);
-
+            Services.AddMudServices();
             SetupMockClient();
         }
 

@@ -13,22 +13,22 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
     protected override async Task HandleJob(AnalyzeVideo job, CancellationToken stoppingToken)
     {
         var objectDetectionClient = serviceProvider.CreateScope().ServiceProvider.GetService<ObjectDetectionClient.ObjectDetectionClient>()!;
-        if (string.IsNullOrWhiteSpace(job.path))
-            throw new ArgumentException("Video path is empty.", nameof(job.path));
-        if (!File.Exists(job.path))
-            throw new FileNotFoundException("Video file not found.", job.path);
-        using var capture = new VideoCapture(job.path);
+        if (string.IsNullOrWhiteSpace(job.Path))
+            throw new ArgumentException("Video path is empty.", nameof(job.Path));
+        if (!File.Exists(job.Path))
+            throw new FileNotFoundException("Video file not found.", job.Path);
+        using var capture = new VideoCapture(job.Path);
         if (!capture.IsOpened())
-            throw new InvalidOperationException($"Could not open video: {job.path}");
+            throw new InvalidOperationException($"Could not open video: {job.Path}");
         var fps = capture.Fps;
         if (fps <= 0 || double.IsNaN(fps))
             fps = 25;
 
-        logger.LogInformation("Processing video {VideoPath} with FPS {Fps}", job.path, fps);
+        logger.LogInformation("Processing video {VideoPath} with FPS {Fps}", job.Path, fps);
 
         var dbFactory = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
         using var db = await dbFactory.CreateDbContextAsync();
-        var video = await db.Videos.FindAsync(job.videoId);
+        var video = await db.Videos.FindAsync(job.VideoId);
 
         var sessionId = $"{Guid.NewGuid()}";
 
@@ -36,7 +36,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         var frameIndex = 0;
         var processedFrameCount = 0;
 
-        var frameStep = Math.Max(1, (int)Math.Round(fps * job.captureIntervalMs * 0.001));
+        var frameStep = Math.Max(1, (int)Math.Round(fps * job.CaptureIntervalMs * 0.001));
 
         var analyzedFrames = new List<AnalyzedFrame>();
 
@@ -97,14 +97,14 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         stoppingToken.ThrowIfCancellationRequested();
         logger.LogInformation(
             "Finished processing video {VideoPath}. Analyzed frames: {ProcessedFrameCount}",
-            job.path,
+            job.Path,
             processedFrameCount);
 
         video.AnalyzedFrames = analyzedFrames;
         await db.SaveChangesAsync();
 
         var publishEndpoint = serviceProvider.CreateScope().ServiceProvider.GetService<IPublishEndpoint>()!;
-        await publishEndpoint.Publish(new AnalyzedVideo(job.videoId, DateTime.Now));
+        await publishEndpoint.Publish(new AnalyzedVideo(job.VideoId, DateTime.Now));
     }
 
     private static string ConvertMatToBase64Jpeg(Mat frame)

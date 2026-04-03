@@ -7,21 +7,21 @@ using VideoAnonymizer.Database;
 
 namespace VideoAnonymizer.VideoProcessor;
 
-public class VideoAnonomyzer(
-    ILogger<VideoAnonomyzer> logger,
+public class VideoAnonymizer(
+    ILogger<VideoAnonymizer> logger,
     IServiceProvider serviceProvider)
-    : SingleJobQueingWorker<AnonomyzeVideo>(logger)
+    : SingleJobQueingWorker<AnonymizeVideo>(logger)
 {
-    protected override async Task HandleJob(AnonomyzeVideo job, CancellationToken stoppingToken)
+    protected override async Task HandleJob(AnonymizeVideo job, CancellationToken stoppingToken)
     {
         await using var scope = serviceProvider.CreateAsyncScope();
 
         var db = scope.ServiceProvider.GetRequiredService<VideoAnonymizerDbContext>();
         var publishEndpoint = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
 
-        var video = await db.Videos.FindAsync(job.videoId, stoppingToken);
+        var video = await db.Videos.FindAsync(job.VideoId, stoppingToken);
         if (video is null)
-            throw new InvalidOperationException($"Video '{job.videoId}' not found");
+            throw new InvalidOperationException($"Video '{job.VideoId}' not found");
 
         var selectedObjects = await db.DetectedObjects
             .AsNoTracking()
@@ -70,7 +70,7 @@ public class VideoAnonomyzer(
         video.AnonomizedPath = outputPath;
         await db.SaveChangesAsync(stoppingToken);
 
-        await publishEndpoint.Publish(new AnonomyzedVideo(job.jobId, DateTime.Now), stoppingToken);
+        await publishEndpoint.Publish(new AnonymizedVideo(job.JobId, DateTime.Now), stoppingToken);
     }
     private static Dictionary<int, List<TrackedPosition>> GroupObjectsByTrack(
         List<DetectedObject> detectedObjects, double fps)

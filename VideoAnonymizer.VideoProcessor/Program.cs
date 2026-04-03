@@ -8,12 +8,12 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddServiceDefaults();
 builder.Services.AddSingletonAsHostedService<VideoAnalyzer>();
-builder.Services.AddSingletonAsHostedService<VideoAnonomyzer>();
+builder.Services.AddSingletonAsHostedService<VideoAnonymizer.VideoProcessor.VideoAnonymizer>();
 
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<AnalyzeVideoConsumer>();
-    x.AddConsumer<AnonomyzeVideoConsumer>();
+    x.AddConsumer<AnonymizeVideoConsumer>();
     x.ConfigureRabbitMq(builder);
 });
 

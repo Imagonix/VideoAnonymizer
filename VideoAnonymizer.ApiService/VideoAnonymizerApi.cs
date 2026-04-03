@@ -81,7 +81,7 @@ namespace VideoAnonymizer.ApiService
             try
             {
                 var video = await videoDataService.UpdateFramesAndObjects(videoId, frames);
-                await publishEndpoint.Publish(new AnonomyzeVideo(jobId, video.Id, DateTime.Now));
+                await publishEndpoint.Publish(new AnonymizeVideo(jobId, video.Id, DateTime.Now));
                 return Ok(new ApiResponse<Guid>()
                 {
                     Payload = jobId,

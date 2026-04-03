@@ -8,10 +8,9 @@ public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
 {
     private readonly HubConnection _hubConnection;
 
-    public JobHubClient(NavigationManager navigationManager)
+    public JobHubClient(IConfiguration configuration)
     {
-        var hubUrl = navigationManager.ToAbsoluteUri("/hubs/jobs");
-
+        var hubUrl = $"{configuration.GetApiServiceBaseUrl()}/hubs/jobs";
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
             .WithAutomaticReconnect()

@@ -15,6 +15,7 @@ if (builder.Environment.IsDevelopment())
 {
     postgres.WithPgAdmin();
 }
+
 var postgresdb = postgres.AddDatabase("videoAnonymizerDb");
 
 var migrationService = builder.AddProject<Projects.VideoAnonymizer_Database_MigrationService>("videoanonymizer-database-migrationservice")
@@ -22,27 +23,29 @@ var migrationService = builder.AddProject<Projects.VideoAnonymizer_Database_Migr
     .WaitFor(postgresdb);
 
 var objectDetection = builder.AddUvicornApp(
-        name: "objectDetection",
-        appDirectory: "../VideoAnonymizer.ObjectDetection",
-        app: "main:app"
-    )
+    name: "objectDetection",
+    appDirectory: "../VideoAnonymizer.ObjectDetection",
+    app: "main:app")
     .WithExternalHttpEndpoints();
+
 objectDetection.WithHttpEndpoint(name: "object-detection-http");
 
 if (builder.Environment.IsDevelopment())
 {
     objectDetection.WithEnvironment("PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT", "0")
-      .WithEnvironment("PYTHON_ENV", "Development")
-      .WithEnvironment("DEBUGPY", "1")
-      .WithEnvironment("DEBUGPY_PORT", "5678")
+        .WithEnvironment("PYTHON_ENV", "Development")
+        .WithEnvironment("DEBUGPY", "1")
+        .WithEnvironment("DEBUGPY_PORT", "5678")
       // when setting DEBUGPY_WAIT to 1 FAST API wont start up, until a debugger attaches
-      .WithEnvironment("DEBUGPY_WAIT", "0")
-      .WithEnvironment("PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT", "10.0"); ;
+        .WithEnvironment("DEBUGPY_WAIT", "0")
+        .WithEnvironment("PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT", "10.0");
 }
 
 var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "data");
 
 var apiService = builder.AddProject<Projects.VideoAnonymizer_ApiService>("apiservice")
+    .WithHttpEndpoint(port: 5001, name: "apiservice-http")
+    .WithHttpsEndpoint(port: 5002, name: "apiservice-https")
     .WithHttpHealthCheck("/health")
     .WithReference(rabbit)
     .WaitFor(rabbit)
@@ -62,8 +65,6 @@ builder.AddProject<Projects.VideoAnonymizer_VideoProcessor>("videoanonymizer-vid
     .WithReference(postgresdb)
     .WaitFor(postgresdb);
 
-
-
 builder.Build().Run();
 
 static IResourceBuilder<ParameterResource> DefaultLoadSecret(IDistributedApplicationBuilder builder, string key)
@@ -73,5 +74,7 @@ static IResourceBuilder<ParameterResource> DefaultLoadSecret(IDistributedApplica
 
 static IResourceBuilder<ParameterResource> LoadSecret(IDistributedApplicationBuilder builder, string key, string testValue)
 {
-    return builder.Environment.IsTest() ? builder.AddParameter(key, testValue) : builder.AddParameter(key, secret: true);
+    return builder.Environment.IsTest()
+        ? builder.AddParameter(key, testValue)
+        : builder.AddParameter(key, secret: true);
 }

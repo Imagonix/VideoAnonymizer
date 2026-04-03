@@ -1,6 +1,16 @@
-﻿using System.Net.Mail;
+﻿namespace VideoAnonymizer.Contracts;
 
-namespace VideoAnonymizer.Contracts
+public class AnonymizedVideo
 {
-    public record AnonomyzedVideo(Guid jobId, DateTimeOffset AddedAt);
+    public Guid JobId { get; set; }
+    public DateTimeOffset AddedAt { get; set; }
+
+    // for rabbitMq
+    public AnonymizedVideo() { }
+
+    public AnonymizedVideo(Guid jobId, DateTimeOffset addedAt)
+    {
+        JobId = jobId;
+        AddedAt = addedAt;
+    }
 }
