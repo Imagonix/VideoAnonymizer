@@ -13,6 +13,7 @@
     <Build Project="false" />
   </Project>
   <Project Path="VideoAnonymizer.ServiceDefaults/VideoAnonymizer.ServiceDefaults.csproj" />
+  <Project Path="VideoAnonymizer.Utils/VideoAnonymizer.Utils.csproj" Id="b2df60f0-521d-4315-ab6b-d3576e9a3df6" />
   <Project Path="VideoAnonymizer.VideoProcessor/VideoAnonymizer.VideoProcessor.csproj" />
   <Project Path="VideoAnonymizer.Web.Contracts/VideoAnonymizer.Web.Contracts.csproj" Id="216ea1fb-7bdc-4ffa-9b6c-4187d42f92c5" />
   <Project Path="VideoAnonymizer.Web.Tests/VideoAnonymizer.Web.Tests.csproj" Id="c0f9f403-5f34-4b33-ac5e-09db0da2eec6" />
