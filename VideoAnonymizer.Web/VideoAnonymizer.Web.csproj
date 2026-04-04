@@ -25,4 +25,10 @@
 	  <ProjectReference Include="..\VideoAnonymizer.Web.Contracts\VideoAnonymizer.Web.Contracts.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <None Update="Pages\Home.razor.js">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </None>
+	</ItemGroup>
+
 </Project>

@@ -8,6 +8,8 @@
 @using VideoAnonymizer.Web.Contracts.DTO
 @using VideoAnonymizer.Web.Services
 
+@implements IAsyncDisposable
+@inject IJSRuntime JS
 @inject IHttpClientFactory HttpClientFactory 
 @inject IJobHubClient JobHubClient
 @inject ISnackbar Snackbar
@@ -61,6 +63,8 @@
 </MudContainer>
 
 @code {
+    private IJSObjectReference? module;
+
     private IDisposable? _videoAnalyzedSubscription;
     private IDisposable? _videoAnonymizedSubscription;
 
@@ -101,6 +105,14 @@
         });
 
         await JobHubClient.StartAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            module = await JS.InvokeAsync<IJSObjectReference>("import", "./Pages/Home.razor.js");
+        }
     }
 
     private async Task OnFileSelected(IBrowserFile? file)
@@ -180,30 +192,34 @@
 
     private async Task DownloadAsync()
     {
-        if (_anonymizedVideoId.IsNullOrEmpty())
+        if (_anonymizedVideoId.IsNullOrEmpty()) {
             return;
+        }
 
         try
         {
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
-            using var response = await httpClient.GetAsync($"/anonymized/{_anonymizedVideoId}");
-            response.EnsureSuccessStatusCode();
+            var url = $"{httpClient.BaseAddress}anonymized/{_currentVideoId}";
+            var fileName = "anonymized-video.mp4";
 
             StatusText = "Download started.";
+            await InvokeAsync(StateHasChanged);
+
+            await module.InvokeVoidAsync("triggerFileDownload", fileName, url);
         }
         catch (Exception ex)
         {
             Snackbar.Add($"Download failed: {ex.Message}", Severity.Error);
         }
-
-        await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()
     {
         _videoAnalyzedSubscription?.Dispose();
         _videoAnonymizedSubscription?.Dispose();
-        await JobHubClient.StopAsync();
+        await JobHubClient.StopAsync(); 
+        if (module is not null)
+            await module.DisposeAsync();
     }
 
     private sealed class AnalyzeResponse

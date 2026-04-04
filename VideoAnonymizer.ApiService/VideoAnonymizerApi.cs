@@ -99,17 +99,16 @@ namespace VideoAnonymizer.ApiService
         {
             try
             {
-                var video = await videoDataService.LoadAnonomyzedVideoPath(videoId);
-                var fileName = Path.GetFileName(video);
-                var stream = new FileStream(
-                    video,
-                    FileMode.Open,
-                    FileAccess.Read,
-                    FileShare.Read);
+                var videoPath = await videoDataService.LoadAnonomyzedVideoPath(videoId); // assume this returns full path
 
-                return File(stream, "video/mp4", fileName);
+                if (!System.IO.File.Exists(videoPath))
+                {
+                    return NotFound();
+                }
+                var fileName = Path.GetFileName(videoPath);
+                return PhysicalFile(videoPath, "video/mp4", fileName, enableRangeProcessing: true);
             }
-            catch (NotFoundException e)
+            catch (NotFoundException)
             {
                 return NotFound();
             }

@@ -27,7 +27,7 @@ public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
         => _hubConnection.On("videoAnalyzed", handler);
 
     public IDisposable OnVideoAnonymized(Func<LongRunningJobFinishedMessage, Task> handler)
-        => _hubConnection.On("videoAnnonymzed", handler);
+        => _hubConnection.On("videoAnonymized", handler);
 
     public async ValueTask DisposeAsync()
     {
