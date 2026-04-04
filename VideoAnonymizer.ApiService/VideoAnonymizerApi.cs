@@ -5,20 +5,21 @@ using Microsoft.EntityFrameworkCore.Internal;
 using System.ComponentModel.DataAnnotations;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
-using VideoAnonymizer.Web.Contracts.DTO;
+using VideoAnonymizer.Web.Shared;
+using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService
 {
     [ApiController]
     public class VideoAnonymizerApi(IPublishEndpoint publishEndpoint, IWebHostEnvironment environment, VideoDataService videoDataService) : ControllerBase
     {
-        [HttpGet("health")]
+        [HttpGet($"{SharedConstants.Paths.Health}")]
         public IActionResult Health()
         {
             return Ok(new { status = "ok" });
         }
 
-        [HttpPost("analyze")]
+        [HttpPost($"{SharedConstants.Paths.Analyze}")]
         [Consumes("multipart/form-data")]
         [DisableRequestSizeLimit]
         [RequestFormLimits(MultipartBodyLengthLimit = long.MaxValue)]
@@ -54,7 +55,7 @@ namespace VideoAnonymizer.ApiService
             });
         }
 
-        [HttpGet("analyzed/{videoId:guid}")]
+        [HttpGet($"{SharedConstants.Paths.Analyzed}/{{videoId:guid}}")]
         public async Task<IActionResult> GetAnalyzedVideo([FromRoute] Guid videoId)
         {
             try
@@ -74,7 +75,7 @@ namespace VideoAnonymizer.ApiService
         }
 
 
-        [HttpPost("anonymize/{videoId:guid}")]
+        [HttpPost($"{SharedConstants.Paths.Anonymize}/{{videoId:guid}}")]
         public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrameDto> frames)
         {
             var jobId = Guid.NewGuid();
@@ -94,7 +95,7 @@ namespace VideoAnonymizer.ApiService
             }
         }
 
-        [HttpGet("anonymized/{videoId:guid}")]
+        [HttpGet($"{SharedConstants.Paths.Anonymized}/{{videoId:guid}}")]
         public async Task<IActionResult> GetAnonymizedVideo([FromRoute] Guid videoId)
         {
             try

@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
@@ -10,7 +10,7 @@
 		<ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Database\VideoAnonymizer.Database.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.ServiceDefaults\VideoAnonymizer.ServiceDefaults.csproj" />
-		<ProjectReference Include="..\VideoAnonymizer.Web.Contracts\VideoAnonymizer.Web.Contracts.csproj" />
+		<ProjectReference Include="..\VideoAnonymizer.Web.Contracts\VideoAnonymizer.Web.Shared.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

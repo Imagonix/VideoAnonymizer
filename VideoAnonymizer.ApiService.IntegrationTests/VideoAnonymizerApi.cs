@@ -12,8 +12,8 @@ using System.Net.Mime;
 using System.Text;
 using VideoAnonymizer.AppHost;
 using VideoAnonymizer.Database;
-using VideoAnonymizer.Web.Contracts;
-using VideoAnonymizer.Web.Contracts.DTO;
+using VideoAnonymizer.Web.Shared;
+using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.IntegrationTests
 {

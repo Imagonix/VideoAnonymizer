@@ -1,4 +1,4 @@
-﻿namespace VideoAnonymizer.Web.Contracts.DTO
+﻿namespace VideoAnonymizer.Web.Shared.DTO
 {
     public class ApiResponse<T>
     {

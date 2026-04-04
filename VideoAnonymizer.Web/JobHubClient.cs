@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.SignalR.Client;
-using VideoAnonymizer.Web.Contracts;
+using VideoAnonymizer.Web.Shared;
 
 namespace VideoAnonymizer.Web.Services;
 

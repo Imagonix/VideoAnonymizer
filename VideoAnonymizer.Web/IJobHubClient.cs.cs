@@ -1,4 +1,4 @@
-﻿using VideoAnonymizer.Web.Contracts;
+﻿using VideoAnonymizer.Web.Shared;
 
 namespace VideoAnonymizer.Web.Services;
 

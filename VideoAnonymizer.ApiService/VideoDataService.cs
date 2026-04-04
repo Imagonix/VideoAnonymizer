@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;
-using VideoAnonymizer.Web.Contracts.DTO;
+using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService
 {

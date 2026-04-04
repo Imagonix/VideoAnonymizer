@@ -1,4 +1,4 @@
-﻿using VideoAnonymizer.Web.Contracts;
+﻿using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Services;
 
 namespace VideoAnonymizer.Web.Tests.TestDoubles;

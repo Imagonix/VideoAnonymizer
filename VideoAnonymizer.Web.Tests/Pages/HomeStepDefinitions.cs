@@ -5,7 +5,7 @@ using MudBlazor;
 using Reqnroll;
 using RichardSzalay.MockHttp;
 using System.Net;
-using VideoAnonymizer.Web.Contracts;
+using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Pages;
 
 namespace VideoAnonymizer.Web.Tests.Pages
