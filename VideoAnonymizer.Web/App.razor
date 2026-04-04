@@ -1,4 +1,5 @@
-﻿<MudThemeProvider />
+﻿<MudThemeProvider @ref="_themeProvider"
+                  IsDarkMode="@_isDarkMode" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
@@ -8,3 +9,23 @@
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
 </Router>
+
+@code {
+    private MudThemeProvider? _themeProvider;
+    private bool _isDarkMode;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _themeProvider is null)
+            return;
+
+        _isDarkMode = await _themeProvider.GetSystemDarkModeAsync();
+        StateHasChanged();
+
+        await _themeProvider.WatchSystemDarkModeAsync(async isDark =>
+        {
+            _isDarkMode = isDark;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+}
