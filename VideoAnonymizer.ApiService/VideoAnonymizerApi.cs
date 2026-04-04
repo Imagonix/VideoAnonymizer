@@ -99,7 +99,7 @@ namespace VideoAnonymizer.ApiService
         {
             try
             {
-                var videoPath = await videoDataService.LoadAnonomyzedVideoPath(videoId); // assume this returns full path
+                var videoPath = await videoDataService.LoadAnonomyzedVideoPath(videoId);
 
                 if (!System.IO.File.Exists(videoPath))
                 {
