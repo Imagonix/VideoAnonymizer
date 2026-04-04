@@ -140,7 +140,7 @@
             content.Add(fileContent, "video", file.Name);
 
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
-            var response = await httpClient.PostAsync("/analyze", content);
+            var response = await httpClient.PostAsync($"/{SharedConstants.Paths.Analyze}", content);
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
@@ -166,9 +166,9 @@
         try
         {
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
-            var analyzedResponse = await httpClient.GetAsync($"analyzed/{videoId}");
+            var analyzedResponse = await httpClient.GetAsync($"/{SharedConstants.Paths.Analyzed}/{videoId}");
             var detectedobjects = await analyzedResponse.Content.ReadFromJsonAsync<ApiResponse<List<AnalyzedFrameDto>>>();
-            var response = await httpClient.PostAsJsonAsync($"/anonymize/{videoId}", detectedobjects.Payload);
+            var response = await httpClient.PostAsJsonAsync($"/{SharedConstants.Paths.Anonymize}/{videoId}", detectedobjects.Payload);
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
@@ -199,8 +199,8 @@
         try
         {
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
-            var url = $"{httpClient.BaseAddress}anonymized/{_currentVideoId}";
-            var fileName = "anonymized-video.mp4";
+            var url = $"{httpClient.BaseAddress}{SharedConstants.Paths.Anonymized}/{ _currentVideoId}";
+            var fileName = $"anonymized-{SelectedFileName}";
 
             StatusText = "Download started.";
             await InvokeAsync(StateHasChanged);

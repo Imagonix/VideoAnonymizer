@@ -10,7 +10,7 @@ public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
 
     public JobHubClient(IConfiguration configuration)
     {
-        var hubUrl = $"{configuration.GetApiServiceBaseUrl()}/hubs/jobs";
+        var hubUrl = $"{configuration.GetApiServiceBaseUrl()}{SharedConstants.SignalR.JobHubUrl}";
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
             .WithAutomaticReconnect()
@@ -24,10 +24,10 @@ public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
         => _hubConnection.StopAsync(cancellationToken);
 
     public IDisposable OnVideoAnalyzed(Func<LongRunningJobFinishedMessage, Task> handler)
-        => _hubConnection.On("videoAnalyzed", handler);
+        => _hubConnection.On(SharedConstants.SignalR.Messages.VideoAnalyzed, handler);
 
     public IDisposable OnVideoAnonymized(Func<LongRunningJobFinishedMessage, Task> handler)
-        => _hubConnection.On("videoAnonymized", handler);
+        => _hubConnection.On(SharedConstants.SignalR.Messages.VideoAnonymized, handler);
 
     public async ValueTask DisposeAsync()
     {

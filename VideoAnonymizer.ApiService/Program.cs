@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.Features;
 using VideoAnonymizer.ApiService;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.Web.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +71,6 @@ if (app.Environment.IsDevelopment())
 }
 app.MapDefaultEndpoints();
 app.MapControllers();
-app.MapHub<LongRunningJobsHub>("/hubs/jobs");
+app.MapHub<LongRunningJobsHub>(SharedConstants.SignalR.JobHubUrl);
 
 app.Run();

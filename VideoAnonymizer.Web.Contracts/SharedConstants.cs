@@ -14,5 +14,16 @@ namespace VideoAnonymizer.Web.Shared
             public const string Anonymize = "anonymize";
             public const string Health = "health";
         }
+
+        public static class SignalR
+        {
+            public const string JobHubUrl = "/hubs/jobs";
+            public static class Messages
+            {
+                public const string VideoAnalyzed = "videoAnalyzed";
+                public const string VideoAnonymized = "videoAnonymized";
+
+            }
+        }
     }
 }
