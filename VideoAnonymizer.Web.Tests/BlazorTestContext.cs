@@ -48,7 +48,7 @@ namespace VideoAnonymizer.Web.Tests
             {
                 BaseAddress = new Uri("https://localhost:5001")
             };
-
+            Services.AddSingleton<IHttpClientFactory>(new FakeHttpClientFactory(httpClient));
             Services.AddSingleton(httpClient);
             Services.AddSingleton<IJobHubClient>(JobHubClient);
             Services.AddMudServices();
