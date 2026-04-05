@@ -43,8 +43,9 @@ namespace VideoAnonymizer.Web.Tests.Pages
             ComponentUnderTest.Find("input[type='file']")
                 .Should().NotBeNull("There should be a file upload field!");
 
-            var uploadButton = ComponentUnderTest.Find("button");
-            uploadButton.TextContent.Should().Contain("Upload", "No upload button!", StringComparison.OrdinalIgnoreCase);
+            var mudButtons = ComponentUnderTest.FindAll("label");
+            var uploadButtons = mudButtons.Where(x => x.InnerHtml.Contains("Upload"));
+            uploadButtons.Count().Should().Be(1, "There should be exactly one upload button");
         }
 
         [Given("I uploaded a video")]

@@ -23,14 +23,17 @@
                            FilesChanged="OnFileSelected"
                            Accept="video/*"
                            Hidden="true">
-                <ButtonTemplate>
+                <CustomContent>
                     <MudButton HtmlTag="label"
                                Variant="Variant.Filled"
                                Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.UploadFile">
-                        Upload
+                               StartIcon="@Icons.Material.Filled.VideoFile"
+                               OnClick="@context.OpenFilePickerAsync"
+                               Class="upload-video-button">
+                        Upload Video
                     </MudButton>
-                </ButtonTemplate>
+                </CustomContent>
+                <SelectedTemplate />
             </MudFileUpload>
 
             @if (!string.IsNullOrWhiteSpace(SelectedFileName))
