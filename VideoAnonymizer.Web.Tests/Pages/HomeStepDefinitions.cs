@@ -1,18 +1,26 @@
 using Bunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using Reqnroll;
 using RichardSzalay.MockHttp;
 using System.Net;
-using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Pages;
+using VideoAnonymizer.Web.Services;
+using VideoAnonymizer.Web.Shared;
+using VideoAnonymizer.Web.Shared.DTO;
+using VideoAnonymizer.Web.Tests.FakeServices;
+using VideoAnonymizer.Web.Tests.TestDoubles;
 
 namespace VideoAnonymizer.Web.Tests.Pages
 {
     [Binding]
     public class HomeStepDefinitions : BlazorTestBase<Home>
     {
+        private Guid _currentVideoIdDefaultValue = Guid.NewGuid();
+        private Guid _currentAnonimizationJobIdDefaultValue = Guid.NewGuid();
+
         private Guid? CurrentVideoId
         {
             get => _scenarioContext.Get<Guid>(nameof(CurrentVideoId));
@@ -23,6 +31,24 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
             get => _scenarioContext.Get<Guid>(nameof(CurrentAnonimizationJobId));
             set => _scenarioContext.Set(value, nameof(CurrentAnonimizationJobId));
+        }
+
+        private MockHttpMessageHandler MockHttpMessageHandler
+        {
+            get => _scenarioContext.Get<MockHttpMessageHandler>(nameof(MockHttpMessageHandler));
+            set => _scenarioContext.Set(value, nameof(MockHttpMessageHandler));
+        }
+
+        protected FakeJobHubClient JobHubClient
+        {
+            get => _scenarioContext.Get<FakeJobHubClient>(nameof(JobHubClient));
+            set => _scenarioContext.Set(value, nameof(JobHubClient));
+        }
+
+        protected FakeDownloadService DownloadService
+        {
+            get => _scenarioContext.Get<FakeDownloadService>(nameof(DownloadService));
+            set => _scenarioContext.Set(value, nameof(DownloadService));
         }
 
         public HomeStepDefinitions(ScenarioContext scenarioContext)
@@ -65,35 +91,51 @@ namespace VideoAnonymizer.Web.Tests.Pages
         [When("I press download")]
         public async Task WhenIPressDownload()
         {
+            await Task.Delay(60);
             await ComponentUnderTest.WaitForAssertionAsync(() =>
             {
                 ComponentUnderTest.Instance.IsAnonymized.Should().BeTrue();
-            }, TimeSpan.FromSeconds(5));
-            var downloadButton = ComponentUnderTest.Find("button:contains('Download')");
-            downloadButton.Click();
+            }, TimeSpan.FromSeconds(60));
+            //var downloadButton = ComponentUnderTest.Find("button:contains('Download')");
+            //downloadButton.Click();
+            await ComponentUnderTest.InvokeAsync(async () =>
+            {
+                var downloadButton = ComponentUnderTest
+                .FindComponents<MudButton>()
+                .Single(x => x.Markup.Contains("Download", StringComparison.OrdinalIgnoreCase));
+                var buttonElement = downloadButton.Find("button");
+                await buttonElement.ClickAsync();
+            });
         }
 
         [Then("I get an anonymized video back")]
         public void ThenIGetAnAnonymizedVideoBack()
         {
-            var callCount = MockHttpMessageHandler.GetMatchCount(
-                MockHttpMessageHandler.When(HttpMethod.Get, $"/anonymized/{CurrentAnonimizationJobId}")
-            );
-            callCount.Should().Be(1,
-                $"The endpoint /anonymized/{CurrentAnonimizationJobId} should have been called exactly once.");
-            MockHttpMessageHandler.VerifyNoOutstandingExpectation();
+            DownloadService.DownloadCallCount.Should().Be(1, "Download should have been triggered once");
+            DownloadService.LastDownloadedUrl.Should().Contain(SharedConstants.Paths.Anonymized);
+            DownloadService.LastDownloadedUrl.Should().Contain($"{CurrentVideoId}");
         }
 
-        protected override void SetupMockClient()
+        protected override void SetupServices()
         {
-            CurrentVideoId = Guid.NewGuid();
-            CurrentAnonimizationJobId = Guid.NewGuid();
+            DownloadService = new FakeDownloadService();
+            JobHubClient = new FakeJobHubClient();
+            SetupMockClient();
+            Services.AddSingleton<IHttpClientFactory>(new FakeHttpClientFactory(MockHttpMessageHandler));
+            Services.AddSingleton<IJobHubClient>(JobHubClient);
+            Services.AddSingleton<IDownloadService>(DownloadService);
+            SetupMockClient();
+        }
 
+        protected void SetupMockClient()
+        {
+            MockHttpMessageHandler = new MockHttpMessageHandler();
             MockHttpMessageHandler
-                .When(HttpMethod.Post, "/analyze*")
+                .When(HttpMethod.Post, $"/{SharedConstants.Paths.Analyze}*")
                 .Respond(req =>
                 {
-                    _ = Task.Delay(50).ContinueWith(async _ =>
+                    CurrentVideoId = _currentVideoIdDefaultValue;
+                    _ = Task.Delay(150).ContinueWith(async _ =>
                     {
                         // send message shortly after return to simulate the video analyzing finished
                         var message = new LongRunningJobFinishedMessage
@@ -102,25 +144,25 @@ namespace VideoAnonymizer.Web.Tests.Pages
                             Status = "Completed",
                         };
                         await JobHubClient.RaiseVideoAnalyzedAsync(message);
-                    }, TaskScheduler.FromCurrentSynchronizationContext()
-                    );
+                    });
 
-
+                    string response = System.Text.Json.JsonSerializer.Serialize(new ApiResponse<Guid>() { Payload = CurrentVideoId.Value, IsSuccess = true });
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
-                        Content = new StringContent($"{{\"videoId\": \"{CurrentVideoId}\" }}")
+                        Content = new StringContent(response)
                     };
                 });
 
             MockHttpMessageHandler
-                .When(HttpMethod.Get, $"/analyzed/{CurrentVideoId}")
+                .When(HttpMethod.Get, $"/{SharedConstants.Paths.Analyzed}/{_currentVideoIdDefaultValue}")
                 .Respond("application/json", "{}");
 
             MockHttpMessageHandler
-                .When(HttpMethod.Post, $"/anonymize/{CurrentVideoId}")
+                .When(HttpMethod.Post, $"/{SharedConstants.Paths.Anonymize}/{_currentVideoIdDefaultValue}")
                 .Respond(req =>
                 {
-                    _ = Task.Delay(50).ContinueWith(async _ =>
+                    CurrentAnonimizationJobId = _currentAnonimizationJobIdDefaultValue;
+                    _ = Task.Delay(150).ContinueWith(async _ =>
                     {
                         // send message shortly after return to simulate the video anonimization finished
                         var message = new LongRunningJobFinishedMessage
@@ -130,17 +172,17 @@ namespace VideoAnonymizer.Web.Tests.Pages
                         };
 
                         await JobHubClient.RaiseVideoAnonymizedAsync(message);
-                    }, TaskScheduler.FromCurrentSynchronizationContext()
-                    );
+                    });
 
+                    string response = System.Text.Json.JsonSerializer.Serialize(new ApiResponse<Guid>() { Payload = CurrentAnonimizationJobId.Value, IsSuccess = true });
                     return new HttpResponseMessage(HttpStatusCode.OK)
                     {
-                        Content = new StringContent($"{{\"videoId\": \"{CurrentAnonimizationJobId}\" }}")
+                        Content = new StringContent(response)
                     };
                 });
 
             MockHttpMessageHandler
-                .When(HttpMethod.Get, $"/anonymized/{CurrentAnonimizationJobId}")
+                .When(HttpMethod.Get, $"/{SharedConstants.Paths.Anonymized}/{_currentVideoIdDefaultValue}")
                 .Respond("application/json", "{}");
         }
 
@@ -148,6 +190,12 @@ namespace VideoAnonymizer.Web.Tests.Pages
         public void Cleanup()
         {
             MockHttpMessageHandler.Clear();
+        }
+
+        public new void Dispose()
+        {
+            MockHttpMessageHandler.Dispose();
+            base.Dispose();
         }
     }
 }

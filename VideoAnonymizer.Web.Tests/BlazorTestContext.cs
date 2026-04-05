@@ -20,56 +20,21 @@ namespace VideoAnonymizer.Web.Tests
             set => _scenarioContext.Set(value, nameof(ComponentUnderTest));
         }
 
-        protected MockHttpMessageHandler MockHttpMessageHandler
-        {
-            get => _scenarioContext.Get<MockHttpMessageHandler>(nameof(MockHttpMessageHandler));
-            set => _scenarioContext.Set(value, nameof(MockHttpMessageHandler));
-        }
-
-        protected FakeJobHubClient JobHubClient
-        {
-            get => _scenarioContext.Get<FakeJobHubClient>(nameof(JobHubClient));
-            set => _scenarioContext.Set(value, nameof(JobHubClient));
-        }
-
         protected BlazorTestBase(ScenarioContext scenarioContext)
         {
             _scenarioContext = scenarioContext;
-            MockHttpMessageHandler = new MockHttpMessageHandler();
-            JobHubClient = new FakeJobHubClient();
             JSInterop.Mode = JSRuntimeMode.Loose;
-
-            SetupServices();
         }
 
-        private void SetupServices()
-        {
-            var httpClient = new HttpClient(MockHttpMessageHandler)
-            {
-                BaseAddress = new Uri("https://localhost:5001")
-            };
-            Services.AddSingleton<IHttpClientFactory>(new FakeHttpClientFactory(httpClient));
-            Services.AddSingleton(httpClient);
-            Services.AddSingleton<IJobHubClient>(JobHubClient);
-            Services.AddMudServices();
-            SetupMockClient();
-        }
-
-        protected virtual void SetupMockClient()
-        {
-        }
+        protected virtual void SetupServices() { }
 
         [BeforeScenario]
         public virtual async Task Initialize()
         {
+            SetupServices();
+            Services.AddMudServices();
             ComponentUnderTest = Render<TComponent>();
             await Task.CompletedTask;
-        }
-
-        public new void Dispose()
-        {
-            MockHttpMessageHandler.Dispose();
-            base.Dispose();
         }
     }
 }

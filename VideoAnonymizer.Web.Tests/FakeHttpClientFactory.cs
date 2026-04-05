@@ -1,4 +1,5 @@
-﻿using System;
+﻿using RichardSzalay.MockHttp;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -6,15 +7,19 @@ namespace VideoAnonymizer.Web.Tests;
 
 public sealed class FakeHttpClientFactory : IHttpClientFactory
 {
-    private readonly HttpClient _httpClient;
+    private readonly MockHttpMessageHandler _mockHttpMessageHandler;
 
-    public FakeHttpClientFactory(HttpClient httpClient)
+    public FakeHttpClientFactory(MockHttpMessageHandler mockHttpMessageHandler)
     {
-        _httpClient = httpClient;
+        _mockHttpMessageHandler = mockHttpMessageHandler;
     }
 
     public HttpClient CreateClient(string name)
     {
-        return _httpClient;
+        var httpClient = new HttpClient(_mockHttpMessageHandler)
+        {
+            BaseAddress = new Uri("https://localhost:5001")
+        };
+        return httpClient;
     }
 }

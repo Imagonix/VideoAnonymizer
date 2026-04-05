@@ -19,5 +19,6 @@ builder.Services.AddHttpClient("ApiService", client =>
 });
 
 builder.Services.AddScoped<IJobHubClient, JobHubClient>();
+builder.Services.AddScoped<IDownloadService, DownloadService>();
 
 await builder.Build().RunAsync();

@@ -9,7 +9,7 @@
 @using VideoAnonymizer.Web.Shared.DTO
 
 @implements IAsyncDisposable
-@inject IJSRuntime JS
+@inject IDownloadService DownloadService
 @inject IHttpClientFactory HttpClientFactory 
 @inject IJobHubClient JobHubClient
 @inject ISnackbar Snackbar
@@ -56,7 +56,7 @@
             <MudStack Row="true" Spacing="2">
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Secondary"
-                           Disabled="@(!IsAnonymized || _anonymizedVideoId.IsNullOrEmpty())"
+                           Disabled="@(!IsAnonymized || _anonymizeVideoJobId.IsNullOrEmpty())"
                            OnClick="DownloadAsync">
                     Download
                 </MudButton>
@@ -73,7 +73,7 @@
 
     private IBrowserFile? _selectedFile;
     private Guid? _currentVideoId;
-    private Guid? _anonymizedVideoId;
+    private Guid? _anonymizeVideoJobId;
 
     public bool IsAnonymized { get; private set; }
 
@@ -99,7 +99,7 @@
 
         _videoAnonymizedSubscription = JobHubClient.OnVideoAnonymized(async message =>
         {
-            _anonymizedVideoId = message.JobId;
+            _anonymizeVideoJobId = message.JobId;
             IsAnonymized = true;
             IsBusy = false;
             StatusText = "Video anonymized successfully.";
@@ -108,14 +108,6 @@
         });
 
         await JobHubClient.StartAsync();
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
-        {
-            module = await JS.InvokeAsync<IJSObjectReference>("import", "./Pages/Home.razor.js");
-        }
     }
 
     private async Task OnFileSelected(IBrowserFile? file)
@@ -127,7 +119,7 @@
         SelectedFileName = file.Name;
         IsAnonymized = false;
         _currentVideoId = null;
-        _anonymizedVideoId = null;
+        _anonymizeVideoJobId = null;
         IsBusy = true;
         StatusText = "Uploading and analyzing video...";
 
@@ -178,7 +170,7 @@
 
             if (result is not null && !result.Payload.IsNullOrEmpty())
             {
-                _anonymizedVideoId = result.Payload;
+                _anonymizeVideoJobId = result.Payload;
             }
 
             StatusText = "Anonymization started. Waiting for completion...";
@@ -195,20 +187,18 @@
 
     private async Task DownloadAsync()
     {
-        if (_anonymizedVideoId.IsNullOrEmpty()) {
+        if (_anonymizeVideoJobId.IsNullOrEmpty())
             return;
-        }
 
         try
         {
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
-            var url = $"{httpClient.BaseAddress}{SharedConstants.Paths.Anonymized}/{ _currentVideoId}";
-            var fileName = $"anonymized-{SelectedFileName}";
+            var url = $"{httpClient.BaseAddress}{SharedConstants.Paths.Anonymized}/{_currentVideoId}";
 
             StatusText = "Download started.";
             await InvokeAsync(StateHasChanged);
 
-            await module.InvokeVoidAsync("triggerFileDownload", fileName, url);
+            await DownloadService.DownloadFileAsync($"anonymized-{SelectedFileName}", url);
         }
         catch (Exception ex)
         {
