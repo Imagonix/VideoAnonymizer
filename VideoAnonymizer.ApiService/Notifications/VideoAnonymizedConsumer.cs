@@ -22,7 +22,7 @@ namespace VideoAnonymizer.ApiService.Notifications
 
         public override async Task Consume(AnalyzedVideo message, CancellationToken cancellationToken)
         {
-            await _hub.Clients.All.SendAsync(SharedConstants.SignalR.Messages.VideoAnonymized, new LongRunningJobFinishedMessage() { JobId = message.JobId, Status = "completed" }, cancellationToken);
+            await _hub.Clients.All.SendAsync(SharedConstants.SignalR.Messages.VideoAnonymized, new LongRunningJobFinishedMessage() { JobId = message.JobId, Status = SharedConstants.SignalR.Status.Completed }, cancellationToken);
         }
     }
 }

@@ -24,6 +24,10 @@ namespace VideoAnonymizer.Web.Shared
                 public const string VideoAnonymized = "videoAnonymized";
 
             }
+            public static class Status
+            {
+                public const string Completed = "completed";
+            }
         }
     }
 }
