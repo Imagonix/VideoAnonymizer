@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 
-namespace VideoAnonymizer.ApiService
+namespace VideoAnonymizer.ApiService.Notifications
 {
     public class LongRunningJobsHub(ILogger<LongRunningJobsHub> logger) : Hub
     {

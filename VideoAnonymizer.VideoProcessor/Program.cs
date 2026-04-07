@@ -1,5 +1,6 @@
 using MassTransit;
-using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.Extensions;
+using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.VideoProcessor;
@@ -10,12 +11,11 @@ builder.AddServiceDefaults();
 builder.Services.AddSingletonAsHostedService<VideoAnalyzer>();
 builder.Services.AddSingletonAsHostedService<VideoAnonymizer.VideoProcessor.VideoAnonymizer>();
 
-builder.Services.AddMassTransit(x =>
-{
-    x.AddConsumer<AnalyzeVideoConsumer>();
-    x.AddConsumer<AnonymizeVideoConsumer>();
-    x.ConfigureRabbitMq(builder);
-});
+builder.ConfigureRabbitMQConnection();
+builder.Services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
+builder.Services.AddSingleton<IRabbitMqConnectionFactory, RabbitMqConnectionFactory>();
+builder.Services.AddHostedService<AnalyzeVideoConsumer>();
+builder.Services.AddHostedService<AnonymizeVideoConsumer>();
 
 var objectDetectionUrl = builder.Configuration["services:objectDetection:https:0"]
     ?? throw new InvalidOperationException("objectDetection URL not found");
@@ -25,7 +25,7 @@ builder.Services.AddHttpClient("objectDetection", client =>
     client.BaseAddress = new Uri(objectDetectionUrl);
 });
 
-builder.Services.AddScoped<ObjectDetectionClient>(sp =>
+builder.Services.AddSingleton(sp =>
 {
     var httpClient = sp.GetRequiredService<IHttpClientFactory>()
         .CreateClient("objectDetection");

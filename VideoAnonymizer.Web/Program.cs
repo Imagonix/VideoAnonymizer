@@ -4,6 +4,7 @@ using MudBlazor.Services;
 using VideoAnonymizer.Web;
 using VideoAnonymizer.Web.Services;
 using Microsoft.Extensions.DependencyInjection;
+using VideoAnonymizer.Web.Utils;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 

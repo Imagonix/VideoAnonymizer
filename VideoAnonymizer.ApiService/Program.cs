@@ -1,7 +1,9 @@
 using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
 using VideoAnonymizer.ApiService;
-using VideoAnonymizer.Contracts;
+using VideoAnonymizer.ApiService.Notifications;
+using VideoAnonymizer.Contracts.Extensions;
+using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared;
 
@@ -32,11 +34,11 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
-builder.Services.AddMassTransit(x =>
-{
-    x.AddConsumer<AsyncNotificationService>();
-    x.ConfigureRabbitMq(builder);
-});
+builder.ConfigureRabbitMQConnection();
+builder.Services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
+builder.Services.AddSingleton<IRabbitMqConnectionFactory, RabbitMqConnectionFactory>();
+builder.Services.AddHostedService<VideoAnalyzedConsumer>();
+builder.Services.AddHostedService<VideoAnonymizedConsumer>();
 builder.Services.AddSingleton<LongRunningJobsHub>();
 builder.Services.AddScoped<VideoDataService>();
 

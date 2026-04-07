@@ -10,7 +10,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Net.Mime;
 using System.Text;
-using VideoAnonymizer.AppHost;
+using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
@@ -26,6 +26,12 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         {
             get => (DistributedApplication)_scenarioContext[nameof(App)];
             set => _scenarioContext[nameof(App)] = value;
+        }
+
+        private HubConnection JobHubConnection
+        {
+            get => (HubConnection)_scenarioContext[nameof(JobHubConnection)];
+            set => _scenarioContext[nameof(JobHubConnection)] = value;
         }
 
         private TaskCompletionSource<LongRunningJobFinishedMessage> TaskCompletionSourceLongRunningJobFinishedMessage
@@ -75,49 +81,124 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
         [BeforeScenario]
         public async Task SetupEnvironment()
         {
-            //Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", HostEnvironmentExtensions.ENVIRONMENT_TEST);
-            //Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", HostEnvironmentExtensions.ENVIRONMENT_TEST); 
+            Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", HostEnvironmentExtensions.ENVIRONMENT_TEST);
+            Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", HostEnvironmentExtensions.ENVIRONMENT_TEST);
 
-            var appHost =
-            await DistributedApplicationTestingBuilder
-                    .CreateAsync<Projects.VideoAnonymizer_AppHost>();
+            Log("CreateAsync start");
+            var appHost = await DistributedApplicationTestingBuilder
+                .CreateAsync<Projects.VideoAnonymizer_AppHost>();
+            Log("CreateAsync done");
+
             appHost.Services.ConfigureHttpClientDefaults(clientBuilder =>
             {
                 clientBuilder.AddStandardResilienceHandler();
             });
 
+            Log("BuildAsync start");
             App = await appHost.BuildAsync();
-            await App.StartAsync(); 
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("objectDetection");
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("postgres");
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("videoAnonymizerDb");
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("rabbit");
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("apiservice");
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("videoanonymizer-videoprocessor"); 
-            //await App.ResourceNotifications.WaitForResourceHealthyAsync("videoanonymizer-database-migrationservice");
+            Log("BuildAsync done");
+
+            Log("App.StartAsync start"); 
+            try
+            {
+                await App.StartAsync().WaitAsync(TimeSpan.FromSeconds(90));
+                Log("App.StartAsync done");
+            }
+            catch (TimeoutException ex)
+            {
+                Log($"App.StartAsync TIMEOUT: {ex}");
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log("App.StartAsync FAILED:");
+                Log(ex.ToString());
+                throw;
+            }
+
+            await WaitHealthy("objectDetection");
+            await WaitHealthy("postgres");
+            await WaitHealthy("videoAnonymizerDb");
+            await WaitHealthy("apiservice");
+            await WaitHealthy("videoanonymizer-videoprocessor");
+            await WaitHealthy("videoanonymizer-database-migrationservice");
+
+            Log("Create client");
             var client = CreteApiServiceHttpClient();
             client.Timeout = TimeSpan.FromMinutes(1);
-            await client.GetAsync("/");
 
-            TaskCompletionSourceLongRunningJobFinishedMessage = new TaskCompletionSource<LongRunningJobFinishedMessage>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
+            Log("GET / start");
+            var warmupResponse = await client.GetAsync("/");
+            Log($"GET / done: {(int)warmupResponse.StatusCode}");
+
+            TaskCompletionSourceLongRunningJobFinishedMessage =
+                new TaskCompletionSource<LongRunningJobFinishedMessage>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+
             using var httpclient = CreteApiServiceHttpClient();
             var hubUrl = $"{httpclient.BaseAddress!.AbsoluteUri.TrimEnd('/')}/hubs/jobs";
+            Log($"Hub URL: {hubUrl}");
 
-            var connection = new HubConnectionBuilder()
+            JobHubConnection = new HubConnectionBuilder()
                 .WithUrl(hubUrl)
                 .WithAutomaticReconnect()
                 .Build();
 
-            connection.On<LongRunningJobFinishedMessage>("videoAnalyzed", message =>
+            JobHubConnection.On<LongRunningJobFinishedMessage>("videoAnalyzed", message =>
             {
+                Log($"Received videoAnalyzed: {message.Status}");
                 TaskCompletionSourceLongRunningJobFinishedMessage.TrySetResult(message);
             });
-            connection.On<LongRunningJobFinishedMessage>("videoAnonymized", message =>
+
+            JobHubConnection.On<LongRunningJobFinishedMessage>("videoAnonymized", message =>
             {
+                Log($"Received videoAnonymized: {message.Status}");
                 TaskCompletionSourceLongRunningJobFinishedMessage.TrySetResult(message);
             });
-            await connection.StartAsync();
+
+            JobHubConnection.Closed += ex =>
+            {
+                Log($"Hub closed: {ex}");
+                return Task.CompletedTask;
+            };
+
+            JobHubConnection.Reconnecting += ex =>
+            {
+                Log($"Hub reconnecting: {ex}");
+                return Task.CompletedTask;
+            };
+
+            JobHubConnection.Reconnected += id =>
+            {
+                Log($"Hub reconnected: {id}");
+                return Task.CompletedTask;
+            };
+
+            Log("Hub StartAsync start");
+            await JobHubConnection.StartAsync();
+            Log("Hub StartAsync done");
+        }
+
+        private async Task WaitHealthy(string resourceName, int timeoutSeconds = 60)
+        {
+            Log($"WaitHealthy start: {resourceName}");
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
+            var waitTask = App.ResourceNotifications.WaitForResourceHealthyAsync(resourceName);
+
+            var completedTask = await Task.WhenAny(waitTask, Task.Delay(Timeout.Infinite, cts.Token));
+            if (completedTask != waitTask)
+            {
+                throw new TimeoutException($"Resource '{resourceName}' did not become healthy within {timeoutSeconds} seconds.");
+            }
+
+            await waitTask;
+            Log($"WaitHealthy done: {resourceName}");
+        }
+
+        private static void Log(string message)
+        {
+            TestContext.Progress.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] {message}");
         }
 
         [Given("I upload a video containing sensitive data")]
@@ -207,6 +288,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             {
                 await App.DisposeAsync();
             }
+            await JobHubConnection.DisposeAsync();
 
             Environment.SetEnvironmentVariable("ASPNETCORE_ENVIRONMENT", null);
             Environment.SetEnvironmentVariable("DOTNET_ENVIRONMENT", null);

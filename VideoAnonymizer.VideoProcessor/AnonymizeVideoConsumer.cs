@@ -1,16 +1,29 @@
-﻿using MassTransit;
-using System;
-using System.Collections.Generic;
-using System.Text;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.RabbitMQ;
 
-namespace VideoAnonymizer.VideoProcessor
+namespace VideoAnonymizer.VideoProcessor;
+
+internal sealed class AnonymizeVideoConsumer : MessageConsumer<AnonymizeVideo>
 {
-    internal class AnonymizeVideoConsumer(VideoAnonymizer Worker) : IConsumer<AnonymizeVideo>
+    private readonly VideoAnonymizer _worker;
+
+    protected override string Queue => RabbitMQConstants.Queues.VideoProcessing;
+    protected override string RoutingKey => RabbitMQConstants.RoutingKeys.Anonymize;
+
+    public AnonymizeVideoConsumer(
+        VideoAnonymizer worker,
+        IRabbitMqConnectionFactory connectionFactory,
+        IOptions<RabbitMqOptions> options,
+        ILogger<AnonymizeVideoConsumer> logger)
+        : base(connectionFactory, options, logger)
     {
-        public async Task Consume(ConsumeContext<AnonymizeVideo> context)
-        {
-            await Worker.EnqueueAsync(context.Message);
-        }
+        _worker = worker;
+    }
+
+    public override async Task Consume(AnonymizeVideo message, CancellationToken cancellationToken)
+    {
+        await _worker.EnqueueAsync(message);
     }
 }

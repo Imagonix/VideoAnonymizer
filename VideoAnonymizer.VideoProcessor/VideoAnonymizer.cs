@@ -3,12 +3,14 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 
 namespace VideoAnonymizer.VideoProcessor;
 
 public class VideoAnonymizer(
     ILogger<VideoAnonymizer> logger,
+    IMessagePublisher messagePublisher,
     IServiceProvider serviceProvider)
     : SingleJobQueingWorker<AnonymizeVideo>(logger)
 {
@@ -17,7 +19,6 @@ public class VideoAnonymizer(
         await using var scope = serviceProvider.CreateAsyncScope();
 
         var db = scope.ServiceProvider.GetRequiredService<VideoAnonymizerDbContext>();
-        var publishEndpoint = scope.ServiceProvider.GetRequiredService<IPublishEndpoint>();
 
         var video = await db.Videos.FindAsync(job.VideoId, stoppingToken);
         if (video is null)
@@ -70,7 +71,7 @@ public class VideoAnonymizer(
         video.AnonomizedPath = outputPath;
         await db.SaveChangesAsync(stoppingToken);
 
-        await publishEndpoint.Publish(new AnonymizedVideo(job.JobId, DateTime.Now), stoppingToken);
+        await messagePublisher.PublishAsync(RabbitMQConstants.RoutingKeys.Anonymized, new AnonymizedVideo(job.JobId, DateTime.Now), stoppingToken);
     }
     private static Dictionary<int, List<TrackedPosition>> GroupObjectsByTrack(
         List<DetectedObject> detectedObjects, double fps)

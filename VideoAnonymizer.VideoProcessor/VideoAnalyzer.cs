@@ -3,12 +3,13 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using OpenCvSharp;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
 namespace VideoAnonymizer.VideoProcessor;
 
-public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider serviceProvider) : SingleJobQueingWorker<AnalyzeVideo>(logger)
+public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher messagePublisher, IServiceProvider serviceProvider) : SingleJobQueingWorker<AnalyzeVideo>(logger)
 {
     protected override async Task HandleJob(AnalyzeVideo job, CancellationToken stoppingToken)
     {
@@ -103,8 +104,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IServiceProvider servi
         video.AnalyzedFrames = analyzedFrames;
         await db.SaveChangesAsync();
 
-        var publishEndpoint = serviceProvider.CreateScope().ServiceProvider.GetService<IPublishEndpoint>()!;
-        await publishEndpoint.Publish(new AnalyzedVideo(job.VideoId, DateTime.Now));
+        await messagePublisher.PublishAsync(RabbitMQConstants.RoutingKeys.Analyzed, new AnalyzedVideo(job.VideoId, DateTime.Now), stoppingToken);
     }
 
     private static string ConvertMatToBase64Jpeg(Mat frame)

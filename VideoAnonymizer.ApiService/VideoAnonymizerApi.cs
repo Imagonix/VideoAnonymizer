@@ -1,9 +1,9 @@
-﻿using MassTransit;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using System.ComponentModel.DataAnnotations;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
@@ -11,7 +11,7 @@ using VideoAnonymizer.Web.Shared.DTO;
 namespace VideoAnonymizer.ApiService
 {
     [ApiController]
-    public class VideoAnonymizerApi(IPublishEndpoint publishEndpoint, IWebHostEnvironment environment, VideoDataService videoDataService) : ControllerBase
+    public class VideoAnonymizerApi(IMessagePublisher messagePublisher, IWebHostEnvironment environment, VideoDataService videoDataService) : ControllerBase
     {
         [HttpGet($"{SharedConstants.Paths.Health}")]
         public IActionResult Health()
@@ -44,9 +44,11 @@ namespace VideoAnonymizer.ApiService
 
             (Guid videoId, string fullPath) = await videoDataService.SaveVideoFileAndCreateDbEntry(video, extension, environment.ContentRootPath, cancellationToken);
 
-            await publishEndpoint.Publish(
+            await messagePublisher.PublishAsync(
+                RabbitMQConstants.RoutingKeys.Analyze,
                 new AnalyzeVideo(videoId, fullPath, DateTime.UtcNow, detectionIntervalMs),
-                cancellationToken);
+                cancellationToken
+            );
 
             return Ok(new ApiResponse<Guid>()
             {
@@ -76,13 +78,17 @@ namespace VideoAnonymizer.ApiService
 
 
         [HttpPost($"{SharedConstants.Paths.Anonymize}/{{videoId:guid}}")]
-        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrameDto> frames)
+        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrameDto> frames, CancellationToken cancellationToken)
         {
             var jobId = Guid.NewGuid();
             try
             {
                 var video = await videoDataService.UpdateFramesAndObjects(videoId, frames);
-                await publishEndpoint.Publish(new AnonymizeVideo(jobId, video.Id, DateTime.Now));
+                await messagePublisher.PublishAsync(
+                    RabbitMQConstants.RoutingKeys.Anonymize,
+                    new AnonymizeVideo(jobId, video.Id, DateTime.Now),
+                    cancellationToken
+                );
                 return Ok(new ApiResponse<Guid>()
                 {
                     Payload = jobId,

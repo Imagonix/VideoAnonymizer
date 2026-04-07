@@ -1,4 +1,4 @@
-﻿namespace VideoAnonymizer.Web
+﻿namespace VideoAnonymizer.Web.Utils
 {
     public static class ConfigurationExtensions
     {
