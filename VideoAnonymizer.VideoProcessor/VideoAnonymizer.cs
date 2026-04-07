@@ -45,27 +45,29 @@ public class VideoAnonymizer(
         var frameWidth = capture.FrameWidth;
         var frameHeight = capture.FrameHeight;
 
-        using var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight));
-
-        var tracks = GroupObjectsByTrack(selectedObjects, fps);
-
-        using var frameMat = new Mat();
-        var currentFrameIndex = 0;
-
-        while (!stoppingToken.IsCancellationRequested)
+        // using block to ensure file is written completly, when exiting the block
+        using (var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight)))
         {
-            if (!capture.Read(frameMat) || frameMat.Empty())
-                break;
+            var tracks = GroupObjectsByTrack(selectedObjects, fps);
 
-            var objectsToBlur = GetObjectsForFrame(tracks, currentFrameIndex, frameWidth, frameHeight);
+            using var frameMat = new Mat();
+            var currentFrameIndex = 0;
 
-            foreach (var obj in objectsToBlur)
+            while (!stoppingToken.IsCancellationRequested)
             {
-                BlurRegion(frameMat, obj);
-            }
+                if (!capture.Read(frameMat) || frameMat.Empty())
+                    break;
 
-            writer.Write(frameMat);
-            currentFrameIndex++;
+                var objectsToBlur = GetObjectsForFrame(tracks, currentFrameIndex, frameWidth, frameHeight);
+
+                foreach (var obj in objectsToBlur)
+                {
+                    BlurRegion(frameMat, obj);
+                }
+
+                writer.Write(frameMat);
+                currentFrameIndex++;
+            }
         }
 
         video.AnonomizedPath = outputPath;
