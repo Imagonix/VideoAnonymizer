@@ -16,17 +16,39 @@ if (builder.Environment.IsDevelopment())
 {
     postgres.WithPgAdmin();
 }
-
 var postgresdb = postgres.AddDatabase("videoAnonymizerDb");
 
 var migrationService = builder.AddProject<Projects.VideoAnonymizer_Database_MigrationService>("videoanonymizer-database-migrationservice")
     .WithReference(postgresdb)
     .WaitFor(postgresdb);
 
+var solutionRoot = Path.GetFullPath(Path.Combine(builder.AppHostDirectory, ".."));
+
+var sourceModelPath = Path.Combine(
+    solutionRoot,
+    "VideoAnonymizer.ObjectDetection",
+    "models",
+    "FaceDetector.onnx");
+
+var targetModelPath = Path.Combine(
+    solutionRoot,
+    "data",
+    "models",
+    "FaceDetector.onnx");
+
+var modelDownloader = builder.AddProject<Projects.VideoAnonymizer_ModelDownloader>("modeldownloader")
+    .WithEnvironment("ModelDownload__TargetPath", targetModelPath)
+    .WithEnvironment("ModelDownload__SourceModelPath", sourceModelPath)
+    .WithReference(postgresdb)
+    .WaitFor(migrationService);
+
+
 var objectDetection = builder.AddUvicornApp(
         name: "objectDetection",
         appDirectory: "../VideoAnonymizer.ObjectDetection",
-        app: "main:app");
+        app: "main:app")
+    .WithEnvironment("FACE_DETECTOR_MODEL_PATH", targetModelPath)
+    .WaitForCompletion(modelDownloader);
 
 if (builder.Environment.IsDevelopment())
 {

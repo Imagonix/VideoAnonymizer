@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VideoAnonymizer.Database;
@@ -11,9 +12,11 @@ using VideoAnonymizer.Database;
 namespace VideoAnonymizer.Database.Migrations
 {
     [DbContext(typeof(VideoAnonymizerDbContext))]
-    partial class VideoAnonymizerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260408004947_SystemSettings")]
+    partial class SystemSettings
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

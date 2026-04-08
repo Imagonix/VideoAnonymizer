@@ -1,10 +1,10 @@
 using MassTransit;
 using Microsoft.AspNetCore.Http.Features;
-using VideoAnonymizer.ApiService;
+using VideoAnonymizer.ApiService.DataServices;
 using VideoAnonymizer.ApiService.Notifications;
 using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Contracts.RabbitMQ;
-using VideoAnonymizer.Database;
+using VideoAnonymizer.Database.Extensions;
 using VideoAnonymizer.Web.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -41,6 +41,7 @@ builder.Services.AddHostedService<VideoAnalyzedConsumer>();
 builder.Services.AddHostedService<VideoAnonymizedConsumer>();
 builder.Services.AddSingleton<LongRunningJobsHub>();
 builder.Services.AddScoped<VideoDataService>();
+builder.Services.AddScoped<StateDataService>();
 
 builder.AddVideoAnonymizerDbContextFactory();
 

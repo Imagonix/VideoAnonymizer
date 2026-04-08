@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Internal;
 using System.ComponentModel.DataAnnotations;
+using VideoAnonymizer.ApiService.DataServices;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
@@ -11,7 +12,7 @@ using VideoAnonymizer.Web.Shared.DTO;
 namespace VideoAnonymizer.ApiService
 {
     [ApiController]
-    public class VideoAnonymizerApi(IMessagePublisher messagePublisher, IWebHostEnvironment environment, VideoDataService videoDataService) : ControllerBase
+    public class VideoAnonymizerApi(IMessagePublisher messagePublisher, IWebHostEnvironment environment, VideoDataService videoDataService, StateDataService stateDataService) : ControllerBase
     {
         [HttpGet($"{SharedConstants.Paths.Health}")]
         public IActionResult Health()
@@ -119,6 +120,13 @@ namespace VideoAnonymizer.ApiService
             {
                 return NotFound();
             }
+        }
+
+        [HttpGet($"{SharedConstants.Paths.AppState}")]
+        public async Task<IActionResult> GetAppState()
+        {
+            var appState = stateDataService.LoadState();
+            return Ok(appState);
         }
     }
 }

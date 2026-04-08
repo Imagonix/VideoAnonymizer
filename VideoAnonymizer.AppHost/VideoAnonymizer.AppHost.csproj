@@ -11,9 +11,10 @@
 	<ItemGroup>
 		<ProjectReference Include="..\VideoAnonymizer.ApiService\VideoAnonymizer.ApiService.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Database.MigrationService\VideoAnonymizer.Database.MigrationService.csproj" />
+		<ProjectReference Include="..\VideoAnonymizer.ModelDownloader\VideoAnonymizer.ModelDownloader.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.VideoProcessor\VideoAnonymizer.VideoProcessor.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Web\VideoAnonymizer.Web.csproj" />
-		<ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" IsAspireProjectResource="false"/>
+		<ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" IsAspireProjectResource="false" />
 	</ItemGroup>
 
 

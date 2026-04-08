@@ -1,4 +1,4 @@
-using VideoAnonymizer.Database;
+using VideoAnonymizer.Database.Extensions;
 using VideoAnonymizer.Database.MigrationService;
 
 var builder = Host.CreateApplicationBuilder(args);

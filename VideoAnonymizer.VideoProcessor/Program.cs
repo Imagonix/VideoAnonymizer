@@ -1,7 +1,7 @@
 using MassTransit;
 using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Contracts.RabbitMQ;
-using VideoAnonymizer.Database;
+using VideoAnonymizer.Database.Extensions;
 using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.VideoProcessor;
 

@@ -3,7 +3,7 @@ using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared.DTO;
 
-namespace VideoAnonymizer.ApiService
+namespace VideoAnonymizer.ApiService.DataServices
 {
     public class VideoDataService(IDbContextFactory<VideoAnonymizerDbContext> dbFactory)
     {

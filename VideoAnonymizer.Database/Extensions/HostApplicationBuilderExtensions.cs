@@ -7,7 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace VideoAnonymizer.Database
+namespace VideoAnonymizer.Database.Extensions
 {
     public static class HostApplicationBuilderExtensions
     {

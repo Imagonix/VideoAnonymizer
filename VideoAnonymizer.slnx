@@ -5,6 +5,7 @@
   <Project Path="VideoAnonymizer.Contracts/VideoAnonymizer.Contracts.csproj" Id="6ea7098a-7402-491c-bae9-a2399587014d" />
   <Project Path="VideoAnonymizer.Database.MigrationService/VideoAnonymizer.Database.MigrationService.csproj" />
   <Project Path="VideoAnonymizer.Database/VideoAnonymizer.Database.csproj" Id="0431f43f-a2aa-4ff1-be10-0c515c9fa453" />
+  <Project Path="VideoAnonymizer.ModelDownloader/VideoAnonymizer.ModelDownloader.csproj" />
   <Project Path="VideoAnonymizer.ObjectDetection/VideoAnonymizer.ObjectDetection.pyproj" Type="888888a0-9f3d-457c-b088-3a5042f75d52" Id="5091c743-7c8e-4e9b-98ec-585e2ff34d3d">
     <Build Project="false" />
   </Project>

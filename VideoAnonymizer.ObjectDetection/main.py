@@ -1,15 +1,16 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
 import base64
 import cv2
+from debugging import enable_debugpy_if_dev
+from fastapi import FastAPI
 import logging
+from models import DetectRequest, DetectionResult   
 import numpy as np
+from object_tracker_manager import ObjectTrackerManager
 import onnxruntime as ort
 import os
-from typing import List
-from models import DetectRequest, DetectionResult      
-from object_tracker_manager import ObjectTrackerManager
-from debugging import enable_debugpy_if_dev
+from pathlib import Path
+from pydantic import BaseModel
+from typing import List   
 
 logger = logging.getLogger("uvicorn.error")
 enable_debugpy_if_dev()
@@ -36,11 +37,15 @@ def health():
 
 tracker_manager = ObjectTrackerManager()
 
-MODEL_PATH = r".\models\FaceDetector.onnx"
+MODEL_PATH = Path(
+    os.getenv(
+        "FACE_DETECTOR_MODEL_PATH",
+        Path(__file__).resolve().parent / "models" / "FaceDetector.onnx"
+    )
+)
 INPUT_SIZE = (640, 640)
 CONF_THRESHOLD = 0.75
 NMS_THRESHOLD = 0.4
-
 
 session = ort.InferenceSession(
     MODEL_PATH,
