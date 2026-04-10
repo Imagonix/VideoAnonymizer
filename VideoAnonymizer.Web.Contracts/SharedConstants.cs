@@ -13,6 +13,7 @@ namespace VideoAnonymizer.Web.Shared
             public const string Anonymized = "anonymized";
             public const string Anonymize = "anonymize";
             public const string Health = "health";
+            public const string Video = "video";
 
             public const string AppState = "state";
         }

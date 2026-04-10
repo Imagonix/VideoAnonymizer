@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared.DTO;
@@ -17,6 +18,18 @@ namespace VideoAnonymizer.ApiService.DataServices
             }
             var dtos = video.AnalyzedFrames.Select(x => Mapper.ToDto(x)).ToList();
             return dtos;
+        }
+
+        public async Task<string> LoadOriginalVideoPath(Guid videoId)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+            var video = await db.Videos
+                .FirstOrDefaultAsync(v => v.Id == videoId);
+
+            if (video == null)
+                throw new NotFoundException();
+
+            return video.SourcePath;
         }
 
         public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile uploadedVideo, string extension, string contentRootPath, CancellationToken cancellationToken)

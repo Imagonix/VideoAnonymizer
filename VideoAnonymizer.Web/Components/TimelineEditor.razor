@@ -1,0 +1,289 @@
+﻿@using VideoAnonymizer.Web.Shared.DTO
+
+<MudPaper Class="pa-3">
+    <MudStack Spacing="2">
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudText Typo="Typo.h6">Timeline</MudText>
+
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="Variant.Outlined" OnClick="ZoomOut">- 25%</MudButton>
+                <MudButton Variant="Variant.Outlined" OnClick="ZoomIn">+ 25%</MudButton>
+            </MudStack>
+        </MudStack>
+
+        <div class="timeline-layout">
+            <div class="timeline-left">
+                @foreach (var row in Rows)
+                {
+                    <div class="timeline-row-label">
+                        <MudCheckBox T="bool"
+                                     Value="@ActiveObjectKeys.Contains(row.Key)"
+                                     ValueChanged="@(value => Toggle(row.Key, value))" />
+                        <span class="timeline-color-dot" style="background-color:@row.Color"></span>
+                        <span>@row.Label</span>
+                    </div>
+                }
+            </div>
+
+            <div class="timeline-right" @onclick="HandleTimelineClick" @onwheel="HandleWheel">
+                <svg width="100%" height="@SvgHeight" viewBox="0 0 @Width @SvgHeight" preserveAspectRatio="none">
+                    @foreach (var tick in Ticks)
+                    {
+                        <line x1="@tick.X" y1="0" x2="@tick.X" y2="@SvgHeight" stroke="#ddd" />
+                        @:<text x="@tick.X" y="15" font-size="12">@tick.Label</text>
+                    }
+
+                    @foreach (var row in Rows.Select((value, index) => new { value, index }))
+                    {
+                        var y = HeaderHeight + row.index * RowHeight + RowHeight / 2;
+
+                        <line x1="0" y1="@y" x2="@Width" y2="@y" stroke="#eee" />
+
+                        @foreach (var segment in GetSegments(row.value.Key))
+                        {
+                            <line x1="@segment.X1"
+                                  y1="@y"
+                                  x2="@segment.X2"
+                                  y2="@y"
+                                  stroke="@row.value.Color"
+                                  stroke-width="8"
+                                  stroke-linecap="round" />
+                        }
+                    }
+
+                    <line x1="@CurrentLineX"
+                          y1="0"
+                          x2="@CurrentLineX"
+                          y2="@SvgHeight"
+                          stroke="black"
+                          stroke-width="2" />
+                </svg>
+            </div>
+        </div>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public List<AnalyzedFrameDto> Frames { get; set; } = [];
+    [Parameter] public double CurrentTimeSeconds { get; set; }
+    [Parameter] public Dictionary<string, string> ObjectColors { get; set; } = [];
+    [Parameter] public HashSet<string> ActiveObjectKeys { get; set; } = [];
+    [Parameter] public EventCallback<(string key, bool active)> OnObjectToggled { get; set; }
+    [Parameter] public EventCallback<double> OnSeekRequested { get; set; }
+
+    private const double Width = 900;
+    private const double HeaderHeight = 24;
+    private const double RowHeight = 32;
+
+    private double _windowStart;
+    private double _windowDuration = 10;
+
+    private double VideoDuration => Frames.Count == 0 ? 0 : Frames.Max(f => f.TimeSeconds);
+    private double WindowEnd => Math.Min(VideoDuration, _windowStart + _windowDuration);
+    private double SvgHeight => HeaderHeight + Rows.Count * RowHeight + 10;
+
+    private List<TimelineRow> Rows => BuildRows();
+
+    private double CurrentLineX => TimeToX(CurrentTimeSeconds);
+
+    protected override void OnParametersSet()
+    {
+        UpdateWindow();
+    }
+
+    private List<TimelineRow> BuildRows()
+    {
+        return Frames
+            .SelectMany(f => f.DetectedObjects)
+            .GroupBy(GetObjectKey)
+            .Select(g =>
+            {
+                var first = g.First();
+                var key = g.Key;
+
+                return new TimelineRow
+                {
+                    Key = key,
+                    Label = first.TrackId.HasValue
+                        ? $"{first.ClassName ?? "Object"} #{first.TrackId.Value}"
+                        : first.ClassName ?? "Object",
+                    Color = ObjectColors.TryGetValue(key, out var color) ? color : "#888"
+                };
+            })
+            .OrderBy(r => r.Label)
+            .ToList();
+    }
+
+    private double Clamp(double value, double min, double max)
+    => Math.Max(min, Math.Min(max, value));
+
+    private void UpdateWindow()
+    {
+        if (VideoDuration <= 0)
+            return;
+
+        var half = _windowDuration / 2;
+
+        if (CurrentTimeSeconds <= half)
+        {
+            _windowStart = 0;
+            return;
+        }
+
+        if (CurrentTimeSeconds >= VideoDuration - half)
+        {
+            _windowStart = Math.Max(0, VideoDuration - _windowDuration);
+            return;
+        }
+
+        _windowStart = CurrentTimeSeconds - half;
+    }
+
+    private List<TickMark> Ticks
+    {
+        get
+        {
+            var result = new List<TickMark>();
+            var tickCount = 6;
+            var step = _windowDuration / tickCount;
+
+            for (var i = 0; i <= tickCount; i++)
+            {
+                var time = _windowStart + i * step;
+                result.Add(new TickMark
+                {
+                    X = TimeToX(time),
+                    Label = $"{time:F1}s"
+                });
+            }
+
+            return result;
+        }
+    }
+
+    private IEnumerable<Segment> GetSegments(string key)
+    {
+        var relevantFrames = Frames
+            .Where(f => f.TimeSeconds >= _windowStart && f.TimeSeconds <= WindowEnd)
+            .Where(f => f.DetectedObjects.Any(o => GetObjectKey(o) == key))
+            .OrderBy(f => f.TimeSeconds)
+            .ToList();
+
+        if (relevantFrames.Count == 0)
+            yield break;
+
+        var currentStart = relevantFrames[0].TimeSeconds;
+        var previous = relevantFrames[0].TimeSeconds;
+
+        var maxGap = EstimateNeighborGap();
+
+        for (var i = 1; i < relevantFrames.Count; i++)
+        {
+            var time = relevantFrames[i].TimeSeconds;
+
+            if (time - previous > maxGap)
+            {
+                yield return new Segment
+                {
+                    X1 = TimeToX(currentStart),
+                    X2 = TimeToX(previous)
+                };
+
+                currentStart = time;
+            }
+
+            previous = time;
+        }
+
+        yield return new Segment
+        {
+            X1 = TimeToX(currentStart),
+            X2 = TimeToX(previous)
+        };
+    }
+
+    private double EstimateNeighborGap()
+    {
+        var ordered = Frames.OrderBy(f => f.TimeSeconds).ToList();
+
+        if (ordered.Count < 2)
+            return 0.5;
+
+        var gaps = new List<double>();
+
+        for (var i = 1; i < ordered.Count; i++)
+            gaps.Add(ordered[i].TimeSeconds - ordered[i - 1].TimeSeconds);
+
+        return gaps.Count == 0 ? 0.5 : gaps.Average() * 1.5;
+    }
+
+    private double TimeToX(double time)
+    {
+        if (_windowDuration <= 0)
+            return 0;
+
+        var rawX = ((time - _windowStart) / _windowDuration) * Width;
+        return Clamp(rawX, 0, Width);
+    }
+
+    private async Task Toggle(string key, bool value)
+    {
+        await OnObjectToggled.InvokeAsync((key, value));
+    }
+
+    private void ZoomIn()
+    {
+        _windowDuration *= 0.75;
+        _windowDuration = Math.Max(1, _windowDuration);
+        UpdateWindow();
+        StateHasChanged();
+    }
+
+    private void ZoomOut()
+    {
+        _windowDuration *= 1.25;
+        _windowDuration = Math.Min(Math.Max(VideoDuration, 1), _windowDuration);
+        UpdateWindow();
+        StateHasChanged();
+    }
+
+    private async Task HandleTimelineClick(MouseEventArgs args)
+    {
+        var x = Clamp(args.OffsetX, 0, Width);
+        var ratio = x / Width;
+        var time = _windowStart + ratio * _windowDuration;
+        await OnSeekRequested.InvokeAsync(time);
+    }
+
+    private void HandleWheel(WheelEventArgs args)
+    {
+        if (args.DeltaY < 0)
+            ZoomIn();
+        else if (args.DeltaY > 0)
+            ZoomOut();
+    }
+
+    private string GetObjectKey(DetectedObjectDto obj)
+        => obj.TrackId.HasValue
+            ? $"track:{obj.TrackId.Value}"
+            : $"object:{obj.Id}";
+
+    private sealed class TimelineRow
+    {
+        public string Key { get; set; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string Color { get; set; } = "#888";
+    }
+
+    private sealed class Segment
+    {
+        public double X1 { get; set; }
+        public double X2 { get; set; }
+    }
+
+    private sealed class TickMark
+    {
+        public double X { get; set; }
+        public string Label { get; set; } = string.Empty;
+    }
+}

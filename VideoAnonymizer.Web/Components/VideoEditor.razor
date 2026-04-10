@@ -1,0 +1,180 @@
+﻿@using VideoAnonymizer.Web.Shared.DTO
+
+<MudPaper Class="pa-4 mt-6">
+    <MudStack Spacing="3">
+        <MudText Typo="Typo.h5">Editor</MudText>
+
+        <MudGrid>
+            <MudItem xs="12" md="8">
+                <div class="video-editor-preview">
+                    <VideoOverlay VideoUrl="@VideoUrl"
+                                  CurrentTimeSeconds="@CurrentTimeSeconds"
+                                  CurrentFrame="@CurrentFrame"
+                                  ObjectColors="@ObjectColors"
+                                  ActiveObjectKeys="@ActiveObjectKeys"
+                                  OnTimeChanged="HandleTimeChanged" />
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" md="4">
+                <MudPaper Class="pa-3">
+                    <MudText Typo="Typo.h6">Objects in current frame</MudText>
+
+                    @if (CurrentFrame is null || !CurrentFrame.DetectedObjects.Any())
+                    {
+                        <MudText Typo="Typo.body2">No objects in current frame.</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="1">
+                            @foreach (var obj in CurrentFrame.DetectedObjects)
+                            {
+                                var key = GetObjectKey(obj);
+                                var color = ObjectColors.TryGetValue(key, out var value) ? value : "#888";
+
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span style="width:12px; height:12px; border-radius:50%; background-color:@color; display:inline-block;"></span>
+                                    <MudCheckBox T="bool"
+                                                 Value="@IsObjectActive(key)"
+                                                 ValueChanged="@(value => SetObjectActive(key, value))"
+                                                 Label="@GetObjectLabel(obj)" />
+                                </div>
+                            }
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        <TimelineEditor Frames="Frames"
+                        CurrentTimeSeconds="CurrentTimeSeconds"
+                        ObjectColors="ObjectColors"
+                        ActiveObjectKeys="ActiveObjectKeys"
+                        OnObjectToggled="HandleObjectToggled"
+                        OnSeekRequested="HandleSeekRequested" />
+
+        <MudStack Row="true" Spacing="2">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="StartAnonymizationClicked">
+                Anonymize selected objects
+            </MudButton>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired] public Guid VideoId { get; set; }
+    [Parameter, EditorRequired] public string VideoUrl { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public List<AnalyzedFrameDto> Frames { get; set; } = [];
+    [Parameter, EditorRequired] public EventCallback<List<AnalyzedFrameDto>> OnAnonymize { get; set; }
+
+    private double CurrentTimeSeconds { get; set; }
+    private AnalyzedFrameDto? CurrentFrame { get; set; }
+
+    private Dictionary<string, string> ObjectColors { get; set; } = [];
+    private HashSet<string> ActiveObjectKeys { get; set; } = [];
+
+
+    protected override void OnParametersSet()
+    {
+        BuildObjectState();
+        UpdateCurrentFrame();
+    }
+
+    private void BuildObjectState()
+    {
+        var allKeys = Frames
+            .SelectMany(f => f.DetectedObjects)
+            .Select(GetObjectKey)
+            .Distinct()
+            .ToList();
+
+        var palette = new[]
+        {
+            "#ff6b6b", "#4dabf7", "#51cf66", "#ffd43b", "#b197fc",
+            "#ffa94d", "#63e6be", "#f06595", "#74c0fc", "#c0eb75"
+        };
+
+        for (var i = 0; i < allKeys.Count; i++)
+        {
+            var key = allKeys[i];
+
+            if (!ObjectColors.ContainsKey(key))
+                ObjectColors[key] = palette[i % palette.Length];
+        }
+
+        if (ActiveObjectKeys.Count == 0)
+        {
+            foreach (var key in allKeys)
+                ActiveObjectKeys.Add(key);
+        }
+        else
+        {
+            var validKeys = allKeys.ToHashSet();
+            ActiveObjectKeys.RemoveWhere(key => !validKeys.Contains(key));
+        }
+    }
+
+    private void HandleTimeChanged(double timeSeconds)
+    {
+        CurrentTimeSeconds = timeSeconds;
+        UpdateCurrentFrame();
+        StateHasChanged();
+    }
+
+    private void UpdateCurrentFrame()
+    {
+        CurrentFrame = Frames
+            .Where(f => f.TimeSeconds <= CurrentTimeSeconds)
+            .OrderByDescending(f => f.TimeSeconds)
+            .FirstOrDefault()
+            ?? Frames.OrderBy(f => f.TimeSeconds).FirstOrDefault();
+    }
+
+    private string GetObjectKey(DetectedObjectDto obj)
+        => obj.TrackId.HasValue
+            ? $"track:{obj.TrackId.Value}"
+            : $"object:{obj.Id}";
+
+    private string GetObjectLabel(DetectedObjectDto obj)
+        => obj.TrackId.HasValue
+            ? $"{obj.ClassName ?? "Object"} #{obj.TrackId.Value}"
+            : $"{obj.ClassName ?? "Object"}";
+
+    private bool IsObjectActive(string key) => ActiveObjectKeys.Contains(key);
+
+    private void SetObjectActive(string key, bool active)
+    {
+        if (active)
+            ActiveObjectKeys.Add(key);
+        else
+            ActiveObjectKeys.Remove(key);
+    }
+
+    private void HandleObjectToggled((string key, bool active) value)
+    {
+        SetObjectActive(value.key, value.active);
+    }
+
+    private Task HandleSeekRequested(double timeSeconds)
+    {
+        CurrentTimeSeconds = timeSeconds;
+        UpdateCurrentFrame();
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task StartAnonymizationClicked()
+    {
+        foreach (var frame in Frames)
+        {
+            foreach (var obj in frame.DetectedObjects)
+            {
+                obj.Selected = ActiveObjectKeys.Contains(GetObjectKey(obj));
+            }
+        }
+
+        await OnAnonymize.InvokeAsync(Frames);
+    }
+}

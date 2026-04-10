@@ -1,10 +1,6 @@
 ﻿@using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components.Forms
-@using MudBlazor
-@using VideoAnonymizer.Web.Services
-@using VideoAnonymizer.Web.Shared
-@using VideoAnonymizer.Web.Shared.DTO
 
 @implements IAsyncDisposable
 @inject IDownloadService DownloadService
@@ -63,9 +59,15 @@
     </MudPaper>
 </MudContainer>
 
-@code {
-    private IJSObjectReference? module;
+@if (_showEditor && _currentVideoId.HasValue && !string.IsNullOrWhiteSpace(_videoSourceUrl))
+{
+    <VideoEditor VideoId="@_currentVideoId.Value"
+                 VideoUrl="@_videoSourceUrl"
+                 Frames="@_analyzedFrames"
+                 OnAnonymize="StartAnonymizationAsync" />
+}
 
+@code {
     private IDisposable? _videoAnalyzedSubscription;
     private IDisposable? _videoAnonymizedSubscription;
 
@@ -78,6 +80,9 @@
     private bool IsBusy { get; set; }
     private string? StatusText { get; set; }
     private string? SelectedFileName { get; set; }
+    private List<AnalyzedFrameDto> _analyzedFrames = [];
+    private bool _showEditor;
+    private string? _videoSourceUrl;
 
     protected override async Task OnInitializedAsync()
     {
@@ -89,10 +94,11 @@
             if (!message.JobId.Equals(_currentVideoId))
                 return;
 
-            StatusText = "Video analyzed. Starting anonymization...";
-            await InvokeAsync(StateHasChanged);
+            StatusText = "Video analyzed. Loading editor...";
+            await LoadAnalyzedFramesAsync(_currentVideoId);
+            _showEditor = true;
 
-            await StartAnonymizationAsync(_currentVideoId);
+            await InvokeAsync(StateHasChanged);
         });
 
         _videoAnonymizedSubscription = JobHubClient.OnVideoAnonymized(async message =>
@@ -154,14 +160,48 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private async Task StartAnonymizationAsync(Guid? videoId)
+    private async Task LoadAnalyzedFramesAsync(Guid? videoId)
     {
+        if (videoId.IsNullOrEmpty())
+            return;
+
         try
         {
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
+
             var analyzedResponse = await httpClient.GetAsync($"/{SharedConstants.Paths.Analyzed}/{videoId}");
-            var detectedobjects = await analyzedResponse.Content.ReadFromJsonAsync<ApiResponse<List<AnalyzedFrameDto>>>();
-            var response = await httpClient.PostAsJsonAsync($"/{SharedConstants.Paths.Anonymize}/{videoId}", detectedobjects.Payload);
+            analyzedResponse.EnsureSuccessStatusCode();
+
+            var result = await analyzedResponse.Content.ReadFromJsonAsync<ApiResponse<List<AnalyzedFrameDto>>>();
+
+            _analyzedFrames = result?.Payload ?? [];
+            IsBusy = false;
+            StatusText = "Analysis loaded. You can now review detected objects.";
+
+            _videoSourceUrl = $"{httpClient.BaseAddress}{SharedConstants.Paths.Video}/{videoId}";
+        }
+        catch (Exception ex)
+        {
+            IsBusy = false;
+            StatusText = "Loading editor failed.";
+            Snackbar.Add($"Loading editor failed: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task StartAnonymizationAsync(List<AnalyzedFrameDto> frames)
+    {
+        if (_currentVideoId.IsNullOrEmpty())
+            return;
+
+        try
+        {
+            IsBusy = true;
+
+            using var httpClient = HttpClientFactory.CreateClient("ApiService");
+            var response = await httpClient.PostAsJsonAsync(
+                $"/{SharedConstants.Paths.Anonymize}/{_currentVideoId}",
+                frames);
+
             response.EnsureSuccessStatusCode();
 
             var result = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
@@ -208,13 +248,6 @@
     {
         _videoAnalyzedSubscription?.Dispose();
         _videoAnonymizedSubscription?.Dispose();
-        await JobHubClient.StopAsync(); 
-        if (module is not null)
-            await module.DisposeAsync();
-    }
-
-    private sealed class AnalyzeResponse
-    {
-        public string? VideoId { get; set; }
+        await JobHubClient.StopAsync();
     }
 }

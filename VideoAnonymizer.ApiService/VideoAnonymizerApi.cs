@@ -77,6 +77,34 @@ namespace VideoAnonymizer.ApiService
             }
         }
 
+        [HttpGet($"{SharedConstants.Paths.Video}/{{videoId:guid}}")]
+        public async Task<IActionResult> GetOriginalVideo([FromRoute] Guid videoId)
+        {
+            try
+            {
+                var videoPath = await videoDataService.LoadOriginalVideoPath(videoId);
+
+                if (!System.IO.File.Exists(videoPath))
+                {
+                    return NotFound();
+                }
+
+                var fileName = Path.GetFileName(videoPath);
+                string contentType = GetContentType(videoPath);
+
+                return PhysicalFile(
+                    videoPath,
+                    contentType,
+                    fileName,
+                    enableRangeProcessing: true
+                );
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
 
         [HttpPost($"{SharedConstants.Paths.Anonymize}/{{videoId:guid}}")]
         public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrameDto> frames, CancellationToken cancellationToken)
@@ -114,12 +142,20 @@ namespace VideoAnonymizer.ApiService
                     return NotFound();
                 }
                 var fileName = Path.GetFileName(videoPath);
-                return PhysicalFile(videoPath, "video/mp4", fileName, enableRangeProcessing: true);
+                string contentType = GetContentType(videoPath);
+                return PhysicalFile(videoPath, contentType, fileName, enableRangeProcessing: true);
             }
             catch (NotFoundException)
             {
                 return NotFound();
             }
+        }
+
+        private static string GetContentType(string videoPath)
+        {
+            return videoPath.EndsWith(".webm") ? "video/webm" :
+                              videoPath.EndsWith(".mov") ? "video/quicktime" :
+                              "video/mp4";
         }
 
         [HttpGet($"{SharedConstants.Paths.AppState}")]

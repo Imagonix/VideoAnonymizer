@@ -1,0 +1,28 @@
+﻿.video-overlay-container {
+    position: relative;
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+}
+
+.video-element {
+    position: relative;
+    z-index: 1;
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.overlay-layer {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+}
+
+.bounding-box {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 4px;
+    background: transparent;
+}
