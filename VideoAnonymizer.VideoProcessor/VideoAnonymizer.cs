@@ -45,10 +45,11 @@ public class VideoAnonymizer(
         var frameWidth = capture.FrameWidth;
         var frameHeight = capture.FrameHeight;
 
+        var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
         // using block to ensure file is written completly, when exiting the block
         using (var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight)))
         {
-            var tracks = GroupObjectsByTrack(selectedObjects, fps);
+            var tracks = GroupObjectsByTrack(selectedObjects, fps, totalFrames);
 
             using var frameMat = new Mat();
             var currentFrameIndex = 0;
@@ -75,22 +76,37 @@ public class VideoAnonymizer(
 
         await messagePublisher.PublishAsync(RabbitMQConstants.RoutingKeys.Anonymized, new AnonymizedVideo(job.JobId, DateTime.Now), stoppingToken);
     }
+
     private static Dictionary<int, List<TrackedPosition>> GroupObjectsByTrack(
-        List<DetectedObject> detectedObjects, double fps)
+    List<DetectedObject> detectedObjects,
+    double fps,
+    int? totalFrames = null)
     {
         var tracks = new Dictionary<int, List<TrackedPosition>>();
+        var lastValidFrameIndex = totalFrames.HasValue
+            ? Math.Max(0, totalFrames.Value - 1)
+            : (int?)null;
 
         foreach (var obj in detectedObjects)
         {
             if (obj.TrackId is null || obj.TrackId == 0)
                 continue;
 
-            if (!tracks.ContainsKey(obj.TrackId.Value))
-                tracks[obj.TrackId.Value] = new List<TrackedPosition>();
+            if (!tracks.TryGetValue(obj.TrackId.Value, out var positions))
+            {
+                positions = new List<TrackedPosition>();
+                tracks[obj.TrackId.Value] = positions;
+            }
 
-            var frameIndex = Math.Max(0, (int)Math.Round(obj.AnalyzedFrame.TimeSeconds * fps));
+            // Robuster als Round: verhindert eher ein "Vorrutschen" auf den nächsten Frame
+            var frameIndex = Math.Max(0, (int)Math.Floor(obj.AnalyzedFrame.TimeSeconds * fps));
 
-            tracks[obj.TrackId.Value].Add(new TrackedPosition
+            if (lastValidFrameIndex.HasValue)
+            {
+                frameIndex = Math.Min(frameIndex, lastValidFrameIndex.Value);
+            }
+
+            positions.Add(new TrackedPosition
             {
                 FrameIndex = frameIndex,
                 X = obj.X,
@@ -100,8 +116,16 @@ public class VideoAnonymizer(
             });
         }
 
-        foreach (var list in tracks.Values)
-            list.Sort((a, b) => a.FrameIndex.CompareTo(b.FrameIndex));
+        foreach (var trackId in tracks.Keys.ToList())
+        {
+            var merged = tracks[trackId]
+                .OrderBy(p => p.FrameIndex)
+                .GroupBy(p => p.FrameIndex)
+                .Select(g => g.Last()) // falls mehrere Boxen denselben Frameindex haben
+                .ToList();
+
+            tracks[trackId] = merged;
+        }
 
         return tracks;
     }

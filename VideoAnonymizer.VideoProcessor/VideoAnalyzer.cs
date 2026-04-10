@@ -38,6 +38,9 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         var processedFrameCount = 0;
 
         var frameStep = Math.Max(1, (int)Math.Round(fps * job.CaptureIntervalMs * 0.001));
+        
+        var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
+        var lastFrameIndex = Math.Max(0, totalFrames - 1);
 
         var analyzedFrames = new List<AnalyzedFrame>();
 
@@ -47,7 +50,12 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
             if (!success || frame.Empty())
                 break;
 
-            if (frameIndex % frameStep != 0)
+            var shouldProcess =
+                frameIndex == 0 ||
+                frameIndex == lastFrameIndex ||
+                frameIndex % frameStep == 0;
+
+            if (!shouldProcess)
             {
                 frameIndex++;
                 continue;

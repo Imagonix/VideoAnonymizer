@@ -27,7 +27,7 @@ namespace VideoAnonymizer.ApiService
         public async Task<IActionResult> Analyze(IFormFile video, CancellationToken cancellationToken,
             [FromQuery]
             [Range(50, 5000, ErrorMessage = "detectionIntervalMs must be between 50 and 5000 ms")]
-            int detectionIntervalMs = 200)
+            int detectionIntervalMs = 100)
         {
             if (video is null || video.Length == 0)
             {

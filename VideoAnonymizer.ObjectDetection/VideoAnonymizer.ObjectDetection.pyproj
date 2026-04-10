@@ -21,13 +21,24 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="debugging.py" />
+    <Compile Include="api\routes.py" />
+    <Compile Include="core\config.py" />
+    <Compile Include="core\startup.py" />
+    <Compile Include="core\debugging.py" />
     <Compile Include="main.py" />
     <Compile Include="models.py" />
     <Compile Include="object_tracker_manager.py" />
+    <Compile Include="services\detection_service.py" />
+    <Compile Include="services\image_decoder.py" />
+    <Compile Include="services\model_session.py" />
+    <Compile Include="services\postprocessing.py" />
+    <Compile Include="services\preprocessing.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="models\" />
+    <Folder Include="api\" />
+    <Folder Include="core\" />
+    <Folder Include="services\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="models\FaceDetector.onnx" />
