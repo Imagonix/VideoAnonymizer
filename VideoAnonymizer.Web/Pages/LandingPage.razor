@@ -1,0 +1,89 @@
+﻿@page "/"
+@using System.Net.Http.Json
+@using VideoAnonymizer.Web.Shared
+@using VideoAnonymizer.Web.Shared.DTO
+@implements IDisposable
+
+@inject IHttpClientFactory HttpClientFactory
+
+@if (_modelAvailable)
+{
+    <Home />
+}
+else
+{
+    <MudText Typo="Typo.body1" Class="mb-2">
+        Preparing Face Recognition Model ...
+    </MudText>
+
+    <MudProgressLinear Indeterminate="true" />
+}
+
+@code {
+    private CancellationTokenSource? _cts;
+    private bool _modelAvailable;
+    private bool _pollingStarted;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _cts = new CancellationTokenSource();
+        await LoadStateAsync(_cts.Token);
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pollingStarted && !_modelAvailable && _cts is not null)
+        {
+            _pollingStarted = true;
+            _ = PollAsync(_cts.Token);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(2000, cancellationToken);
+
+                await LoadStateAsync(cancellationToken);
+
+                if (_modelAvailable)
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private async Task LoadStateAsync(CancellationToken cancellationToken)
+    {
+        using var httpClient = HttpClientFactory.CreateClient("ApiService");
+        try
+        {
+            var appState = await httpClient.GetFromJsonAsync<AppStateDto>(
+                SharedConstants.Paths.AppState,
+                cancellationToken);
+
+            _modelAvailable = appState?.ModelAvailable == true;
+        }
+        catch
+        {
+            _modelAvailable = false;
+        }
+
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

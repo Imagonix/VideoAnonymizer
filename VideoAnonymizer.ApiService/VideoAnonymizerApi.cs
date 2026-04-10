@@ -125,7 +125,7 @@ namespace VideoAnonymizer.ApiService
         [HttpGet($"{SharedConstants.Paths.AppState}")]
         public async Task<IActionResult> GetAppState()
         {
-            var appState = stateDataService.LoadState();
+            var appState = await stateDataService.LoadState();
             return Ok(appState);
         }
     }

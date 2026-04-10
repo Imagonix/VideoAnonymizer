@@ -83,8 +83,7 @@ if (!builder.Environment.IsTest()) {
         .WithExternalHttpEndpoints()
         .WithHttpHealthCheck("/health")
         .WithReference(apiService)
-        .WaitFor(apiService)
-        .WaitForCompletion(modelDownloader);
+        .WaitFor(apiService);
 }
 
 var videoProcessor = builder.AddProject<Projects.VideoAnonymizer_VideoProcessor>("videoanonymizer-videoprocessor")

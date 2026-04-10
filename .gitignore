@@ -7,3 +7,4 @@ bin
 /VideoAnonymizer.ObjectDetectionTests/models/FaceDetector.onnx
 /data
 /**/__pycache__
+/VideoAnonymizer.ObjectDetection/models
