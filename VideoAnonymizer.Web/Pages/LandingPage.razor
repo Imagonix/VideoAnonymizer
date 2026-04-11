@@ -12,11 +12,17 @@
 }
 else
 {
-    <MudText Typo="Typo.body1" Class="mb-2">
-        Preparing Face Recognition Model ...
-    </MudText>
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="py-8">
+        <MudPaper Class="pa-6">
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body1" Class="mb-2">
+                    Preparing Face Recognition Model ...
+                </MudText>
 
-    <MudProgressLinear Indeterminate="true" />
+                <MudProgressLinear Indeterminate="true" />
+            </MudStack>
+        </MudPaper>
+    </MudContainer>
 }
 
 @code {
