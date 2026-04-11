@@ -104,7 +104,7 @@ GET    /analyzed/{videoId}
 ### Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/VideoAnonymizer.git
+git clone https://github.com/Imagonix/VideoAnonymizer.git
 cd VideoAnonymizer
 ```
 
@@ -178,7 +178,7 @@ Examples:
 - .NET Aspire
 - PostgreSQL
 - RabbitMQ
-- Docker (optional)
+- Docker
 
 ---
 
