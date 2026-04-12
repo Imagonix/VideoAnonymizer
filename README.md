@@ -98,7 +98,7 @@ GET    /analyzed/{videoId}
 
 - .NET 10
 - Python 3.10+
-- Docker (optional)
+- Docker
 - GPU (optional, for faster inference)
 
 ### Clone the repository
@@ -106,6 +106,21 @@ GET    /analyzed/{videoId}
 ```bash
 git clone https://github.com/Imagonix/VideoAnonymizer.git
 cd VideoAnonymizer
+```
+
+### First-time setup
+
+Initialize development secrets:
+
+#### Windows
+```bash
+pwsh ./setup-dev.ps1
+```
+
+#### Linux
+```bash
+chmod +x setup-dev.sh
+./setup-dev.sh
 ```
 
 ### Start the application
@@ -199,6 +214,19 @@ Examples:
 - Content creation workflows
 - Research datasets
 - Internal company documentation and demos
+
+---
+
+## Testing & Quality
+
+The application includes behavior-driven integration tests to verify end-to-end workflows such as:
+
+- Uploading a video
+- Running the analysis pipeline
+- Receiving completion events via SignalR
+- Retrieving the anonymized result
+
+This ensures that the full system behaves correctly across service boundaries.
 
 ---
 
