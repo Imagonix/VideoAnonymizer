@@ -5,7 +5,7 @@ using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.DataServices
 {
-    public class StateDataService(IDbContextFactory<VideoAnonymizerDbContext> dbFactory)
+    public class StateDataService(IDbContextFactory<VideoAnonymizerDbContext> dbFactory, IObjectDetectionApiReadyState pythonApiReadyState)
     {
         public async Task<AppStateDto> LoadState()
         {
@@ -14,6 +14,7 @@ namespace VideoAnonymizer.ApiService.DataServices
             var appState = new AppStateDto()
             {
                 ModelAvailable = modelAvailable is null ? false : modelAvailable.ReadBooleanValue(),
+                ObjectDetectionApiRunning = pythonApiReadyState.IsReady,
             };
             return appState;
         }

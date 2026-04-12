@@ -5,6 +5,7 @@ using VideoAnonymizer.ApiService.Notifications;
 using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database.Extensions;
+using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.Web.Shared;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -42,6 +43,29 @@ builder.Services.AddHostedService<VideoAnonymizedConsumer>();
 builder.Services.AddSingleton<LongRunningJobsHub>();
 builder.Services.AddScoped<VideoDataService>();
 builder.Services.AddScoped<StateDataService>();
+builder.Services.AddSingleton<IObjectDetectionApiReadyState, ObjectDetectionApiReadyState>();
+builder.Services.AddHostedService<ObjectDetectionApiStartupWaiter>();
+
+var objectDetectionUrl = builder.Configuration["services:objectDetection:https:0"]
+    ?? throw new InvalidOperationException("objectDetection URL not found");
+
+builder.Services.AddHttpClient<ObjectDetectionClient>("objectDetection", client =>
+{
+    client.BaseAddress = new Uri(objectDetectionUrl);
+    client.Timeout = TimeSpan.FromMilliseconds(500);
+});
+
+builder.Services.AddTransient<ObjectDetectionClient>(sp =>
+{
+    var httpClient = sp.GetRequiredService<IHttpClientFactory>()
+        .CreateClient("objectDetection");
+
+    var baseUrl = httpClient.BaseAddress?.ToString()
+        ?? throw new InvalidOperationException("objectDetection BaseAddress is not configured.");
+
+    return new ObjectDetectionClient(baseUrl, httpClient);
+});
+
 
 builder.AddVideoAnonymizerDbContextFactory();
 

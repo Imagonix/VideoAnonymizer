@@ -100,6 +100,15 @@ GET    /analyzed/{videoId}
 - Python 3.10+
 - Docker
 - GPU (optional, for faster inference)
+- A development HTTPS certificate may be required:
+```bash
+dotnet dev-certs https --trust
+```
+
+### Platform Notes
+The current development setup is primarily tested on Windows.
+The video processing component currently depends on native OpenCvSharp runtime support and is not fully configured for Linux/WSL yet.
+
 
 ### Clone the repository
 
@@ -112,15 +121,8 @@ cd VideoAnonymizer
 
 Initialize development secrets:
 
-#### Windows
 ```bash
-pwsh ./setup-dev.ps1
-```
-
-#### Linux
-```bash
-chmod +x setup-dev.sh
-./setup-dev.sh
+./setup-dev.ps1
 ```
 
 ### Start the application
@@ -151,18 +153,6 @@ Open the URL shown by the Aspire dashboard or console output.
 - No manual setup is required
 
 > Note: The model is fetched from a public source and stored locally.
-
----
-
-## ⚙️ Configuration
-
-Configuration is managed through Aspire parameters and environment variables.
-
-Examples:
-
-- `POSTGRES_PASSWORD`
-- `RABBITMQ_USER`
-- `RABBITMQ_PASSWORD`
 
 ---
 
@@ -254,9 +244,3 @@ This project was created as a reference implementation demonstrating:
 - integration of AI (computer vision) into real-world workflows
 
 Designed and implemented as a full-stack distributed system from scratch.
-
----
-
-## 🤝 Contributing
-
-Issues, suggestions, and pull requests are welcome.

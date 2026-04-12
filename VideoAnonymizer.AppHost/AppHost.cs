@@ -76,7 +76,8 @@ var apiService = builder.AddProject<Projects.VideoAnonymizer_ApiService>("apiser
     .WithReference(postgresdb)
     .WaitFor(postgresdb)
     .WithReference(rabbit)
-    .WaitFor(rabbit);
+    .WaitFor(rabbit)
+    .WithReference(objectDetection);
 
 if (!builder.Environment.IsTest()) { 
     builder.AddProject<Projects.VideoAnonymizer_Web>("webfrontend")

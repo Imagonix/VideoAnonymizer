@@ -6,7 +6,7 @@
 
 @inject IHttpClientFactory HttpClientFactory
 
-@if (_modelAvailable)
+@if (IsReady)
 {
     <Home />
 }
@@ -16,7 +16,7 @@ else
         <MudPaper Class="pa-6">
             <MudStack Spacing="3">
                 <MudText Typo="Typo.body1" Class="mb-2">
-                    Preparing Face Recognition Model ...
+                    @GetLoadingMessage()
                 </MudText>
 
                 <MudProgressLinear Indeterminate="true" />
@@ -27,8 +27,15 @@ else
 
 @code {
     private CancellationTokenSource? _cts;
-    private bool _modelAvailable;
+    private AppStateDto _appState = new();
     private bool _pollingStarted;
+
+    private bool IsReady =>
+        _appState is
+        {
+            ObjectDetectionApiRunning: true,
+            ModelAvailable: true
+        };
 
     protected override async Task OnInitializedAsync()
     {
@@ -38,7 +45,7 @@ else
 
     protected override Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!_pollingStarted && !_modelAvailable && _cts is not null)
+        if (!_pollingStarted && !IsReady && _cts is not null)
         {
             _pollingStarted = true;
             _ = PollAsync(_cts.Token);
@@ -54,10 +61,9 @@ else
             while (!cancellationToken.IsCancellationRequested)
             {
                 await Task.Delay(2000, cancellationToken);
-
                 await LoadStateAsync(cancellationToken);
 
-                if (_modelAvailable)
+                if (IsReady)
                 {
                     break;
                 }
@@ -71,20 +77,29 @@ else
     private async Task LoadStateAsync(CancellationToken cancellationToken)
     {
         using var httpClient = HttpClientFactory.CreateClient("ApiService");
+
         try
         {
-            var appState = await httpClient.GetFromJsonAsync<AppStateDto>(
+            _appState = await httpClient.GetFromJsonAsync<AppStateDto>(
                 SharedConstants.Paths.AppState,
-                cancellationToken);
-
-            _modelAvailable = appState?.ModelAvailable == true;
+                cancellationToken) ?? new AppStateDto();
         }
         catch
         {
-            _modelAvailable = false;
+            _appState = new AppStateDto();
         }
 
         await InvokeAsync(StateHasChanged);
+    }
+
+    private string GetLoadingMessage()
+    {
+        if (_appState is not { ObjectDetectionApiRunning: true })
+        {
+            return "Starting AI Service ...";
+        }
+
+        return "Preparing Face Recognition Model ...";
     }
 
     public void Dispose()
