@@ -21,6 +21,7 @@ Automatically detect and anonymize sensitive information in videos — such as f
 ## 🎞️ Demo
 
 ### Before / After
+Automatically anonymized faces in a sample video:
 
 ![Before After Demo](docs/img/demo_slider_reveal.gif)
 
@@ -185,17 +186,24 @@ Open the URL shown by the Aspire dashboard or console output.
 - RabbitMQ
 - Docker
 
----
+## Status
 
-## 🛣️ Roadmap
+### ✅ Already implemented
+- [x] Video upload via web interface
+- [x] Automatic face detection (RetinaFace)
+- [x] Real-time anonymization (face blurring)
+- [x] Download of processed videos
+- [x] Asynchronous processing pipeline (RabbitMQ)
+- [x] Local-first architecture (self-hosted)
 
-- [ ] Bounding box editor
-- [ ] Timeline-based object selection
-- [ ] Additional object types such as license plates, labels, and addresses
-- [ ] Improved tracking between frames
-- [ ] Cloud deployment option
+### 🚧 Currently in progress
+- [ ] Bounding box editor for manual correction
+- [ ] Timeline-based object selection for precise anonymization control
 
----
+### 🛣️ Planned
+- [ ] Detection of additional sensitive objects (license plates, labels, addresses)
+- [ ] Improved object tracking across frames
+- [ ] Optional cloud deployment (multi-user access)
 
 ## 💡 Use Cases
 
