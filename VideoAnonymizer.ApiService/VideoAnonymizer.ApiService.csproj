@@ -9,6 +9,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Database\VideoAnonymizer.Database.csproj" />
+		<ProjectReference Include="..\VideoAnonymizer.ObjectDetectionClient\VideoAnonymizer.ObjectDetectionClient.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.ServiceDefaults\VideoAnonymizer.ServiceDefaults.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Web.Contracts\VideoAnonymizer.Web.Shared.csproj" />
 	</ItemGroup>
