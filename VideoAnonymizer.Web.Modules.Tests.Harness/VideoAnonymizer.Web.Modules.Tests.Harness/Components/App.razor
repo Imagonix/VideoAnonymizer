@@ -15,6 +15,14 @@
 <body>
     <Routes />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
-</body>
+    <script>
+        window.onerror = function (message, source, lineno, colno, error) {
+        console.error("🔥 GLOBAL ERROR:", message, error);
+        };
 
+        window.onunhandledrejection = function (event) {
+        console.error("🔥 PROMISE ERROR:", event.reason);
+        };
+    </script>
+</body>
 </html>

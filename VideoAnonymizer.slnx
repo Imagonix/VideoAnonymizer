@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Projektmappenelemente/">
+    <File Path=".gitignore" />
     <File Path="README.md" />
   </Folder>
   <Project Path="VideoAnonymizer.ApiService.IntegrationTests/VideoAnonymizer.ApiService.IntegrationTests.csproj" Id="e3a211bd-a83e-44ad-875f-02a1b633fffa" />

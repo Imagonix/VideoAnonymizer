@@ -15,4 +15,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="10.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\VideoAnonymizer.Web.Contracts\VideoAnonymizer.Web.Shared.csproj" />
+  </ItemGroup>
+
 </Project>
