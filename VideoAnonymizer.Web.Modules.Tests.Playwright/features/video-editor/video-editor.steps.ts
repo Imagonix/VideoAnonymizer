@@ -1,8 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { Given, When, Then } from 'playwright-bdd';
+import { expect } from '@playwright/test';
+import { createBdd } from 'playwright-bdd';
+
+const { Given, Then } = createBdd();
 
 Given('the editor is opened for an analyzed video', async ({ page }) => {
-    await page.goto('/video-editor/basic');
+    await page.goto('/videoEditor');
 });
 
 Then('I should see a video preview', async ({ page }) => {
@@ -27,9 +29,7 @@ Then('I should see the detected objects listed on the left side of the timeline'
 });
 
 Then('each object on the timeline should have a color', async ({ page }) => {
-    const items = page.locator('[data-testid="timeline-object"]');
-    const first = items.first();
-
+    const first = page.locator('[data-testid="timeline-object"]').first();
     await expect(first).toBeVisible();
 
     const color = await first.evaluate(el => getComputedStyle(el).backgroundColor);

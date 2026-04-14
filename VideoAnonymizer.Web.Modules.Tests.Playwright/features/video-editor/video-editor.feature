@@ -4,10 +4,6 @@ Feature: Video editor for analyzed videos
   I want to edit the result of an analyzed video
   So that I can inspect detected objects in the video preview and on the timeline
 
-  Background:
-    Given an analyzed video with a video preview
-    And a list of analyzed frames with detected objects
-
   Scenario: Editor shows video preview, current-frame object list, and timeline
     Given the editor is opened for an analyzed video
     Then I should see a video preview
