@@ -1,22 +1,24 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue';
+
 const props = defineProps<{
-  src: string;
+  videoSourceUrl: string;
   currentTime: number;
 }>();
 
 const emit = defineEmits<{
-  (e: 'timeupdate', time: number): void;
+  (e: 'time-update', time: number): void;
   (e: 'loaded', duration: number): void;
 }>();
 
-const videoRef = ref<HTMLVideoElement>();
+const videoRef = ref<HTMLVideoElement | null>(null);
 
 function onTimeUpdate() {
-  emit('timeupdate', videoRef.value!.currentTime);
+  if (videoRef.value) emit('time-update', videoRef.value.currentTime);
 }
 
 function onLoaded() {
-  emit('loaded', videoRef.value!.duration);
+  if (videoRef.value) emit('loaded', videoRef.value.duration);
 }
 
 watch(() => props.currentTime, (t) => {
@@ -29,7 +31,7 @@ watch(() => props.currentTime, (t) => {
 <template>
   <video
     ref="videoRef"
-    :src="src"
+    :src="videoSourceUrl"
     controls
     @timeupdate="onTimeUpdate"
     @loadedmetadata="onLoaded"

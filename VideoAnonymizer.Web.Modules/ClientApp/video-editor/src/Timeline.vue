@@ -1,25 +1,36 @@
 <script setup lang="ts">
-defineProps<{
-  duration: number;
-  currentTime: number;
-}>();
+    import { ref } from 'vue';
+    import PlaybackIndicator from './PlaybackIndicator.vue';
 
-const emit = defineEmits<{
-  (e: 'seek', time: number): void;
-}>();
+    const props = defineProps<{
+        duration: number;
+        currentTime: number;
+    }>();
 
-const trackRef = ref<HTMLElement>();
+    const emit = defineEmits<{
+        (e: 'seek', time: number): void;
+    }>();
 
-function onClick(e: MouseEvent) {
-  const rect = trackRef.value!.getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
-  emit('seek', ratio * props.duration);
-}
+    const trackRef = ref<HTMLElement | null>(null);
+
+    function onClick(e: MouseEvent) {
+        if (!trackRef.value || !props.duration) return;
+
+        const rect = trackRef.value.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        emit('seek', ratio * props.duration);
+    }
 </script>
 
 <template>
-  <div data-testid="timeline" ref="trackRef" @click="onClick">
-    <PlaybackIndicator :time="currentTime" :duration="duration" />
-    <slot />
-  </div>
+    <div class="timeline" data-testid="timeline" ref="trackRef" @click="onClick">
+        <PlaybackIndicator :time="currentTime" :duration="duration" />
+        <slot />
+    </div>
 </template>
+
+<style scoped>
+    .timeline {
+        position: relative;
+    }
+</style>

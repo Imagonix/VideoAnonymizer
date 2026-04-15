@@ -7,6 +7,8 @@ const testDir = defineBddConfig({
 });
 
 export default defineConfig({
+	fullyParallel: true,
+    workers: 4,
     testDir,
     timeout: 30_000,
     use: {

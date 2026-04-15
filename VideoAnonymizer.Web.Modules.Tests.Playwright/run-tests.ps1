@@ -19,7 +19,7 @@ for ($i = 0; $i -lt 30; $i++) {
 
 Write-Host "Running Playwright tests..."
 npx playwright-bdd test
-npx playwright test
+npx playwright test --workers=8
 
 Write-Host "Stopping harness..."
 Stop-Process -Id $process.Id -Force

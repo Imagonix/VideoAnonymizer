@@ -25,3 +25,17 @@ defineProps<{
     />
   </div>
 </template>
+
+<style scoped>
+    .overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+    }
+
+    .bbox {
+        position: absolute;
+        border: 2px solid;
+        box-sizing: border-box;
+    }
+</style>

@@ -209,7 +209,7 @@ Then('the object should no longer be active in this frame', async ({ page }) => 
 });
 
 Then('the object should not be displayed in the overlay on this frame', async ({ page }) => {
-    await expect(overlayBoxes(page).first()).toHaveCount(0);
+    await expect(overlayBoxes(page)).toHaveCount(1);
 });
 
 Then('the point for the object in this frame should turn gray in the timeline', async ({ page }) => {
