@@ -47,7 +47,13 @@
                 </MudAlert>
             }
 
-            <MudStack Row="true" Spacing="2">
+            <MudStack Spacing="2">                
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Disabled="!_showEditor"
+                           OnClick="() => StartAnonymizationAsync(_analyzedFrames)">
+                    Anonymize selected objects
+                </MudButton>
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Secondary"
                            Disabled="@(!IsAnonymized || _anonymizeVideoJobId.IsNullOrEmpty())"
@@ -62,9 +68,8 @@
 @if (_showEditor && _currentVideoId.HasValue && !string.IsNullOrWhiteSpace(_videoSourceUrl))
 {
     <VideoEditor VideoId="@_currentVideoId.Value"
-                 VideoUrl="@_videoSourceUrl"
-                 Frames="@_analyzedFrames"
-                 OnAnonymize="StartAnonymizationAsync" />
+                 VideoSourceUrl="@_videoSourceUrl"
+                 Frames="@_analyzedFrames" />
 }
 
 @code {

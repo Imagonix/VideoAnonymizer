@@ -8,6 +8,11 @@
 @inject HttpClient Http
 
 <PageTitle>Video Editor Test</PageTitle>
+<MudThemeProvider @ref="_themeProvider"
+                  IsDarkMode="@_isDarkMode" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
 
 @if (_isLoading)
 {
@@ -21,9 +26,11 @@ else
 {
     <ErrorBoundary>
         <ChildContent>
-            <VideoEditor VideoId="@_videoId"
-                         VideoSourceUrl="@_videoUrl"
-                         Frames="@_frames" />
+            <MudPaper>
+                <VideoEditor VideoId="@_videoId"
+                             VideoSourceUrl="@_videoUrl"
+                             Frames="@_frames" />
+            </MudPaper>
         </ChildContent>
         <ErrorContent Context="ex">
             <pre style="white-space: pre-wrap; color: red;">@ex.ToString()</pre>
@@ -39,6 +46,23 @@ else
     private Guid _videoId;
     private string _videoUrl = "/test-data/sample.frame-analysis.mp4";
     private IReadOnlyList<AnalyzedFrameDto> _frames = Array.Empty<AnalyzedFrameDto>();
+    private MudThemeProvider? _themeProvider;
+    private bool _isDarkMode;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _themeProvider is null)
+            return;
+
+        _isDarkMode = await _themeProvider.GetSystemDarkModeAsync();
+        StateHasChanged();
+
+        await _themeProvider.WatchSystemDarkModeAsync(async isDark =>
+        {
+            _isDarkMode = isDark;
+            await InvokeAsync(StateHasChanged);
+        });
+    }
 
     protected override async Task OnInitializedAsync()
     {

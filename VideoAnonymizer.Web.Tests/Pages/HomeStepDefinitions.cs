@@ -88,6 +88,31 @@ namespace VideoAnonymizer.Web.Tests.Pages
                 .UploadFiles([dummyVideo]);
         }
 
+        [Given("I press anonymize")]
+        public async Task GivenIPressAnonymize()
+        {
+            await ComponentUnderTest.WaitForAssertionAsync(() =>
+            {
+                var anonymizeButton = ComponentUnderTest
+                    .FindComponents<MudButton>()
+                    .Single(x => x.Markup.Contains("Anonymize", StringComparison.OrdinalIgnoreCase));
+
+                anonymizeButton.Instance.Disabled.Should().BeFalse(
+                    "the anonymize button should be enabled after the video was analyzed");
+            }, TimeSpan.FromSeconds(60));
+
+            await ComponentUnderTest.InvokeAsync(async () =>
+            {
+                var anonymizeButton = ComponentUnderTest
+                    .FindComponents<MudButton>()
+                    .Single(x => x.Markup.Contains("Anonymize", StringComparison.OrdinalIgnoreCase));
+
+                var buttonElement = anonymizeButton.Find("button");
+                await buttonElement.ClickAsync();
+            });
+        }
+
+
         [When("I press download")]
         public async Task WhenIPressDownload()
         {
