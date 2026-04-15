@@ -4,60 +4,81 @@ Feature: Video editor for analyzed videos
   I want to edit the result of an analyzed video
   So that I can inspect detected objects in the video preview and on the timeline
 
-  Scenario: Editor shows video preview, current-frame object list, and timeline
-    Given the editor is opened for an analyzed video
-    Then I should see a video preview
-    And I should see a list of detected objects for the current frame next to the video preview
-    And every detected object in the current frame should have a checkbox
-    And I should see a timeline below the video preview
-    And I should see the detected objects listed on the left side of the timeline
-    And each object on the timeline should have a color
-    And each object on the timeline should have a checkbox
+Scenario: Editor shows video preview, current-frame object list, and timeline
+	Given the editor is opened for an analyzed video
+	Then I should see a video preview
+	And I should see a list of detected objects for the current frame next to the video preview
+	And every detected object in the current frame should have a checkbox
+	And I should see a timeline below the video preview
+	And I should see the detected objects listed on the left side of the timeline
+	And each object on the timeline should have a color
+	And each object on the timeline should have a checkbox
 
-#  Scenario: Timeline highlights the times where an object is detected
-#    Given the editor is opened for an analyzed video
-#    When an object is detected in one or more analyzed frames
-#    Then the timeline should highlight that object in its assigned color at the corresponding times
-#
-#  Scenario: Neighboring detections are rendered as one continuous colored line
-#    Given the editor is opened for an analyzed video
-#    And an object is detected in neighboring analyzed frames
-#    When the timeline is rendered
-#    Then the object should be shown as one continuous colored line across the corresponding time range
-#
-#  Scenario: Current-frame object list changes when the current video time changes
-#    Given the editor is opened for an analyzed video
-#    When the current video time changes
-#    Then the list next to the video preview should show the detected objects of the current frame
-#
-#  Scenario: Bounding boxes are displayed for detected objects in the video
-#    Given the editor is opened for an analyzed video
-#    When the current frame contains detected objects
-#    Then the detected objects should be shown as bounding boxes in the video preview
-#
-#  Scenario: Bounding box border color matches the timeline object color
-#    Given the editor is opened for an analyzed video
-#    When an object is shown as a bounding box in the video preview
-#    Then the border of the bounding box should use the same color as the object on the timeline
-#
-#  Scenario: Current-frame object can be enabled and disabled from the object list
-#    Given the editor is opened for an analyzed video
-#    And the current frame contains a detected object
-#    When I uncheck that object in the current-frame object list
-#    Then the object should no longer be active in the editor
-#    When I check that object again
-#    Then the object should be active in the editor again
-#
-#  Scenario: Timeline object can be enabled and disabled from the timeline list
-#    Given the editor is opened for an analyzed video
-#    And the timeline contains a detected object
-#    When I uncheck that object in the timeline list
-#    Then the object should no longer be active in the editor
-#    And its bounding boxes should not be shown in the video preview
-#    When I check that object again
-#    Then the object should be active in the editor again
-#    And its bounding boxes should be shown in the video preview again
-#
+Scenario: Timeline highlights the times where an object is detected
+	Given the editor is opened for an analyzed video
+	When an object is detected in one or more analyzed frames
+	Then the timeline should highlight that object in its assigned color at the corresponding times
+
+Scenario: Neighboring detections are rendered as one continuous colored line
+	Given the editor is opened for an analyzed video
+	And an object is detected in neighboring analyzed frames
+	When the timeline is rendered
+	Then the object should be shown as one continuous colored line across the corresponding time range
+
+
+Scenario: Bounding box border color matches the timeline object color
+	Given the editor is opened for an analyzed video
+	When an object is shown as a bounding box in the video preview
+	Then the border of the bounding box should use the same color as the object on the timeline
+
+Scenario: Current-frame object can be disabled from the object list
+	Given the editor is opened for an analyzed video
+	And the current frame contains a detected object
+	When I uncheck that object in the current-frame object list
+	Then the object should no longer be active in this frame
+	And the object should not be displayed in the overlay on this frame
+	And the point for the object in this frame should turn gray in the timeline
+	And the other points for the object on the timeline should not be effected
+    
+Scenario: Current-frame object can be enabled from the object list
+	Given the editor is opened for an analyzed video
+	And the current frame contains a detected object
+	And one object is disabled in the object list
+	When I check that object in the current-frame object list
+	Then the object should be active in this frame
+	And the object should be displayed in the overlay on this frame
+	And the point for the object in this frame should turn to its color in the timeline
+	And the other points for the object on the timeline should not be effected
+
+Scenario: Timeline object can be disabled from the timeline list
+	Given the editor is opened for an analyzed video
+	And the timeline contains a detected object
+	When I uncheck that object in the timeline list
+	Then the object should no longer be selected in any frame
+	And the line or points in the timeline for the object should turn gray
+
+Scenario: Timeline object can be enabled from the timeline list
+	Given the editor is opened for an analyzed video
+	And the timeline contains a detected object
+	And one object has been disabled on the timeline
+	When I check that object in the timeline list
+	Then the object should be selected in all frames
+	And the line or points in the timeline for the object should turn to its color
+
+Scenario: Playback indicator moves with the current video time
+	Given the editor is opened for an analyzed video
+	When the video is playing
+	Then a vertical playback indicator should move on the timeline with the current video time
+	And the current timestamp should be shown at the indicator
+
+Scenario: Clicking on the timeline updates the video current time
+	Given the editor is opened for an analyzed video
+	And the video is paused
+	When I click on a position on the timeline at 3 seconds
+	Then the video current time should be set to 3 seconds
+	And the video frame displayed should correspond to 3 seconds
+	And the playback indicator should move to the clicked position on the timeline
+
 #  Scenario: Timeline can zoom in by 25 percent
 #    Given the editor is opened for an analyzed video
 #    And the timeline shows a current visible time range
@@ -70,11 +91,7 @@ Feature: Video editor for analyzed videos
 #    When I zoom out
 #    Then the visible timeline range should increase by 25 percent
 #
-#  Scenario: Playback indicator moves with the current video time
-#    Given the editor is opened for an analyzed video
-#    When the video is playing
-#    Then a vertical playback indicator should move on the timeline with the current video time
-#    And the current timestamp should be shown at the indicator
+
 #
 #  Scenario: Timeline stays fixed until the playback indicator reaches the middle
 #    Given the editor is opened for an analyzed video
