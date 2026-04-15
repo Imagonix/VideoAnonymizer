@@ -13,3 +13,5 @@ bin
 /VideoAnonymizer.Web.Modules.Tests.Playwright/package-lock.json
 /VideoAnonymizer.Web.Modules.Tests.Playwright/test-results/.last-run.json
 /VideoAnonymizer.Web.Modules.Tests.Playwright/test-results
+/VideoAnonymizer.Web.Modules/wwwroot/vue/video-editor/index.css
+/VideoAnonymizer.Web.Modules/wwwroot/vue/video-editor/index.js

@@ -1,7 +1,7 @@
 # VUE Components
 ## Video Editor
-cd ClientApp/video-editor\
+cd ClientApp/video-editor
 ### Initialize
-npm install\
+npm install
 ### Build
 npm run build

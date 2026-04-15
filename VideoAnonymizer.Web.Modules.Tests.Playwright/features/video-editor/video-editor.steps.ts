@@ -5,6 +5,7 @@ const { Given, When, Then } = createBdd();
 
 Given('the editor is opened for an analyzed video', async ({ page }) => {
     await page.goto('/videoEditor');
+    await setVideoCurrentTime(page, 0.25);
 });
 
 Then('I should see a video preview', async ({ page }) => {
