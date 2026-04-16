@@ -5,7 +5,7 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
-import type { VideoEditorProps, TimelineObject, DetectedObjectDto } from './types';
+import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto } from './types';
 import { colorManager } from './services/ColorManager'
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
@@ -15,7 +15,6 @@ const props = defineProps<{
 
 const currentTime = ref(0);
 const videoDuration = ref(0);
-const activeKeys = ref<string[]>([]);
 
 const frames = computed(() => props.state.frames ?? []);
 
@@ -23,36 +22,40 @@ function buildObjectKey(obj: DetectedObjectDto): string {
     return obj.trackId != null ? `track-${obj.trackId}` : obj.id;
 }
 
-watch(frames, () => {
-    const selectedFromData = new Set<string>();
-    for (const frame of frames.value) {
-        for (const obj of frame.detectedObjects) {
-            if (obj.selected) {
-                selectedFromData.add(buildObjectKey(obj));
-            }
-        }
-    }
-    activeKeys.value = selectedFromData.size > 0
-        ? Array.from(selectedFromData)
-        : [];
-}, { immediate: true });
+function createLabel(obj: DetectedObjectDto): string {
+    return obj.trackId != null ? `Object ${obj.trackId}` : (obj.className ?? 'Object');
+}
 
 const timelineObjects = computed<TimelineObject[]>(() => {
-    const map = new Map<string, TimelineObject>();
-    for (const frame of frames.value) {
-        for (const obj of frame.detectedObjects) {
-            const key = buildObjectKey(obj);
-            if (!map.has(key)) {
-                map.set(key, {
-                    key,
-                    label: obj.trackId != null ? `Object ${obj.trackId}` : (obj.className ?? 'Object'),
-                    color: colorManager.getColor(obj),
-                    trackId: obj.trackId
-                });
-            }
+    var untracked = frames.value.flatMap(frame => frame.detectedObjects.filter(x => x.trackId == null).map((obj) : SingleTimelineObject => ({
+        detectedObj: obj,
+        type: 'single',
+        timeSeconds: frame.timeSeconds,
+    })))
+
+    const grouped = frames.value.flatMap(frame =>
+        frame.detectedObjects.map(obj => ({
+            trackId: obj.trackId,
+            detectedObj: obj,
+            timeSeconds: frame.timeSeconds
+        }))
+    ).reduce((acc, x) => {
+        if (x.trackId == null) return acc;
+
+        if (!acc[x.trackId]) {
+            acc[x.trackId] = {
+                type: 'tracked',
+                occurences: []
+            };
         }
-    }
-    return [...map.values()];
+
+        acc[x.trackId].occurences.push([x.timeSeconds, x.detectedObj]);
+        return acc;
+    }, {} as Record<number, TrackedTimelineObject>);
+
+    const tracked = Object.values(grouped);
+
+    return [...tracked, ...untracked];
 });
 
 const currentFrame = computed(() => {
@@ -64,14 +67,25 @@ const currentFrame = computed(() => {
 const visibleCurrentFrameObjects = computed(() => {
     const frame = currentFrame.value;
     if (!frame) return [];
-    return frame.detectedObjects.filter(obj => activeKeys.value.includes(buildObjectKey(obj)));
+    return frame.detectedObjects.filter(obj => obj.selected);
 });
 
-function toggleObject(objectKey: string, checked: boolean) {
-    if (checked) {
-        if (!activeKeys.value.includes(objectKey)) activeKeys.value = [...activeKeys.value, objectKey];
-    } else {
-        activeKeys.value = activeKeys.value.filter(k => k !== objectKey);
+function toggleObject(id: string, checked: boolean) {
+    frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id)).forEach(obj => {
+        obj.selected = checked
+    })
+}
+
+function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
+    if (obj.type === 'single') {
+        obj.detectedObj.selected = checked;
+        return;
+    }
+
+    if (obj.type === 'tracked') {
+        obj.occurences.forEach(([_, o]) => {
+            o.selected = checked;
+        });
     }
 }
 
@@ -86,7 +100,7 @@ function buildSegments(objectKey: string) {
             const obj = frame.detectedObjects.find(o => buildObjectKey(o) === objectKey)!;
             return {
                 timeSeconds: frame.timeSeconds,
-                selected: activeKeys.value.includes(buildObjectKey(obj))
+                selected: obj.selected
             };
         });
 }
@@ -120,12 +134,12 @@ function onVideoLoaded(duration: number) {
 
         <div class="timeline-wrapper">
             <div class="timeline-labels">
-                <TimelineRowLabel v-for="obj in timelineObjects" :objectKey="obj.key" :color="obj.color" />
+                <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject"/>
             </div>
             <div>
                 <Timeline :duration="videoDuration" :currentTime="currentTime" @seek="seekTo">
-                    <TimelineRow v-for="obj in timelineObjects" :key="obj.key" :objectKey="obj.key" :color="obj.color"
-                        :duration="videoDuration" :segments="buildSegments(obj.key)" />
+                    <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
+                        :video-duration="videoDuration"/>
                 </Timeline>
             </div>
         </div>

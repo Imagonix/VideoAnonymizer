@@ -4,8 +4,8 @@ const props = defineProps<{
   time: number;
   duration: number;
   active: boolean;
+  color: string;
 }>();
-
 const left = computed(() => `${(props.time / props.duration) * 100}%`);
 </script>
 
@@ -15,7 +15,7 @@ const left = computed(() => `${(props.time / props.duration) * 100}%`);
     :data-testid="active ? 'timeline-segment-colored' : 'timeline-segment-gray'"
     :style="{
       left,
-      backgroundColor: 'var(--mud-palette-primary)'
+      backgroundColor: color
     }"
   />
 </template>

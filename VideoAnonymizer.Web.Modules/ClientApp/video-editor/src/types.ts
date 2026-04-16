@@ -24,9 +24,18 @@ export type VideoEditorProps = {
   frames: AnalyzedFrameDto[];
 };
 
-export type TimelineObject = {
-  key: string;
-  label: string;
-  color: string;
-  trackId: number | null;
+export type TimelineObjectBase = {
 };
+
+export type SingleTimelineObject = TimelineObjectBase & {
+  detectedObj: DetectedObjectDto;
+  type: 'single';
+  timeSeconds: number;
+};
+
+export type TrackedTimelineObject = TimelineObjectBase & {
+  type: 'tracked';
+  occurences: [number, DetectedObjectDto][];
+};
+
+export type TimelineObject = SingleTimelineObject | TrackedTimelineObject;

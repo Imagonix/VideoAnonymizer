@@ -1,37 +1,47 @@
 <script setup lang="ts">
-defineProps<{
-  objectKey: string
-  color: string
-  duration: number
-  segments: any[]
+import { ref } from 'vue'
+import type { TimelineObject } from './types';
+import { colorManager } from './services/ColorManager'
+import { getLabel } from './utils/utils'
+const props = defineProps<{
+    timelineObject: TimelineObject
+    videoDuration : number
 }>()
+const emit = defineEmits<{ (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void }>();
+function toPercent(time: number) {
+  return `${(time / props.videoDuration) * 100}%`
+}
 </script>
 <template>
     <div class="timeline-row-wrapper">
         <div class="timeline-row">
-            <!-- <div v-if="hasContinuous"
-                 class="timeline-segment-continuous"
-                 data-testid="timeline-segment-continuous"
-                 :style="{ backgroundColor: color }" /> -->
-            <TimelineMarker v-for="s in segments"
-                            :key="s.timeSeconds"
-                            :time="s.timeSeconds"
-                            :duration="duration"
-                            :active="s.selected" />
+
+            <template v-if="props.timelineObject.type === 'single'">
+                <div class="dot" :style="{
+                    left: toPercent(props.timelineObject.timeSeconds),
+                    background: colorManager.getColor(props.timelineObject.detectedObj)
+                }" />
+            </template>
+            <template v-else>
+                <div v-for="[time, obj] in props.timelineObject.occurences" :key="time" class="dot" :style="{
+                    left: toPercent(time),
+                    background: colorManager.getColor(obj)
+                }" />
+            </template>
         </div>
     </div>
 </template>
 
 <style scoped>
-    .timeline-row-wrapper {
-        position: relative;
-    }
+.timeline-row-wrapper {
+    position: relative;
+}
 
-    .timeline-row {
-        position: relative;
-        height: 34px;
-        background: var(--mud-palette-surface);
-        border-radius: 8px;
-        overflow: hidden;
-    }
+.timeline-row {
+    position: relative;
+    height: 34px;
+    background: var(--mud-palette-surface);
+    border-radius: 8px;
+    overflow: hidden;
+}
 </style>
