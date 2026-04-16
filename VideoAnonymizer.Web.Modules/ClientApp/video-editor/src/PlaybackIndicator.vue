@@ -40,7 +40,7 @@
         left: 50%;
         width: 2px;
         transform: translateX(-50%);
-        background: #ef4444;
+        background: var(--mud-palette-primary);
     }
 
     .playback-timestamp {

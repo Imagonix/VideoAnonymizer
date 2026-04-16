@@ -14,7 +14,7 @@
     const trackRef = ref<HTMLElement | null>(null);
 
     function onClick(e: MouseEvent) {
-        if (!trackRef.value || !props.duration) return;
+        if (!trackRef.value || props.duration <= 0) return;
 
         const rect = trackRef.value.getBoundingClientRect();
         const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
@@ -31,6 +31,12 @@
 
 <style scoped>
     .timeline {
+        border-radius: 12px;
+        padding: 16px;
         position: relative;
     }
+
+        .timeline :deep(.timeline-row) {
+            margin-bottom: 12px;
+        }
 </style>

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { DetectedObjectDto } from '../types';
+import type { DetectedObjectDto } from './types';
+    import { colorManager } from './services/ColorManager'
 
 defineProps<{
   objects: DetectedObjectDto[];
-  getColor: (key: string) => string;
   getKey: (obj: DetectedObjectDto) => string;
 }>();
 </script>
@@ -20,7 +20,7 @@ defineProps<{
         top: `${obj.y}px`,
         width: `${obj.width}px`,
         height: `${obj.height}px`,
-        borderColor: getColor(getKey(obj))
+        borderColor: colorManager.getColor(obj)
       }"
     />
   </div>

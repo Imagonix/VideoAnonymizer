@@ -1,40 +1,60 @@
 <script setup lang="ts">
-import { computed } from 'vue';
-import TimelineMarker from './TimelineMarker.vue';
-
-const props = defineProps<{
-  objectKey: string;
-  color: string;
-  segments: { timeSeconds: number; selected: boolean }[];
-  duration: number;
-}>();
-
-const hasContinuous = computed(() => {
-  if (props.segments.length < 2) return false;
-  for (let i = 1; i < props.segments.length; i++) {
-    if (Math.abs(props.segments[i].timeSeconds - props.segments[i - 1].timeSeconds) < 1.1) {
-      return true;
-    }
-  }
-  return false;
-});
+import { ref } from 'vue'
+defineProps<{
+  objectKey: string
+  color: string
+  duration: number
+  segments: any[]
+}>()
+const checked = ref(true)
 </script>
-
 <template>
-  <div class="timeline-row">
-    <div
-      v-if="hasContinuous"
-      class="timeline-segment-continuous"
-      data-testid="timeline-segment-continuous"
-      :style="{ backgroundColor: color }"
-    />
-    <TimelineMarker
-      v-for="s in segments"
-      :key="s.timeSeconds"
-      :time="s.timeSeconds"
-      :duration="duration"
-      :active="s.selected"
-      :color="color"
-    />
-  </div>
+    <div class="timeline-row-wrapper">
+        <div class="timeline-row">
+            <div class="label-container">
+                <input type="checkbox" v-model="checked" class="checkbox" />
+                <span>{{ objectKey }}</span>
+                <div class="color-dot" :style="{ background: color }"></div>
+            </div>
+            <!-- <div v-if="hasContinuous"
+                 class="timeline-segment-continuous"
+                 data-testid="timeline-segment-continuous"
+                 :style="{ backgroundColor: color }" /> -->
+            <TimelineMarker v-for="s in segments"
+                            :key="s.timeSeconds"
+                            :time="s.timeSeconds"
+                            :duration="duration"
+                            :active="s.selected" />
+        </div>
+    </div>
 </template>
+
+<style scoped>
+    .timeline-row-wrapper {
+        position: relative;
+    }
+
+    .label-container{
+        display: flex;
+        align-items: center;
+    }
+
+    .timeline-row {
+        position: relative;
+        height: 34px;
+        background: var(--mud-palette-surface);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .color-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+    }
+    .checkbox {
+        accent-color: var(--mud-palette-primary);
+        width: 16px;
+        height: 16px;
+    }
+</style>

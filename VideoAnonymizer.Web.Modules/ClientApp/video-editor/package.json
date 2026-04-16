@@ -2,6 +2,7 @@
   "name": "video-editor-vue",
   "private": true,
   "scripts": {
+    "dev": "vite",
     "build": "vite build"
   },
   "devDependencies": {
