@@ -16,13 +16,23 @@
     <script type="importmap"></script>
 </head>
 
-<body>
-    <div id="app">
-        <svg class="loading-progress">
-            <circle r="40%" cx="50%" cy="50%" />
-            <circle r="40%" cx="50%" cy="50%" />
-        </svg>
-        <div class="loading-progress-text"></div>
+<body style="background-color: #32333d; margin: 0; padding: 0; height: 100%; color: #ffffff;">
+    <div id="app" style="height: 100%;">
+        <div style="height: 100vh; width: 100%; display: flex; align-items: center; justify-content: center; background-color: #32333d;">
+            <div style="text-align: center;">
+                <svg width="90" height="90" viewBox="0 0 100 100" class="loading-spinner">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#444" stroke-width="9" />
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#7b6cf6"
+                            stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+                            stroke-dasharray="251" stroke-dashoffset="251"
+                            class="loading-progress-circle" />
+                </svg>
+
+                <div style="margin-top: 28px; font-size: 1.2rem; font-weight: 500; color: #ffffff;">
+                    Loading...
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="blazor-error-ui">
@@ -33,5 +43,4 @@
     <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
 </body>
-
 </html>
