@@ -51,7 +51,7 @@
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            Disabled="!_showEditor"
-                           OnClick="() => StartAnonymizationAsync(_analyzedFrames)">
+                           OnClick="StartAnonymizationAsync">
                     Anonymize selected objects
                 </MudButton>
                 <MudButton Variant="Variant.Filled"
@@ -69,12 +69,15 @@
 {
     <VideoEditor VideoId="@_currentVideoId.Value"
                  VideoSourceUrl="@_videoSourceUrl"
-                 Frames="@_analyzedFrames" />
+                 Frames="@_analyzedFrames" 
+                 @ref=_videoEditor/>
 }
 
 @code {
     private IDisposable? _videoAnalyzedSubscription;
     private IDisposable? _videoAnonymizedSubscription;
+
+    private VideoEditor _videoEditor;
 
     private IBrowserFile? _selectedFile;
     private Guid? _currentVideoId;
@@ -193,7 +196,7 @@
         }
     }
 
-    private async Task StartAnonymizationAsync(List<AnalyzedFrameDto> frames)
+    private async Task StartAnonymizationAsync()
     {
         if (_currentVideoId.IsNullOrEmpty())
             return;
@@ -202,10 +205,12 @@
         {
             IsBusy = true;
 
+            _analyzedFrames = (await _videoEditor.GetFramesAsync()).ToList();
+
             using var httpClient = HttpClientFactory.CreateClient("ApiService");
             var response = await httpClient.PostAsJsonAsync(
                 $"/{SharedConstants.Paths.Anonymize}/{_currentVideoId}",
-                frames);
+                _analyzedFrames);
 
             response.EnsureSuccessStatusCode();
 

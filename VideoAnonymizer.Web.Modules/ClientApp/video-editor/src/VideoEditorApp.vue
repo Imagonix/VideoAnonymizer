@@ -6,24 +6,26 @@ import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
 import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto } from './types';
-import { colorManager } from './services/ColorManager'
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
 const props = defineProps<{
     state: VideoEditorProps;
 }>();
+defineExpose({
+    getFrames
+})
 
 const currentTime = ref(0);
 const videoDuration = ref(0);
 
 const frames = computed(() => props.state.frames ?? []);
 
-function buildObjectKey(obj: DetectedObjectDto): string {
-    return obj.trackId != null ? `track-${obj.trackId}` : obj.id;
+function getFrames() {
+    return JSON.parse(JSON.stringify(props.state.frames))
 }
 
-function createLabel(obj: DetectedObjectDto): string {
-    return obj.trackId != null ? `Object ${obj.trackId}` : (obj.className ?? 'Object');
+function buildObjectKey(obj: DetectedObjectDto): string {
+    return obj.trackId != null ? `track-${obj.trackId}` : obj.id;
 }
 
 const timelineObjects = computed<TimelineObject[]>(() => {

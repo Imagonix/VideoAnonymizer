@@ -52,3 +52,17 @@ export async function unmountVideoEditor(element) {
 
     mountedApps.delete(element);
 }
+
+export async function getFrames(element) {
+    const appHandle = mountedApps.get(element);
+    console.log('getFrames called', { element, appHandle, keys: appHandle ? Object.keys(appHandle) : null });
+
+    if (!appHandle || typeof appHandle.getFrames !== 'function') {
+        console.log('missing getFrames on appHandle');
+        return null;
+    }
+
+    const result = appHandle.getFrames();
+    console.log('frames returned', result);
+    return result;
+}

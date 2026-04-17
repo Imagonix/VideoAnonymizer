@@ -17,13 +17,13 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private bool _mounted;
     private bool _loadFailed;
 
-    public async Task<IReadOnlyList<AnalyzedFrameDto>> GetEditedFramesAsync()
+    public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
     {
         if (!_mounted || _hostModule is null)
             return Frames.ToArray();
 
         var editedFrames = await _hostModule.InvokeAsync<AnalyzedFrameDto[]?>(
-            "getVideoEditorState",
+            "getFrames",
             _hostElement);
 
         return editedFrames ?? Array.Empty<AnalyzedFrameDto>();

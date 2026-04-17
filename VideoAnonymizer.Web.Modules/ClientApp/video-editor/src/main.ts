@@ -3,35 +3,41 @@ import VideoEditorApp from './VideoEditorApp.vue';
 import type { VideoEditorProps } from './types';
 
 type AppHandle = {
-  update: (nextProps: VideoEditorProps) => void;
-  unmount: () => void;
+    update: (nextProps: VideoEditorProps) => void;
+    unmount: () => void;
+    getFrames: () => any[]
 };
 
 declare global {
-  interface Window {
-    __videoEditorVueLoader?: Promise<unknown>;
-    mountVideoEditorVueApp?: (element: HTMLElement, props: VideoEditorProps) => AppHandle;
-  }
+    interface Window {
+        __videoEditorVueLoader?: Promise<unknown>;
+        mountVideoEditorVueApp?: (element: HTMLElement, props: VideoEditorProps) => AppHandle;
+    }
 }
 
 window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps): AppHandle => {
-  const state = reactive<VideoEditorProps>({
-    videoId: props.videoId,
-    videoSourceUrl: props.videoSourceUrl,
-    frames: props.frames ?? []
-  });
+    const state = reactive<VideoEditorProps>({
+        videoId: props.videoId,
+        videoSourceUrl: props.videoSourceUrl,
+        frames: props.frames ?? []
+    });
 
-  const app = createApp(VideoEditorApp, { state });
-  app.mount(element);
+    const app = createApp(VideoEditorApp, { state });
+    const vm = app.mount(element) as {
+        getFrames?: () => any[]
+    };
 
-  return {
-    update(nextProps: VideoEditorProps) {
-      state.videoId = nextProps.videoId;
-      state.videoSourceUrl = nextProps.videoSourceUrl;
-      state.frames = nextProps.frames ?? [];
-    },
-    unmount() {
-      app.unmount();
-    }
-  };
+    return {
+        update(nextProps: VideoEditorProps) {
+            state.videoId = nextProps.videoId;
+            state.videoSourceUrl = nextProps.videoSourceUrl;
+            state.frames = nextProps.frames ?? [];
+        },
+        getFrames() {
+            return vm.getFrames?.() ?? []
+        },
+        unmount() {
+            app.unmount();
+        }
+    };
 };

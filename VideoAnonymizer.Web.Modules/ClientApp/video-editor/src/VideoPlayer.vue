@@ -30,10 +30,6 @@ const emit = defineEmits<{
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 
-function onTimeUpdate() {
-  if (videoRef.value) emit('time-update', videoRef.value.currentTime);
-}
-
 function onLoaded() {
   if (videoRef.value) emit('loaded', videoRef.value.duration);
 }
@@ -52,5 +48,4 @@ watch(() => props.currentTime, (t) => {
     controls
     @loadedmetadata="onLoaded"
   />
-    <!-- @timeupdate="onTimeUpdate" -->
 </template>
