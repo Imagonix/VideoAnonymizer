@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { TimelineObject } from './types';
+import type { DetectedObjectDto, TimelineObject } from './types';
 import { colorManager } from './services/ColorManager'
 import { getLabel } from './utils/utils'
 const props = defineProps<{
@@ -25,7 +25,8 @@ function toPercent(time: number) {
             <template v-else>
                 <div v-for="[time, obj] in props.timelineObject.occurences" :key="time" class="dot" :style="{
                     left: toPercent(time),
-                    background: colorManager.getColor(obj)
+                    background: colorManager.getColor(obj),
+                    opacity: obj.selected ? 1 : 0.3
                 }" />
             </template>
         </div>

@@ -8,7 +8,6 @@ const props = defineProps<{
     timelineObject: TimelineObject
 }>()
 const emit = defineEmits<{ (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void }>();
-const checked = computed(() => getSelectionState(props.timelineObject) === 'checked')
 function getSelectionState(obj: TimelineObject): 'checked' | 'unchecked' | 'indeterminate' {
     if (obj.type === 'single') {
         return obj.detectedObj.selected ? 'checked' : 'unchecked';
@@ -42,11 +41,26 @@ function getTimelineColor(obj: TimelineObject): string {
     if (obj.type === 'tracked') return colorManager.getColor(obj.occurences[0][1]);
     return '';
 }
+const selectionState = computed<'checked' | 'unchecked' | 'indeterminate'>(() => {
+    if (props.timelineObject.type === 'single') {
+        return props.timelineObject.detectedObj.selected ? 'checked' : 'unchecked'
+    }
+
+    const allSelected = props.timelineObject.occurences.every(x => x[1].selected === true)
+    const noneSelected = props.timelineObject.occurences.every(x => x[1].selected === false)
+
+    if (allSelected) return 'checked'
+    if (noneSelected) return 'unchecked'
+    return 'indeterminate'
+})
+const checked = computed(() => selectionState.value === 'checked')
+const indeterminate = computed(() => selectionState.value === 'indeterminate')
 </script>
 <template>
     <div class="label-container">
-        <MudLikeCheckbox :checked="checked" @change="(value: boolean) => emit('toggle', timelineObject, value)">{{
-            getTimelineLabel(props.timelineObject) }}</MudLikeCheckbox>
+        <MudLikeCheckbox :checked="checked" :indeterminate="indeterminate"
+            @change="(value: boolean) => emit('toggle', timelineObject, value)">{{
+                getTimelineLabel(props.timelineObject) }}</MudLikeCheckbox>
         <div class="color-dot" :style="{ background: getTimelineColor(props.timelineObject) }"></div>
     </div>
 </template>
