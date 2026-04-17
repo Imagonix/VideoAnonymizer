@@ -44,4 +44,16 @@ function toPercent(time: number) {
     border-radius: 8px;
     overflow: hidden;
 }
+
+.dot {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+
+  z-index: 10;
+}
 </style>

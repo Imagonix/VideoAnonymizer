@@ -93,18 +93,6 @@ function getKey(obj: DetectedObjectDto): string {
     return buildObjectKey(obj);
 }
 
-function buildSegments(objectKey: string) {
-    return frames.value
-        .filter(frame => frame.detectedObjects.some(obj => buildObjectKey(obj) === objectKey))
-        .map(frame => {
-            const obj = frame.detectedObjects.find(o => buildObjectKey(o) === objectKey)!;
-            return {
-                timeSeconds: frame.timeSeconds,
-                selected: obj.selected
-            };
-        });
-}
-
 function seekTo(time: number) {
     currentTime.value = time;
 }

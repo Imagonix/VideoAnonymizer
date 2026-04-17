@@ -32,7 +32,7 @@
 <style scoped>
     .timeline {
         border-radius: 12px;
-        padding: 16px;
+        margin: 16px;
         position: relative;
     }
 
