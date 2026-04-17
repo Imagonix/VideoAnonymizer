@@ -1,10 +1,27 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps<{
   videoSourceUrl: string;
   currentTime: number;
 }>();
+
+onMounted(() => {
+  videoRef.value?.requestVideoFrameCallback(onFrame)
+})
+
+let stopped = false;
+onUnmounted(() => {
+  stopped = true;
+});
+
+function onFrame(_: number, metadata: VideoFrameCallbackMetadata) {
+  if(stopped){
+    return;
+  }
+  videoRef.value?.requestVideoFrameCallback(onFrame)
+  if (videoRef.value) emit('time-update', metadata.mediaTime);
+}
 
 const emit = defineEmits<{
   (e: 'time-update', time: number): void;
@@ -33,7 +50,7 @@ watch(() => props.currentTime, (t) => {
     ref="videoRef"
     :src="videoSourceUrl"
     controls
-    @timeupdate="onTimeUpdate"
     @loadedmetadata="onLoaded"
   />
+    <!-- @timeupdate="onTimeUpdate" -->
 </template>

@@ -10,6 +10,7 @@ bin
 /VideoAnonymizer.ObjectDetection/models
 /**/.bin
 /**/node_modules
+/**/.vite
 /VideoAnonymizer.Web.Modules.Tests.Playwright/package-lock.json
 /VideoAnonymizer.Web.Modules.Tests.Playwright/test-results/.last-run.json
 /VideoAnonymizer.Web.Modules.Tests.Playwright/test-results
