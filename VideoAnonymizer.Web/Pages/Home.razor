@@ -67,10 +67,12 @@
 
 @if (_showEditor && _currentVideoId.HasValue && !string.IsNullOrWhiteSpace(_videoSourceUrl))
 {
-    <VideoEditor VideoId="@_currentVideoId.Value"
-                 VideoSourceUrl="@_videoSourceUrl"
-                 Frames="@_analyzedFrames" 
-                 @ref=_videoEditor/>
+    <MudPaper Class="pa-6">
+        <VideoEditor VideoId="@_currentVideoId.Value"
+                     VideoSourceUrl="@_videoSourceUrl"
+                     Frames="@_analyzedFrames"
+                     @ref=_videoEditor />
+    </MudPaper>
 }
 
 @code {

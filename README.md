@@ -11,7 +11,7 @@ Automatically detect and anonymize sensitive information in videos — such as f
 - 🎯 Automatic face detection (powered by RetinaFace)
 - 🎬 Video anonymization by blurring sensitive regions
 - ⚡ Asynchronous processing with RabbitMQ
-- 🌐 Web-based UI built with Blazor
+- 🌐 Web-based UI built with Blazor and Vue
 - 🧠 Python AI service based on FastAPI
 - 🧩 Modular distributed architecture with .NET Aspire
 - 🔌 Designed for local and cloud deployment
@@ -25,11 +25,31 @@ Automatically anonymized faces in a sample video:
 
 ![Before After Demo](docs/img/demo_slider_reveal.gif)
 
-### Editor Preview (Planned / WIP)
+### 🧩 Review Tool (Work in Progress)
 
-- Select detected objects
-- Timeline-based editing
-- Fine-grained control over anonymization
+The review tool allows inspecting detected objects before anonymization.
+
+![Editor Preview](docs/img/editor_preview.png)
+
+Current capabilities:
+
+- Inspect detected faces directly in the video preview
+- Visualize object occurrences on a timeline
+- Deselect objects from anonymization
+- Review tracked objects with consistent colors across the UI
+
+Current limitations:
+
+- No manual creation of new objects yet
+- No moving or resizing of bounding boxes yet
+
+The current review tool is intended to evolve into a full editor with manual object creation and adjustment capabilities.
+
+#### Rendering approach
+
+For performance reasons, the review tool is implemented using Vue and browser APIs such as `requestVideoFrameCallback`.
+
+The rest of the UI is Blazor-based.
 
 ---
 
@@ -37,7 +57,7 @@ Automatically anonymized faces in a sample video:
 
 The system is built as a distributed service architecture with the following main components:
 
-- **webfrontend** – Blazor WebAssembly user interface
+- **webfrontend** – Blazor WebAssembly UI with a Vue-based review tool for high-performance rendering
 - **apiservice** – .NET backend exposing a JSON API
 - **video processor** – background worker for frame extraction, blurring, and video generation
 - **objectDetection** – Python FastAPI service for object detection
@@ -46,7 +66,7 @@ The system is built as a distributed service architecture with the following mai
 - **modeldownloader** – startup component that ensures the required AI model is available
 - **database migration service** – applies schema migrations automatically on startup
 
-The architecture is designed to scale individual components (e.g. AI processing) independently.
+The architecture is designed to scale individual components (e.g. AI processing) independently. The frontend combines Blazor for general application structure with Vue for performance-critical UI components.
 
 ### Processing Flow
 
@@ -79,16 +99,19 @@ GET    /analyzed/{videoId}
 ✔ Actual flow (today)
 ```text
 1. Upload a video
-2. Start analysis and anonymization
-3. Download the processed video
-```
-🚧 Planned (Editor / Review UI)
-```text
-1. Upload a video
 2. Start analysis
 3. Review detected objects
 4. Start anonymization
 5. Download the processed video
+```
+🚧 Planned (Review Tool → Editor)
+```text
+1. Upload a video
+2. Start analysis
+3. Review detected objects
+4. Edit objects / areas to anonymize
+5. Start anonymization
+6. Download the processed video
 ```
 
 ---
@@ -170,6 +193,7 @@ Open the URL shown by the Aspire dashboard or console output.
 ### Frontend
 
 - Blazor WebAssembly
+- Vue (used for performance-critical components)
 - MudBlazor
 
 ### AI / Processing
@@ -195,10 +219,10 @@ Open the URL shown by the Aspire dashboard or console output.
 - [x] Download of processed videos
 - [x] Asynchronous processing pipeline (RabbitMQ)
 - [x] Local-first architecture (self-hosted)
+- [x] Timeline-based object selection for precise anonymization control
 
 ### 🚧 Currently in progress
 - [ ] Bounding box editor for manual correction
-- [ ] Timeline-based object selection for precise anonymization control
 
 ### 🛣️ Planned
 - [ ] Detection of additional sensitive objects (license plates, labels, addresses)
