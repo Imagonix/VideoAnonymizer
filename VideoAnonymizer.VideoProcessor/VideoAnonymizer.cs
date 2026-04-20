@@ -140,12 +140,12 @@ public class VideoAnonymizer(
 
         foreach (var track in tracks.Values)
         {
-            var interpolated = InterpolatePosition(track, currentFrameIndex);
-            if (interpolated == null)
+            var position = GetPositionForFrame(track, currentFrameIndex);
+            if (position == null)
                 continue;
 
-            var rect = ClampRect(new Rect(interpolated.X, interpolated.Y,
-                                          interpolated.Width, interpolated.Height),
+            var rect = ClampRect(new Rect(position.X, position.Y,
+                                          position.Width, position.Height),
                                  frameWidth, frameHeight);
 
             if (rect.Width > 0 && rect.Height > 0)
@@ -163,50 +163,22 @@ public class VideoAnonymizer(
         return result;
     }
 
-    private static TrackedPosition? InterpolatePosition(List<TrackedPosition> positions, int currentFrame)
+    private static TrackedPosition? GetPositionForFrame(List<TrackedPosition> positions, int currentFrame)
     {
         if (positions.Count == 0)
             return null;
 
-        var exact = positions.FirstOrDefault(p => p.FrameIndex == currentFrame);
-        if (exact != null)
-            return exact;
+        TrackedPosition? active = null;
 
-        TrackedPosition? prev = null;
-        TrackedPosition? next = null;
-
-        foreach (var p in positions)
+        foreach (var position in positions)
         {
-            if (p.FrameIndex < currentFrame)
-                prev = p;
-            else if (p.FrameIndex > currentFrame)
-            {
-                next = p;
+            if (position.FrameIndex > currentFrame)
                 break;
-            }
+
+            active = position;
         }
 
-        if (next == null && prev != null)
-            return prev;
-
-        if (prev == null && next != null)
-            return next;
-
-        if (prev != null && next != null)
-        {
-            float t = (currentFrame - prev.FrameIndex) / (float)(next.FrameIndex - prev.FrameIndex);
-
-            return new TrackedPosition
-            {
-                FrameIndex = currentFrame,
-                X = (int)Math.Round(prev.X + t * (next.X - prev.X)),
-                Y = (int)Math.Round(prev.Y + t * (next.Y - prev.Y)),
-                Width = (int)Math.Round(prev.Width + t * (next.Width - prev.Width)),
-                Height = (int)Math.Round(prev.Height + t * (next.Height - prev.Height))
-            };
-        }
-
-        return null;
+        return active;
     }
 
     private class TrackedPosition
