@@ -98,7 +98,6 @@ public class VideoAnonymizer(
                 tracks[obj.TrackId.Value] = positions;
             }
 
-            // Robuster als Round: verhindert eher ein "Vorrutschen" auf den nächsten Frame
             var frameIndex = Math.Max(0, (int)Math.Floor(obj.AnalyzedFrame.TimeSeconds * fps));
 
             if (lastValidFrameIndex.HasValue)
@@ -121,7 +120,7 @@ public class VideoAnonymizer(
             var merged = tracks[trackId]
                 .OrderBy(p => p.FrameIndex)
                 .GroupBy(p => p.FrameIndex)
-                .Select(g => g.Last()) // falls mehrere Boxen denselben Frameindex haben
+                .Select(g => g.Last())
                 .ToList();
 
             tracks[trackId] = merged;
@@ -214,7 +213,6 @@ public class VideoAnonymizer(
             // ignore and fall back
         }
 
-        // mp4v is a pragmatic fallback for mp4 output
         return FourCC.MP4V;
     }
 
@@ -236,7 +234,6 @@ public class VideoAnonymizer(
 
         using var roi = new Mat(frame, rect);
 
-        // Kernel size must be odd and > 0.
         var blurWidth = MakeOdd(Math.Max(15, rect.Width / 3));
         var blurHeight = MakeOdd(Math.Max(15, rect.Height / 3));
 
