@@ -4,16 +4,18 @@ using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database.Extensions;
 using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.VideoProcessor;
+using VideoAnonymizer.VideoProcessor.VideoAnalyzer;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.AddServiceDefaults();
-builder.Services.AddSingletonAsHostedService<VideoAnalyzer>();
+builder.Services.AddSingletonAsHostedService<VideoAnalysisWorker>();
 builder.Services.AddSingletonAsHostedService<VideoAnonymizer.VideoProcessor.VideoAnonymizer>();
 
 builder.ConfigureRabbitMQConnection();
 builder.Services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
 builder.Services.AddSingleton<IRabbitMqConnectionFactory, RabbitMqConnectionFactory>();
+builder.Services.AddTransient<AnalyzerPipeline>();
 builder.Services.AddHostedService<AnalyzeVideoConsumer>();
 builder.Services.AddHostedService<AnonymizeVideoConsumer>();
 

@@ -2,18 +2,19 @@
 using Microsoft.Extensions.Options;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.RabbitMQ;
+using VideoAnonymizer.VideoProcessor.VideoAnalyzer;
 
 namespace VideoAnonymizer.VideoProcessor;
 
 internal sealed class AnalyzeVideoConsumer : MessageConsumer<AnalyzeVideo>
 {
-    private readonly VideoAnalyzer _worker;
+    private readonly VideoAnalysisWorker _worker;
 
     protected override string Queue => RabbitMQConstants.Queues.VideoProcessing;
     protected override string RoutingKey => RabbitMQConstants.RoutingKeys.Analyze;
 
     public AnalyzeVideoConsumer(
-        VideoAnalyzer worker,
+        VideoAnalysisWorker worker,
         IRabbitMqConnectionFactory connectionFactory,
         IOptions<RabbitMqOptions> options,
         ILogger<AnalyzeVideoConsumer> logger)
