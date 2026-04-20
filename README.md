@@ -51,15 +51,6 @@ For performance reasons, the review tool is implemented using Vue and browser AP
 
 The rest of the UI is Blazor-based.
 
----
-### ⚠️ Known limitations
-
-The anonymization pipeline is currently not fully reliable.
-
-- Visual artifacts may occur in the generated video
-- In some cases, deselected objects are still partially blurred
-
-This is the next area of focus and will be improved in upcoming iterations.
 
 ---
 
