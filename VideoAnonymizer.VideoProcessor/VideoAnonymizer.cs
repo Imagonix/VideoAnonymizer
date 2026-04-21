@@ -46,10 +46,11 @@ public class VideoAnonymizer(
         var frameHeight = capture.FrameHeight;
 
         var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
+
         // using block to ensure file is written completly, when exiting the block
         using (var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight)))
         {
-            var tracks = GroupObjectsByTrack(selectedObjects, fps, totalFrames);
+            var analyzedFrames = GroupObjectsByAnalyzedFrame(selectedObjects, fps, totalFrames);
 
             using var frameMat = new Mat();
             var currentFrameIndex = 0;
@@ -59,7 +60,7 @@ public class VideoAnonymizer(
                 if (!capture.Read(frameMat) || frameMat.Empty())
                     break;
 
-                var objectsToBlur = GetObjectsForFrame(tracks, currentFrameIndex, frameWidth, frameHeight);
+                var objectsToBlur = GetObjectsForFrame(analyzedFrames, currentFrameIndex, frameWidth, frameHeight);
 
                 foreach (var obj in objectsToBlur)
                 {
@@ -74,30 +75,24 @@ public class VideoAnonymizer(
         video.AnonomizedPath = outputPath;
         await db.SaveChangesAsync(stoppingToken);
 
-        await messagePublisher.PublishAsync(RabbitMQConstants.RoutingKeys.Anonymized, new AnonymizedVideo(job.JobId, DateTime.Now), stoppingToken);
+        await messagePublisher.PublishAsync(
+            RabbitMQConstants.RoutingKeys.Anonymized,
+            new AnonymizedVideo(job.JobId, DateTime.Now),
+            stoppingToken);
     }
 
-    private static Dictionary<int, List<TrackedPosition>> GroupObjectsByTrack(
-    List<DetectedObject> detectedObjects,
-    double fps,
-    int? totalFrames = null)
+    private static Dictionary<int, List<DetectedObject>> GroupObjectsByAnalyzedFrame(
+        List<DetectedObject> detectedObjects,
+        double fps,
+        int? totalFrames = null)
     {
-        var tracks = new Dictionary<int, List<TrackedPosition>>();
+        var analyzedFrames = new Dictionary<int, List<DetectedObject>>();
         var lastValidFrameIndex = totalFrames.HasValue
             ? Math.Max(0, totalFrames.Value - 1)
             : (int?)null;
 
         foreach (var obj in detectedObjects)
         {
-            if (obj.TrackId is null || obj.TrackId == 0)
-                continue;
-
-            if (!tracks.TryGetValue(obj.TrackId.Value, out var positions))
-            {
-                positions = new List<TrackedPosition>();
-                tracks[obj.TrackId.Value] = positions;
-            }
-
             var frameIndex = Math.Max(0, (int)Math.Floor(obj.AnalyzedFrame.TimeSeconds * fps));
 
             if (lastValidFrameIndex.HasValue)
@@ -105,47 +100,41 @@ public class VideoAnonymizer(
                 frameIndex = Math.Min(frameIndex, lastValidFrameIndex.Value);
             }
 
-            positions.Add(new TrackedPosition
+            if (!analyzedFrames.TryGetValue(frameIndex, out var objects))
             {
-                FrameIndex = frameIndex,
-                X = obj.X,
-                Y = obj.Y,
-                Width = obj.Width,
-                Height = obj.Height
-            });
+                objects = new List<DetectedObject>();
+                analyzedFrames[frameIndex] = objects;
+            }
+
+            objects.Add(obj);
         }
 
-        foreach (var trackId in tracks.Keys.ToList())
+        foreach (var frameIndex in analyzedFrames.Keys.ToList())
         {
-            var merged = tracks[trackId]
-                .OrderBy(p => p.FrameIndex)
-                .GroupBy(p => p.FrameIndex)
+            analyzedFrames[frameIndex] = analyzedFrames[frameIndex]
+                .GroupBy(o => o.Id)
                 .Select(g => g.Last())
                 .ToList();
-
-            tracks[trackId] = merged;
         }
 
-        return tracks;
+        return analyzedFrames;
     }
 
     private static List<DetectedObject> GetObjectsForFrame(
-        Dictionary<int, List<TrackedPosition>> tracks,
+        Dictionary<int, List<DetectedObject>> analyzedFrames,
         int currentFrameIndex,
         int frameWidth,
         int frameHeight)
     {
+        var sourceObjects = GetObjectsFromLatestAnalyzedFrame(analyzedFrames, currentFrameIndex);
         var result = new List<DetectedObject>();
 
-        foreach (var track in tracks.Values)
+        foreach (var obj in sourceObjects)
         {
-            var position = GetPositionForFrame(track, currentFrameIndex);
-            if (position == null)
-                continue;
-
-            var rect = ClampRect(new Rect(position.X, position.Y,
-                                          position.Width, position.Height),
-                                 frameWidth, frameHeight);
+            var rect = ClampRect(
+                new Rect(obj.X, obj.Y, obj.Width, obj.Height),
+                frameWidth,
+                frameHeight);
 
             if (rect.Width > 0 && rect.Height > 0)
             {
@@ -162,31 +151,24 @@ public class VideoAnonymizer(
         return result;
     }
 
-    private static TrackedPosition? GetPositionForFrame(List<TrackedPosition> positions, int currentFrame)
+    private static List<DetectedObject> GetObjectsFromLatestAnalyzedFrame(
+        Dictionary<int, List<DetectedObject>> analyzedFrames,
+        int currentFrameIndex)
     {
-        if (positions.Count == 0)
-            return null;
+        if (analyzedFrames.Count == 0)
+            return [];
 
-        TrackedPosition? active = null;
+        List<DetectedObject>? activeObjects = null;
 
-        foreach (var position in positions)
+        foreach (var analyzedFrame in analyzedFrames.OrderBy(x => x.Key))
         {
-            if (position.FrameIndex > currentFrame)
+            if (analyzedFrame.Key > currentFrameIndex)
                 break;
 
-            active = position;
+            activeObjects = analyzedFrame.Value;
         }
 
-        return active;
-    }
-
-    private class TrackedPosition
-    {
-        public int FrameIndex { get; set; }
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Width { get; set; }
-        public int Height { get; set; }
+        return activeObjects ?? [];
     }
 
     private static string BuildOutputPath(string sourcePath)
@@ -218,12 +200,23 @@ public class VideoAnonymizer(
 
     private static void BlurRegion(Mat frame, DetectedObject detectedObject)
     {
+        const double scaleX = 1.25;
+        const double scaleY = 1.40;
+        const int marginX = 10;
+        const int marginY = 20;
+
+        int originalCenterX = detectedObject.X + detectedObject.Width / 2;
+        int originalCenterY = detectedObject.Y + detectedObject.Height / 2;
+
+        int expandedWidth = (int)(detectedObject.Width * scaleX) + marginX;
+        int expandedHeight = (int)(detectedObject.Height * scaleY) + marginY;
+
         var rect = ClampRect(
             new Rect(
-                detectedObject.X,
-                detectedObject.Y,
-                detectedObject.Width,
-                detectedObject.Height),
+                originalCenterX - expandedWidth / 2,
+                originalCenterY - expandedHeight / 2,
+                expandedWidth,
+                expandedHeight),
             frame.Width,
             frame.Height);
 
@@ -237,11 +230,29 @@ public class VideoAnonymizer(
         var blurWidth = MakeOdd(Math.Max(15, rect.Width / 3));
         var blurHeight = MakeOdd(Math.Max(15, rect.Height / 3));
 
+        using var blurred = new Mat();
         Cv2.GaussianBlur(
             roi,
-            roi,
+            blurred,
             new OpenCvSharp.Size(blurWidth, blurHeight),
             0);
+
+        using var mask = Mat.Zeros(rect.Height, rect.Width, MatType.CV_8UC1).ToMat();
+
+        var center = new Point(rect.Width / 2, rect.Height / 2);
+        var axes = new OpenCvSharp.Size(rect.Width / 2, rect.Height / 2);
+
+        Cv2.Ellipse(
+            mask,
+            center,
+            axes,
+            0,
+            0,
+            360,
+            Scalar.White,
+            -1);
+
+        blurred.CopyTo(roi, mask);
     }
 
     private static Rect ClampRect(Rect rect, int maxWidth, int maxHeight)
