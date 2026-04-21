@@ -60,6 +60,28 @@ const timelineObjects = computed<TimelineObject[]>(() => {
     return [...tracked, ...untracked];
 });
 
+const orderedCurrentFrameObjects = computed(() => {
+    const frame = currentFrame.value;
+    if (!frame) return [];
+
+    const orderMap = new Map(
+        timelineObjects.value.map((obj, index) => {
+            if (obj.type === 'tracked') {
+                const first = obj.occurences[0]?.[1];
+                return [first?.trackId != null ? `track-${first.trackId}` : first?.id, index];
+            }
+
+            return [obj.detectedObj.id, index];
+        })
+    );
+
+    return [...frame.detectedObjects].sort((a, b) => {
+        const aOrder = orderMap.get(buildObjectKey(a)) ?? Number.MAX_SAFE_INTEGER;
+        const bOrder = orderMap.get(buildObjectKey(b)) ?? Number.MAX_SAFE_INTEGER;
+        return aOrder - bOrder;
+    });
+});
+
 const currentFrame = computed(() => {
     if (frames.value.length === 0) return null;
     return [...frames.value]
@@ -118,8 +140,7 @@ function onVideoLoaded(duration: number) {
                     :objects="visibleCurrentFrameObjects" :getKey="getKey" />
             </div>
 
-            <ObjectList data-testid="object-list" :objects="currentFrame?.detectedObjects ?? []"
-                @toggle="toggleObject" />
+            <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
         </div>
 
         <div class="timeline-wrapper">
@@ -138,7 +159,7 @@ function onVideoLoaded(duration: number) {
 
 <style scoped>
 .video-editor {
-    background: var(--mud-palette-background);
+    background: var(--mud-palette-surface);
     color: var(--mud-palette-text-primary);
     display: flex;
     flex-direction: column;

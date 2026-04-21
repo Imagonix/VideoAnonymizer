@@ -40,7 +40,7 @@ var modelDownloader = builder.AddProject<Projects.VideoAnonymizer_ModelDownloade
     .WithEnvironment("ModelDownload__TargetPath", targetModelPath)
     .WithEnvironment("ModelDownload__SourceModelPath", sourceModelPath)
     .WithReference(postgresdb)
-    .WaitFor(migrationService);
+    .WaitForCompletion(migrationService);
 
 
 var objectDetection = builder.AddUvicornApp(

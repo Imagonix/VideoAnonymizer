@@ -14,6 +14,8 @@ public class VideoAnonymizer(
     IServiceProvider serviceProvider)
     : SingleJobQueingWorker<AnonymizeVideo>(logger)
 {
+    private const double TimeToleranceSeconds = 0.3;
+
     protected override async Task HandleJob(AnonymizeVideo job, CancellationToken stoppingToken)
     {
         await using var scope = serviceProvider.CreateAsyncScope();
@@ -60,7 +62,7 @@ public class VideoAnonymizer(
                 if (!capture.Read(frameMat) || frameMat.Empty())
                     break;
 
-                var objectsToBlur = GetObjectsForFrame(analyzedFrames, currentFrameIndex, frameWidth, frameHeight);
+                var objectsToBlur = GetObjectsForFrame(analyzedFrames, currentFrameIndex, frameWidth, frameHeight, fps);
 
                 foreach (var obj in objectsToBlur)
                 {
@@ -124,9 +126,13 @@ public class VideoAnonymizer(
         Dictionary<int, List<DetectedObject>> analyzedFrames,
         int currentFrameIndex,
         int frameWidth,
-        int frameHeight)
+        int frameHeight,
+        double fps)
     {
-        var sourceObjects = GetObjectsFromLatestAnalyzedFrame(analyzedFrames, currentFrameIndex);
+        var sourceObjects = GetObjectsFromRelevantAnalyzedFrames(
+            analyzedFrames,
+            currentFrameIndex,
+            fps);
         var result = new List<DetectedObject>();
 
         foreach (var obj in sourceObjects)
@@ -151,24 +157,30 @@ public class VideoAnonymizer(
         return result;
     }
 
-    private static List<DetectedObject> GetObjectsFromLatestAnalyzedFrame(
+    private static List<DetectedObject> GetObjectsFromRelevantAnalyzedFrames(
         Dictionary<int, List<DetectedObject>> analyzedFrames,
-        int currentFrameIndex)
+        int currentFrameIndex,
+        double fps)
     {
         if (analyzedFrames.Count == 0)
             return [];
 
-        List<DetectedObject>? activeObjects = null;
+        var currentTime = currentFrameIndex / fps;
 
-        foreach (var analyzedFrame in analyzedFrames.OrderBy(x => x.Key))
+        var result = new List<DetectedObject>();
+
+        foreach (var kvp in analyzedFrames)
         {
-            if (analyzedFrame.Key > currentFrameIndex)
-                break;
+            var analyzedFrameIndex = kvp.Key;
+            var analyzedTime = analyzedFrameIndex / fps;
 
-            activeObjects = analyzedFrame.Value;
+            if (Math.Abs(analyzedTime - currentTime) <= TimeToleranceSeconds)
+            {
+                result.AddRange(kvp.Value);
+            }
         }
 
-        return activeObjects ?? [];
+        return result;
     }
 
     private static string BuildOutputPath(string sourcePath)

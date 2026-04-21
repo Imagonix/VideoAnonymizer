@@ -1,79 +1,75 @@
 ﻿@using System.Net.Http.Headers
 @using System.Net.Http.Json
 @using Microsoft.AspNetCore.Components.Forms
+@using VideoAnonymizer.Web.Components
 
 @implements IAsyncDisposable
 @inject IDownloadService DownloadService
-@inject IHttpClientFactory HttpClientFactory 
+@inject IHttpClientFactory HttpClientFactory
 @inject IJobHubClient JobHubClient
 @inject ISnackbar Snackbar
 
-<MudContainer MaxWidth="MaxWidth.Medium" Class="py-8">
-    <MudPaper Class="pa-6">
-        <MudStack Spacing="3">
-            <MudText Typo="Typo.h4">Video Anonymizer</MudText>
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8">
+    <MudStack Spacing="3">
+        <MudText Typo="Typo.h4">Video Anonymizer</MudText>
+        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-6">
+            <MudTabPanel Text="Upload">
+                <MudPaper Class="pa-6">
+                    <MudFileUpload T="IBrowserFile"
+                                   FilesChanged="OnFileSelected"
+                                   Accept="video/*"
+                                   Hidden="true">
+                        <CustomContent>
+                            <MudButton HtmlTag="label"
+                                       Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.VideoFile"
+                                       OnClick="@context.OpenFilePickerAsync"
+                                       Class="upload-video-button">
+                                Upload Video
+                            </MudButton>
+                        </CustomContent>
+                        <SelectedTemplate />
+                    </MudFileUpload>
 
-            <MudFileUpload T="IBrowserFile"
-                           FilesChanged="OnFileSelected"
-                           Accept="video/*"
-                           Hidden="true">
-                <CustomContent>
-                    <MudButton HtmlTag="label"
-                               Variant="Variant.Filled"
-                               Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.VideoFile"
-                               OnClick="@context.OpenFilePickerAsync"
-                               Class="upload-video-button">
-                        Upload Video
-                    </MudButton>
-                </CustomContent>
-                <SelectedTemplate />
-            </MudFileUpload>
+                    @if (!string.IsNullOrWhiteSpace(SelectedFileName))
+                    {
+                        <MudText Typo="Typo.body2">Selected file: @SelectedFileName</MudText>
+                    }
 
-            @if (!string.IsNullOrWhiteSpace(SelectedFileName))
-            {
-                <MudText Typo="Typo.body2">Selected file: @SelectedFileName</MudText>
-            }
-
-            @if (IsBusy)
-            {
-                <MudProgressLinear Indeterminate="true" />
-                <MudText Typo="Typo.body2">@StatusText</MudText>
-            }
-            else if (!string.IsNullOrWhiteSpace(StatusText))
-            {
-                <MudAlert Severity="Severity.Info" Dense="true">
-                    @StatusText
-                </MudAlert>
-            }
-
-            <MudStack Spacing="2">                
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Disabled="!_showEditor"
-                           OnClick="StartAnonymizationAsync">
-                    Anonymize selected objects
-                </MudButton>
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Secondary"
-                           Disabled="@(!IsAnonymized || _anonymizeVideoJobId.IsNullOrEmpty())"
-                           OnClick="DownloadAsync">
-                    Download
-                </MudButton>
-            </MudStack>
-        </MudStack>
-    </MudPaper>
+                    <StatusIndicator IsBusy="@IsBusy" StatusText="@StatusText" />
+                </MudPaper>
+            </MudTabPanel>
+            <MudTabPanel Text="Review & Export">
+                <MudPaper Class="pa-6">
+                    <MudStack Spacing="2">
+                        
+                        @if (_showEditor && _currentVideoId.HasValue && !string.IsNullOrWhiteSpace(_videoSourceUrl))
+                        {
+                            <VideoEditor VideoId="@_currentVideoId.Value"
+                                         VideoSourceUrl="@_videoSourceUrl"
+                                         Frames="@_analyzedFrames"
+                                         @ref=_videoEditor />
+                        }
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Disabled="!_showEditor"
+                                   OnClick="StartAnonymizationAsync">
+                            Anonymize selected objects
+                        </MudButton>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Secondary"
+                                   Disabled="@(!IsAnonymized || _anonymizeVideoJobId.IsNullOrEmpty())"
+                                   OnClick="DownloadAsync">
+                            Download
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            </MudTabPanel>
+        </MudTabs>
+    </MudStack>
 </MudContainer>
 
-@if (_showEditor && _currentVideoId.HasValue && !string.IsNullOrWhiteSpace(_videoSourceUrl))
-{
-    <MudPaper Class="pa-6">
-        <VideoEditor VideoId="@_currentVideoId.Value"
-                     VideoSourceUrl="@_videoSourceUrl"
-                     Frames="@_analyzedFrames"
-                     @ref=_videoEditor />
-    </MudPaper>
-}
 
 @code {
     private IDisposable? _videoAnalyzedSubscription;

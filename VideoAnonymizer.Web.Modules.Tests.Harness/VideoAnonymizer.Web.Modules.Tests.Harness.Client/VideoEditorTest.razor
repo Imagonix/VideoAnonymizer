@@ -9,7 +9,7 @@
 
 <PageTitle>Video Editor Test</PageTitle>
 <MudThemeProvider @ref="_themeProvider"
-                  IsDarkMode="@_isDarkMode" />
+                  IsDarkMode="@true" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
@@ -26,11 +26,13 @@ else
 {
     <ErrorBoundary>
         <ChildContent>
-            <MudPaper>
-                <VideoEditor VideoId="@_videoId"
-                             VideoSourceUrl="@_videoUrl"
-                             Frames="@_frames" />
-            </MudPaper>
+            <MudContainer MaxWidth="MaxWidth.Large"> 
+                <MudPaper Class="pa-6">
+                    <VideoEditor VideoId="@_videoId"
+                                 VideoSourceUrl="@_videoUrl"
+                                 Frames="@_frames" />
+                </MudPaper>
+            </MudContainer>
         </ChildContent>
         <ErrorContent Context="ex">
             <pre style="white-space: pre-wrap; color: red;">@ex.ToString()</pre>

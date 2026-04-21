@@ -41,7 +41,7 @@ function toPercent(time: number) {
 .timeline-row {
     position: relative;
     height: 34px;
-    background: var(--mud-palette-surface);
+    border-bottom: 1px solid var(--mud-palette-lines-default);
     border-radius: 8px;
     overflow: hidden;
 }
