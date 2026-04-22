@@ -128,6 +128,17 @@ function onTimeUpdate(time: number) {
 function onVideoLoaded(duration: number) {
     if (duration && duration > 0) videoDuration.value = duration;
 }
+const currentTimePercent = computed(() => {
+    if (!videoDuration || videoDuration.value <= 0) {
+        return '0%';
+    }
+
+    return `${(currentTime.value / videoDuration.value) * 100}%`;
+});
+
+const formattedCurrentTime = computed(() => {
+    return `${currentTime.value.toFixed(1)}s`;
+});
 </script>
 
 <template>
@@ -145,10 +156,16 @@ function onVideoLoaded(duration: number) {
 
         <div class="timeline-wrapper">
             <div class="timeline-labels">
+                <div class="timeline-header-spacer"></div>
                 <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject"/>
             </div>
             <div>
                 <Timeline :duration="videoDuration" :currentTime="currentTime" @seek="seekTo">
+                    <div class="timeline-time-row">
+                        <div class="timeline-current-time-marker" :style="{ left: currentTimePercent }">
+                            {{ formattedCurrentTime }}
+                        </div>
+                    </div>
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
                         :video-duration="videoDuration"/>
                 </Timeline>
@@ -163,28 +180,99 @@ function onVideoLoaded(duration: number) {
     color: var(--mud-palette-text-primary);
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    gap: 16px;
 }
 
 .top-layout {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: max-content minmax(0, 1fr);
     gap: 16px;
+    align-items: start;
+    flex: 0 0 auto;
 }
 
 .video-stage {
     position: relative;
-    width: 100%;
-    border-radius: 12px;
-    overflow: hidden;
+    display: inline-block;
+    justify-self: start;
+    align-self: start;
+    line-height: 0;
 }
 
 .timeline-wrapper {
     display: grid;
     grid-template-columns: 170px 1fr;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .timeline-labels {
     padding: 16px;
+}
+
+.timeline-content {
+    min-width: 0;
+}
+
+.timeline-header-spacer {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--mud-palette-surface);
+    height: 34px;
+    margin-bottom: 12px;
+    isolation: isolate;
+}
+
+.timeline-time-row {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--mud-palette-surface);
+    height: 34px;
+    border-bottom: 1px solid var(--mud-palette-lines-default);
+    margin-bottom: 12px;
+    overflow: visible;
+}
+
+.time-tick {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--mud-palette-text-secondary);
+    pointer-events: none;
+}
+
+.timeline-current-time-marker {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: inline-block;
+    z-index: 100;
+    white-space: nowrap;
+    font-size: 12px;
+    line-height: 1;
+    pointer-events: none;
+    color: var(--mud-palette-text-primary);
+    background: var(--mud-palette-surface);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.timeline-current-time-marker::before {
+    content: "";
+    z-index: 100;
+    position: absolute;
+    inset: -2px -6px;
+    background: var(--mud-palette-surface);
+    border-radius: 4px;
+    z-index: -1;
 }
 </style>
