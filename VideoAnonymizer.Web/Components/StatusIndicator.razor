@@ -1,19 +1,18 @@
-﻿@if (IsBusy)
-{
-    <MudProgressLinear Indeterminate="true" Color="Color.Primary"/>
-    <MudText Typo="Typo.body2">@StatusText</MudText>
-}
-else if (!string.IsNullOrWhiteSpace(StatusText))
-{
-    <MudAlert Severity="Severity.Info" Dense="true">
+﻿<div style="text-align: center;">
+    <svg width="90" height="90" viewBox="0 0 100 100" class="loading-spinner">
+        <circle cx="50" cy="50" r="40" fill="none" stroke="#444" stroke-width="9" />
+        <circle cx="50" cy="50" r="40" fill="none" stroke="var(--mud-palette-primary)"
+                stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+                stroke-dasharray="251" stroke-dashoffset="251"
+                class="loading-progress-circle" />
+    </svg>
+
+    <div style="margin-top: 28px; font-size: 1.2rem; font-weight: 500; color: #ffffff;">
         @StatusText
-    </MudAlert>
-}
+    </div>
+</div>
 
 @code {
-    [Parameter]
-    public bool IsBusy { get; set; }
-
     [Parameter]
     public string? StatusText { get; set; }
 }
