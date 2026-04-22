@@ -1,13 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { DetectedObjectDto, TimelineObject } from './types';
+import type { TimelineObject } from './types';
 import { colorManager } from './services/ColorManager'
-import { getLabel } from './utils/utils'
 const props = defineProps<{
     timelineObject: TimelineObject
     videoDuration : number
 }>()
-const emit = defineEmits<{ (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void }>();
 function toPercent(time: number) {
   return `${(time / props.videoDuration) * 100}%`
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, ref } from 'vue';
 import VideoPlayer from './VideoPlayer.vue';
 import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
@@ -113,10 +113,6 @@ function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
     }
 }
 
-function getKey(obj: DetectedObjectDto): string {
-    return buildObjectKey(obj);
-}
-
 function seekTo(time: number) {
     currentTime.value = time;
 }
@@ -148,7 +144,7 @@ const formattedCurrentTime = computed(() => {
                 <VideoPlayer :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded" />
                 <BoundingBoxOverlay v-if="currentFrame && visibleCurrentFrameObjects.length > 0"
-                    :objects="visibleCurrentFrameObjects" :getKey="getKey" />
+                    :objects="visibleCurrentFrameObjects" />
             </div>
 
             <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
@@ -238,16 +234,6 @@ const formattedCurrentTime = computed(() => {
     border-bottom: 1px solid var(--mud-palette-lines-default);
     margin-bottom: 12px;
     overflow: visible;
-}
-
-.time-tick {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    white-space: nowrap;
-    font-size: 12px;
-    color: var(--mud-palette-text-secondary);
-    pointer-events: none;
 }
 
 .timeline-current-time-marker {

@@ -4,7 +4,6 @@ import type { DetectedObjectDto } from './types';
 
 defineProps<{
   objects: DetectedObjectDto[];
-  getKey: (obj: DetectedObjectDto) => string;
 }>();
 </script>
 

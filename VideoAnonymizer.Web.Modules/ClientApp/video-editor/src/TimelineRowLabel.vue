@@ -23,23 +23,10 @@ function getSelectionState(obj: TimelineObject): 'checked' | 'unchecked' | 'inde
     if (none) return 'unchecked';
     return 'indeterminate';
 }
-const checkboxRef = ref<HTMLInputElement | null>(null)
-watchEffect(() => {
-    if (!checkboxRef.value) return;
-
-    checkboxRef.value.indeterminate =
-        getSelectionState(props.timelineObject) === 'indeterminate';
-});
 
 function getTimelineLabel(obj: TimelineObject): string {
     if (obj.type === 'single') return getLabel(obj.detectedObj);
     if (obj.type === 'tracked') return getLabel(obj.occurences[0][1]);
-    return '';
-}
-
-function getTimelineColor(obj: TimelineObject): string {
-    if (obj.type === 'single') return colorManager.getColor(obj.detectedObj);
-    if (obj.type === 'tracked') return colorManager.getColor(obj.occurences[0][1]);
     return '';
 }
 const sampleDetectedObject = computed(() => {

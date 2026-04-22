@@ -4,12 +4,9 @@ import MudLikeCheckbox from './MudLikeCheckbox.vue';
 import { getLabel } from './utils/utils'
 import ColorDot from './ColorDot.vue';
 
-const props = defineProps<{ objects: DetectedObjectDto[] }>();
+defineProps<{ objects: DetectedObjectDto[] }>();
 const emit = defineEmits<{ (e: 'toggle', key: string, checked: boolean): void }>();
 
-function buildObjectKey(obj: DetectedObjectDto): string {
-    return obj.trackId != null ? `track-${obj.trackId}` : obj.id;
-}
 </script>
 
 <template>

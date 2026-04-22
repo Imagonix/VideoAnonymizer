@@ -2,7 +2,7 @@
 import { DetectedObjectDto } from './types';
 import { colorManager } from './services/ColorManager'
 
-const props = defineProps<{
+defineProps<{
   detectedObject: DetectedObjectDto
   alignRight?: boolean
 }>()
