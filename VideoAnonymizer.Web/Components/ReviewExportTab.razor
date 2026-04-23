@@ -1,0 +1,65 @@
+﻿@using VideoAnonymizer.Web.Modules.Components
+@using VideoAnonymizer.Web.Shared.DTO
+
+<MudPaper Class="pa-6">
+    <MudStack Spacing="2">
+        @if (ShowEditor && VideoId.HasValue && !string.IsNullOrWhiteSpace(VideoSourceUrl))
+        {
+            <VideoEditor VideoId="@VideoId.Value"
+                         VideoSourceUrl="@VideoSourceUrl"
+                         Frames="@Frames"
+                         @ref="_videoEditor" />
+        }
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   Disabled="!ShowEditor"
+                   OnClick="OnStartAnonymizationClicked">
+            Anonymize selected objects
+        </MudButton>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Secondary"
+                   Disabled="@(!IsAnonymized || AnonymizeVideoJobId is null)"
+                   OnClick="Download">
+            Download
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private VideoEditor? _videoEditor;
+
+    [Parameter]
+    public Guid? VideoId { get; set; }
+
+    [Parameter]
+    public string? VideoSourceUrl { get; set; }
+
+    [Parameter]
+    public List<AnalyzedFrameDto> Frames { get; set; } = [];
+
+    [Parameter]
+    public bool ShowEditor { get; set; }
+
+    [Parameter]
+    public bool IsAnonymized { get; set; }
+
+    [Parameter]
+    public Guid? AnonymizeVideoJobId { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback StartAnonymization { get; set; }
+
+    [Parameter, EditorRequired]
+    public EventCallback Download { get; set; }
+
+    private async Task OnStartAnonymizationClicked()
+    {
+        if (_videoEditor is null)
+            return;
+
+        Frames = (await _videoEditor.GetFramesAsync()).ToList();
+        await StartAnonymization.InvokeAsync();
+    }
+}

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using MudBlazor;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using VideoAnonymizer.Web.Components;
 using VideoAnonymizer.Web.Modules.Components;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
@@ -15,7 +16,7 @@ namespace VideoAnonymizer.Web.Pages
         private IDisposable? _videoAnalyzedSubscription;
         private IDisposable? _videoAnonymizedSubscription;
 
-        private VideoEditor _videoEditor;
+        private ReviewExportTab _reviewExportTab;
 
         private IBrowserFile? _selectedFile;
         private Guid? _currentVideoId;
@@ -148,7 +149,7 @@ namespace VideoAnonymizer.Web.Pages
             {
                 IsBusy = true;
 
-                _analyzedFrames = (await _videoEditor.GetFramesAsync()).ToList();
+                _analyzedFrames = _reviewExportTab.Frames.ToList();
 
                 using var httpClient = HttpClientFactory.CreateClient("ApiService");
                 var response = await httpClient.PostAsJsonAsync(

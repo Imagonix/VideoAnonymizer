@@ -1,0 +1,33 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+
+<MudPaper Class="pa-6">
+    <MudFileUpload T="IBrowserFile"
+                   FilesChanged="FilesChanged"
+                   Accept="video/*"
+                   Hidden="true">
+        <CustomContent>
+            <MudButton HtmlTag="label"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.VideoFile"
+                       OnClick="@context.OpenFilePickerAsync"
+                       Class="upload-video-button">
+                Upload Video
+            </MudButton>
+        </CustomContent>
+        <SelectedTemplate />
+    </MudFileUpload>
+
+    @if (!string.IsNullOrWhiteSpace(SelectedFileName))
+    {
+        <MudText Typo="Typo.body2">Selected file: @SelectedFileName</MudText>
+    }
+</MudPaper>
+
+@code {
+    [Parameter, EditorRequired]
+    public EventCallback<IBrowserFile?> FilesChanged { get; set; }
+
+    [Parameter]
+    public string? SelectedFileName { get; set; }
+}
