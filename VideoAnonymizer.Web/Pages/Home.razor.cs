@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using MudBlazor;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using VideoAnonymizer.Web.Components;
@@ -32,6 +33,8 @@ namespace VideoAnonymizer.Web.Pages
         private List<AnalyzedFrameDto> _analyzedFrames = [];
         private bool _showEditor;
         private string? _videoSourceUrl;
+
+        private int DetectionIntervalMs { get; set; } = 100;
 
         protected override async Task OnInitializedAsync()
         {
@@ -66,32 +69,47 @@ namespace VideoAnonymizer.Web.Pages
             await JobHubClient.StartAsync();
         }
 
-        private async Task OnFileSelected(IBrowserFile? file)
+        private Task OnFileSelected(IBrowserFile? file)
         {
-            if (file is null)
-                return;
-
             _selectedFile = file;
-            SelectedFileName = file.Name;
+            SelectedFileName = file?.Name;
+
             IsAnonymized = false;
             _currentVideoId = null;
             _anonymizeVideoJobId = null;
-            IsBusy = true;
-            StatusText = "Uploading and analyzing video...";
+            _showEditor = false;
+            _videoSourceUrl = null;
+            _analyzedFrames = [];
+            _activeTabIndex = 0;
 
-            await InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        }
+
+        private async Task DetectObjectsAsync()
+        {
+            if (_selectedFile is null)
+                return;
 
             try
             {
+                IsBusy = true;
+                StatusText = "Uploading and analyzing video...";
+
+                await InvokeAsync(StateHasChanged);
+
                 using var content = new MultipartFormDataContent();
-                await using var stream = file.OpenReadStream(long.MaxValue);
+                await using var stream = _selectedFile.OpenReadStream(long.MaxValue);
 
                 using var fileContent = new StreamContent(stream);
-                fileContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
-                content.Add(fileContent, "video", file.Name);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue(_selectedFile.ContentType);
+                content.Add(fileContent, "video", _selectedFile.Name);
 
                 using var httpClient = HttpClientFactory.CreateClient("ApiService");
-                var response = await httpClient.PostAsync($"/{SharedConstants.Paths.Analyze}", content);
+
+                var url =
+                    $"/{SharedConstants.Paths.Analyze}?detectionIntervalMs={DetectionIntervalMs.ToString(CultureInfo.InvariantCulture)}";
+
+                var response = await httpClient.PostAsync(url, content);
                 response.EnsureSuccessStatusCode();
 
                 var result = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
@@ -100,7 +118,7 @@ namespace VideoAnonymizer.Web.Pages
                     throw new InvalidOperationException("Analyze endpoint did not return a video id.");
 
                 _currentVideoId = result.Payload;
-                StatusText = "Video uploaded. Analyzing frames ...";
+                StatusText = "Video uploaded. Analyzing frames...";
             }
             catch (Exception ex)
             {
