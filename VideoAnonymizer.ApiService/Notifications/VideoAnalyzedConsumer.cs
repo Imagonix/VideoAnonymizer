@@ -16,7 +16,7 @@ namespace VideoAnonymizer.ApiService.Notifications
             _hub = hub;
         }
 
-        protected override string Queue => RabbitMQConstants.Queues.VideoNotifications;
+        protected override string Queue => RabbitMQConstants.Queues.Analyzed;
 
         protected override string RoutingKey => RabbitMQConstants.RoutingKeys.Analyzed;
 

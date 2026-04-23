@@ -9,7 +9,7 @@ internal sealed class AnonymizeVideoConsumer : MessageConsumer<AnonymizeVideo>
 {
     private readonly VideoAnonymizer _worker;
 
-    protected override string Queue => RabbitMQConstants.Queues.VideoProcessing;
+    protected override string Queue => RabbitMQConstants.Queues.Anonymize;
     protected override string RoutingKey => RabbitMQConstants.RoutingKeys.Anonymize;
 
     public AnonymizeVideoConsumer(

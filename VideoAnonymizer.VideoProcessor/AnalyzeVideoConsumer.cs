@@ -9,7 +9,7 @@ internal sealed class AnalyzeVideoConsumer : MessageConsumer<AnalyzeVideo>
 {
     private readonly VideoAnalyzer _worker;
 
-    protected override string Queue => RabbitMQConstants.Queues.VideoProcessing;
+    protected override string Queue => RabbitMQConstants.Queues.Analyze;
     protected override string RoutingKey => RabbitMQConstants.RoutingKeys.Analyze;
 
     public AnalyzeVideoConsumer(

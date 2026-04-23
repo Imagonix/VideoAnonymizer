@@ -8,8 +8,10 @@ namespace VideoAnonymizer.Contracts.RabbitMQ
     {
         public class Queues
         {
-            public const string VideoProcessing = "video.processing";
-            public const string VideoNotifications = "video.notifications";
+            public const string Analyze= RoutingKeys.Analyze + ".queue";
+            public const string Analyzed = RoutingKeys.Analyzed + ".queue";
+            public const string Anonymize = RoutingKeys.Anonymize + ".queue";
+            public const string Anonymized = RoutingKeys.Anonymized + ".queue";
         }
         public class RoutingKeys
         {
