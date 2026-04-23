@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using VideoAnonymizer.Web.Components;
-using VideoAnonymizer.Web.Modules.Components;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
 using VideoAnonymizer.Web.Utils;
@@ -50,6 +49,8 @@ namespace VideoAnonymizer.Web.Pages
                 await LoadAnalyzedFramesAsync(_currentVideoId);
                 _showEditor = true;
                 _activeTabIndex = 1;
+                _selectedFile = null;
+                SelectedFileName = null;
                 Snackbar.Add("Video processed. You can now review detected objects.", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);

@@ -1,46 +1,76 @@
 ﻿@using Microsoft.AspNetCore.Components.Forms
 
 <MudPaper Class="pa-6">
-    <MudStack Spacing="3">
-        <MudFileUpload T="IBrowserFile"
-                       FilesChanged="OnFilesChanged"
-                       Accept="video/*"
-                       Hidden="true">
-            <CustomContent>
-                <MudButton HtmlTag="label"
-                           Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.VideoFile"
-                           OnClick="@context.OpenFilePickerAsync"
-                           Class="upload-video-button">
-                    Select Video
-                </MudButton>
-            </CustomContent>
-            <SelectedTemplate />
-        </MudFileUpload>
+    <MudStack Spacing="4">
+        <MudText Typo="Typo.h6">Upload a video to detect objects</MudText>
 
-        @if (!string.IsNullOrWhiteSpace(SelectedFileName))
-        {
-            <MudText Typo="Typo.body2">Selected file: @SelectedFileName</MudText>
-        }
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudFileUpload T="IBrowserFile"
+                           FilesChanged="OnFilesChanged"
+                           Accept="video/*"
+                           Hidden="true">
+                <CustomContent>
+                    <MudButton HtmlTag="label"
+                               Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.VideoFile"
+                               OnClick="@context.OpenFilePickerAsync"
+                               Disabled="@IsBusy">
+                        Select Video
+                    </MudButton>
+                </CustomContent>
+                <SelectedTemplate />
+            </MudFileUpload>
 
-        <MudNumericField T="int"
-                         Label="Detection interval (ms)"
-                         Variant="Variant.Outlined"
-                         Min="50"
-                         Max="5000"
-                         Step="50"
-                         Immediate="true"
-                         Value="DetectionIntervalMs"
-                         ValueChanged="OnDetectionIntervalChanged" />
+            <MudText Typo="Typo.body1">
+                Choose a video file from your device.
+            </MudText>
 
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Secondary"
-                   StartIcon="@Icons.Material.Filled.Search"
-                   Disabled="@(!CanDetect)"
-                   OnClick="DetectObjectsClicked">
-            Detect Objects
-        </MudButton>
+            @if (!string.IsNullOrWhiteSpace(SelectedFileName))
+            {
+                <MudPaper Outlined="true" Class="pa-3">
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Color="Color.Primary" />
+                        <MudText Typo="Typo.body1">@SelectedFileName</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+        <MudDivider />
+        <MudStack Spacing="1">
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.body1">Detection interval (ms)</MudText>
+
+                <MudTooltip Text="Time between analyzed frames. A smaller detection interval improves object tracking, but increases processing time."
+                            Placement="Placement.Right">
+                    <MudIconButton Icon="@Icons.Material.Filled.HelpOutline"
+                                   Size="Size.Small"
+                                   Color="Color.Default"
+                                   Disabled="@IsBusy" />
+                </MudTooltip>
+            </MudStack>
+            <MudNumericField T="int"
+                             Value="DetectionIntervalMs"
+                             ValueChanged="OnDetectionIntervalChanged"
+                             Variant="Variant.Outlined"
+                             Min="50"
+                             Max="5000"
+                             Step="50"
+                             Immediate="true"
+                             HideSpinButtons="false"
+                             Disabled="@IsBusy"
+                             Style="width: 140px;" />
+        </MudStack>
+        <MudDivider />
+        <MudStack AlignItems="AlignItems.Start">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Secondary"
+                       StartIcon="@Icons.Material.Filled.Search"
+                       Disabled="@(!CanDetect)"
+                       OnClick="DetectObjectsClicked">
+                Detect Objects
+            </MudButton>
+        </MudStack>
     </MudStack>
 </MudPaper>
 
@@ -57,7 +87,7 @@
     [Parameter]
     public int DetectionIntervalMs { get; set; } = 100;
 
-    [Parameter, EditorRequired]
+    [Parameter]
     public EventCallback<int> DetectionIntervalMsChanged { get; set; }
 
     [Parameter]
@@ -70,14 +100,14 @@
         await SelectedFileChanged.InvokeAsync(file);
     }
 
+    private async Task OnDetectionIntervalChanged(int value)
+    {
+        DetectionIntervalMs = value;
+        await DetectionIntervalMsChanged.InvokeAsync(value);
+    }
+
     private async Task DetectObjectsClicked()
     {
         await DetectObjects.InvokeAsync();
-    }
-
-    private Task OnDetectionIntervalChanged(int value)
-    {
-        DetectionIntervalMs = value;
-        return DetectionIntervalMsChanged.InvokeAsync(value);
     }
 }
