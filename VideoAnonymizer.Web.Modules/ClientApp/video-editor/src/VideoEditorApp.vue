@@ -100,7 +100,7 @@ const visibleBlurPreviewObjects = computed(() => {
         seen.add(key);
         result.push({ detectedObject: obj, activation: 'detected' });
     }
-    for (const frame of props.state.frames) {
+    for (const frame of frames.value) {
         const delta = current.timeSeconds - frame.timeSeconds;
 
         if (Math.abs(delta) > bufferSeconds) continue;
@@ -131,12 +131,6 @@ const currentFrame = computed(() => {
     if (frames.value.length === 0) return null;
     return [...frames.value]
         .sort((a, b) => Math.abs(a.timeSeconds - currentTime.value) - Math.abs(b.timeSeconds - currentTime.value))[0];
-});
-
-const visibleCurrentFrameObjects = computed(() => {
-    const frame = currentFrame.value;
-    if (!frame) return [];
-    return frame.detectedObjects.filter(obj => obj.selected);
 });
 
 function toggleObject(id: string, checked: boolean) {
@@ -188,7 +182,7 @@ const formattedCurrentTime = computed(() => {
             <div class="video-stage">
                 <VideoPlayer :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded" />
-                <BoundingBoxOverlay v-if="currentFrame && visibleCurrentFrameObjects.length > 0"
+                <BoundingBoxOverlay v-if="currentFrame && visibleBlurPreviewObjects.length > 0"
                     :objects="visibleBlurPreviewObjects" :anonymization-settings="state.anonymizationSettings" />
             </div>
 
