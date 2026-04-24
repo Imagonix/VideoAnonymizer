@@ -22,7 +22,13 @@ export type VideoEditorProps = {
   videoId: string;
   videoSourceUrl: string;
   frames: AnalyzedFrameDto[];
+  anonymizationSettings: AnonymizationSettings;
 };
+
+export type AnonymizationSettings = {
+  blurSizePercent: number;
+  timeBufferMs: number;
+}
 
 export type TimelineObjectBase = {
 };

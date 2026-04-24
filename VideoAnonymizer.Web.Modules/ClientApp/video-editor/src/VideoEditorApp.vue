@@ -144,7 +144,7 @@ const formattedCurrentTime = computed(() => {
                 <VideoPlayer :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded" />
                 <BoundingBoxOverlay v-if="currentFrame && visibleCurrentFrameObjects.length > 0"
-                    :objects="visibleCurrentFrameObjects" />
+                    :objects="visibleCurrentFrameObjects" :anonymization-settings="state.anonymizationSettings" />
             </div>
 
             <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
