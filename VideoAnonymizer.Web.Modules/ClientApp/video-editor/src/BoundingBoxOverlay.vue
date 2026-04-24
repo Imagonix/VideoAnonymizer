@@ -1,22 +1,25 @@
 <script setup lang="ts">
-import type { AnonymizationSettings, DetectedObjectDto } from './types';
+import type { AnonymizationSettings, DetectedObjectDto, PreviewObject } from './types';
 import { colorManager } from './services/ColorManager';
 
 const props = defineProps<{
-  objects: DetectedObjectDto[];
+  objects: PreviewObject[];
   anonymizationSettings: AnonymizationSettings;
 }>();
 
-function getBlurEllipseStyle(obj: DetectedObjectDto) {
+function getBlurEllipseStyle(obj: PreviewObject) {
+  const color = colorManager.getColor(obj.detectedObject);
+
   const scale = props.anonymizationSettings.blurSizePercent / 100;
 
-  const expandedWidth = obj.width * scale;
-  const expandedHeight = obj.height * scale;
+  const expandedWidth = obj.detectedObject.width * scale;
+  const expandedHeight = obj.detectedObject.height * scale;
 
-  const centerX = obj.x + obj.width / 2;
-  const centerY = obj.y + obj.height / 2;
+  const centerX = obj.detectedObject.x + obj.detectedObject.width / 2;
+  const centerY = obj.detectedObject.y + obj.detectedObject.height / 2;
 
-  let color = colorManager.getColor(obj);
+  const fillAlpha =
+    obj.activation === 'detected' ? 0.3 : 0.12;
 
   return {
     left: `${centerX - expandedWidth / 2}px`,
@@ -24,28 +27,29 @@ function getBlurEllipseStyle(obj: DetectedObjectDto) {
     width: `${expandedWidth}px`,
     height: `${expandedHeight}px`,
     borderColor: color,
-    backgroundColor: getFillColor(color)
+    backgroundColor: color
+      .replace('hsl(', 'hsla(')
+      .replace(')', `, ${fillAlpha})`)
   };
 }
 
-function getBoxStyle(obj: DetectedObjectDto) {
+function getBoxStyle(obj: PreviewObject) {
+  const color = colorManager.getColor(obj.detectedObject);
+
   return {
-    left: `${obj.x}px`,
-    top: `${obj.y}px`,
-    width: `${obj.width}px`,
-    height: `${obj.height}px`,
-    borderColor: colorManager.getColor(obj)
+    left: `${obj.detectedObject.x}px`,
+    top: `${obj.detectedObject.y}px`,
+    width: `${obj.detectedObject.width}px`,
+    height: `${obj.detectedObject.height}px`,
+    borderColor: color,
+    opacity: obj.activation === 'detected' ? 1 : 0.4
   };
-}
-
-function getFillColor(color: string) {
-  return color.replace('hsl(', 'hsla(').replace(')', ', 0.3)');
 }
 </script>
 
 <template>
   <div class="overlay">
-    <template v-for="obj in objects" :key="obj.id">
+    <template v-for="obj in objects" :key="obj.detectedObject.id">
       <div
         data-testid="blur-area-outline"
         class="blur-area-outline"

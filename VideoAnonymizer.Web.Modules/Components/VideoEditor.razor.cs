@@ -6,11 +6,20 @@ namespace VideoAnonymizer.Web.Modules.Components;
 
 public partial class VideoEditor : ComponentBase, IAsyncDisposable
 {
-    [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] 
+    private IJSRuntime JS { get; set; } = default!;
 
-    [Parameter, EditorRequired] public Guid VideoId { get; set; }
-    [Parameter] public string VideoSourceUrl { get; set; } = string.Empty;
-    [Parameter] public IReadOnlyList<AnalyzedFrameDto> Frames { get; set; } = Array.Empty<AnalyzedFrameDto>();
+    [Parameter, EditorRequired] 
+    public Guid VideoId { get; set; }
+    [Parameter] 
+    public string VideoSourceUrl { get; set; } = string.Empty;
+    [Parameter] 
+    public IReadOnlyList<AnalyzedFrameDto> Frames { get; set; } = Array.Empty<AnalyzedFrameDto>();
+    [Parameter]
+    public double BlurSizePercent { get; set; } = 120;
+
+    [Parameter]
+    public int TimeBufferMs { get; set; } = 300;
 
     private ElementReference _hostElement;
     private IJSObjectReference? _hostModule;
@@ -62,6 +71,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         if (_hostModule is null)
             return;
 
+        Frames = (await GetFramesAsync()).ToList();
         await _hostModule.InvokeVoidAsync(
             "updateVideoEditor",
             _hostElement,
@@ -74,7 +84,12 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         {
             videoId = VideoId,
             videoSourceUrl = VideoSourceUrl,
-            frames = Frames
+            frames = Frames,
+            anonymizationSettings = new
+            {
+                blurSizePercent = BlurSizePercent,
+                timeBufferMs = TimeBufferMs
+            }
         };
     }
 

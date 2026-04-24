@@ -5,7 +5,7 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
-import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto } from './types';
+import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
 const props = defineProps<{
@@ -29,7 +29,7 @@ function buildObjectKey(obj: DetectedObjectDto): string {
 }
 
 const timelineObjects = computed<TimelineObject[]>(() => {
-    var untracked = frames.value.flatMap(frame => frame.detectedObjects.filter(x => x.trackId == null).map((obj) : SingleTimelineObject => ({
+    var untracked = frames.value.flatMap(frame => frame.detectedObjects.filter(x => x.trackId == null).map((obj): SingleTimelineObject => ({
         detectedObj: obj,
         type: 'single',
         timeSeconds: frame.timeSeconds,
@@ -80,6 +80,51 @@ const orderedCurrentFrameObjects = computed(() => {
         const bOrder = orderMap.get(buildObjectKey(b)) ?? Number.MAX_SAFE_INTEGER;
         return aOrder - bOrder;
     });
+});
+
+const visibleBlurPreviewObjects = computed(() => {
+    const bufferSeconds = props.state.anonymizationSettings.timeBufferMs / 1000;
+
+    const result: PreviewObject[] = [];
+    const seen = new Set<string>();
+
+    const current = currentFrame.value;
+
+    if (!current) {
+        return [];
+    }
+
+    for (const obj of current.detectedObjects) {
+        const key = buildObjectKey(obj);
+        if (!obj.selected) continue;
+        seen.add(key);
+        result.push({ detectedObject: obj, activation: 'detected' });
+    }
+    for (const frame of props.state.frames) {
+        const delta = current.timeSeconds - frame.timeSeconds;
+
+        if (Math.abs(delta) > bufferSeconds) continue;
+
+        for (const obj of frame.detectedObjects) {
+            if (!obj.selected) continue;
+
+            const key = buildObjectKey(obj);
+            if (seen.has(key)) continue;
+
+            seen.add(key);
+
+            let activation: PreviewObject['activation'];
+            if (delta < 0) {
+                activation = 'pre';
+            } else {
+                activation = 'post';
+            }
+
+            result.push({ detectedObject: obj, activation });
+        }
+    }
+
+    return result;
 });
 
 const currentFrame = computed(() => {
@@ -144,7 +189,7 @@ const formattedCurrentTime = computed(() => {
                 <VideoPlayer :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded" />
                 <BoundingBoxOverlay v-if="currentFrame && visibleCurrentFrameObjects.length > 0"
-                    :objects="visibleCurrentFrameObjects" :anonymization-settings="state.anonymizationSettings" />
+                    :objects="visibleBlurPreviewObjects" :anonymization-settings="state.anonymizationSettings" />
             </div>
 
             <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
@@ -153,7 +198,7 @@ const formattedCurrentTime = computed(() => {
         <div class="timeline-wrapper">
             <div class="timeline-labels">
                 <div class="timeline-header-spacer"></div>
-                <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject"/>
+                <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject" />
             </div>
             <div>
                 <Timeline :duration="videoDuration" :currentTime="currentTime" @seek="seekTo">
@@ -163,7 +208,7 @@ const formattedCurrentTime = computed(() => {
                         </div>
                     </div>
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
-                        :video-duration="videoDuration"/>
+                        :video-duration="videoDuration" />
                 </Timeline>
             </div>
         </div>
@@ -196,6 +241,7 @@ const formattedCurrentTime = computed(() => {
     justify-self: start;
     align-self: start;
     line-height: 0;
+    overflow: hidden;
 }
 
 .timeline-wrapper {

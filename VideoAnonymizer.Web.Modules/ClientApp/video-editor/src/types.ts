@@ -45,3 +45,8 @@ export type TrackedTimelineObject = TimelineObjectBase & {
 };
 
 export type TimelineObject = SingleTimelineObject | TrackedTimelineObject;
+
+export type PreviewObject = {
+  detectedObject: DetectedObjectDto;
+  activation: 'detected' | 'pre' | 'post';
+};

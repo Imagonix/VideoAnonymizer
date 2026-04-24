@@ -19,7 +19,8 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
     const state = reactive<VideoEditorProps>({
         videoId: props.videoId,
         videoSourceUrl: props.videoSourceUrl,
-        frames: props.frames ?? []
+        frames: props.frames ?? [],
+        anonymizationSettings: props.anonymizationSettings
     });
 
     const app = createApp(VideoEditorApp, { state });
@@ -32,6 +33,7 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
             state.videoId = nextProps.videoId;
             state.videoSourceUrl = nextProps.videoSourceUrl;
             state.frames = nextProps.frames ?? [];
+            state.anonymizationSettings = nextProps.anonymizationSettings;
         },
         getFrames() {
             return vm.getFrames?.() ?? []
