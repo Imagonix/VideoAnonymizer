@@ -15,8 +15,8 @@
                         </MudTooltip>
                     </MudStack>
 
-                    <MudNumericField T="double"
-                                     @bind-Value="_blurSizePercent"
+                    <MudNumericField T="int"
+                                     @bind-Value="BlurSizePercent"
                                      Min="100"
                                      Max="300"
                                      Step="10"
@@ -36,7 +36,7 @@
                     </MudStack>
 
                     <MudNumericField T="int"
-                                     @bind-Value="_timeBufferMs"
+                                     @bind-Value="TimeBufferMs"
                                      Min="0"
                                      Max="1000"
                                      Step="50"
@@ -53,11 +53,12 @@
         </MudPaper>
         @if (ShowEditor && VideoId.HasValue && !string.IsNullOrWhiteSpace(VideoSourceUrl))
         {
-            <VideoEditor VideoId="@VideoId.Value"
+            <VideoEditor @ref="_videoEditor"
+                         VideoId="@VideoId.Value"
                          VideoSourceUrl="@VideoSourceUrl"
                          Frames="@Frames"
-                         BlurSizePercent="@_blurSizePercent"
-                         TimeBufferMs="@_timeBufferMs" />
+                         BlurSizePercent="@BlurSizePercent"
+                         TimeBufferMs="@TimeBufferMs" />
         }
 
         <MudButton Variant="Variant.Filled"
@@ -103,8 +104,11 @@
     [Parameter, EditorRequired]
     public EventCallback Download { get; set; }
 
-    private double _blurSizePercent = 150;
-    private int _timeBufferMs = 300;
+    [Parameter]
+    public int BlurSizePercent { get; set; } = 120;
+
+    [Parameter]
+    public int TimeBufferMs { get; set; } = 300;
 
     private async Task OnStartAnonymizationClicked()
     {

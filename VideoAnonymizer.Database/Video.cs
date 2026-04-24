@@ -9,5 +9,7 @@ namespace VideoAnonymizer.Database
         public string SourcePath { get; set; }
         public string? AnonomizedPath { get; set; }
         public virtual ICollection<AnalyzedFrame> AnalyzedFrames { get; set; }
+        public int BlurSizePercent { get; set; }
+        public int TimeBufferMs { get; set; }
     }
 }

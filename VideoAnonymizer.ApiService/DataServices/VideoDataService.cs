@@ -60,7 +60,7 @@ namespace VideoAnonymizer.ApiService.DataServices
             return (video.Id, fullPath);
         }
 
-        public async Task<Video> UpdateFramesAndObjects(Guid videoId, List<AnalyzedFrameDto> frames)
+        public async Task<Video> UpdateFramesAndObjects(Guid videoId, AnonymizeVideoRequestDto request)
         {
             using var db = await dbFactory.CreateDbContextAsync();
             var existingVideo = db.Videos.Where(x => x.Id.Equals(videoId)).Include(x => x.AnalyzedFrames).ThenInclude(x => x.DetectedObjects).SingleOrDefault();
@@ -68,9 +68,14 @@ namespace VideoAnonymizer.ApiService.DataServices
             {
                 throw new NotFoundException();
             }
+            if (request.Settings is not null)
+            {
+                existingVideo.BlurSizePercent = request.Settings.BlurSizePercent;
+                existingVideo.TimeBufferMs = request.Settings.TimeBufferMs;
+            }
             db.RemoveRange(existingVideo.AnalyzedFrames.SelectMany(x => x.DetectedObjects));
             db.RemoveRange(existingVideo.AnalyzedFrames);
-            var framesEntities = Mapper.ToEntities(frames);
+            var framesEntities = Mapper.ToEntities(request.Frames);
             await db.AddRangeAsync(framesEntities);
             await db.SaveChangesAsync();
             return existingVideo;

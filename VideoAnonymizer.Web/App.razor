@@ -1,4 +1,5 @@
 ﻿<MudThemeProvider @ref="_themeProvider"
+                  Theme="@_theme"
                   IsDarkMode="@_isDarkMode" />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -14,6 +15,8 @@
 @code {
     private MudThemeProvider? _themeProvider;
     private bool _isDarkMode;
+
+    private readonly MudTheme _theme = AppTheme.ModernDarkTheme;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

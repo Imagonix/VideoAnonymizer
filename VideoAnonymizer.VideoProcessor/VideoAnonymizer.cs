@@ -14,8 +14,6 @@ public class VideoAnonymizer(
     IServiceProvider serviceProvider)
     : SingleJobQueingWorker<AnonymizeVideo>(logger)
 {
-    private const double TimeToleranceSeconds = 0.3;
-
     protected override async Task HandleJob(AnonymizeVideo job, CancellationToken stoppingToken)
     {
         await using var scope = serviceProvider.CreateAsyncScope();
@@ -47,12 +45,12 @@ public class VideoAnonymizer(
         var frameWidth = capture.FrameWidth;
         var frameHeight = capture.FrameHeight;
 
-        var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
+        var blurSizePercent = video.BlurSizePercent > 0 ? video.BlurSizePercent : 120;
+        var timeBufferSeconds = Math.Max(0, video.TimeBufferMs) / 1000.0;
 
-        // using block to ensure file is written completly, when exiting the block
         using (var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight)))
         {
-            var analyzedFrames = GroupObjectsByAnalyzedFrame(selectedObjects, fps, totalFrames);
+            var analyzedFrames = GroupObjectsByAnalyzedFrame(selectedObjects);
 
             using var frameMat = new Mat();
             var currentFrameIndex = 0;
@@ -62,11 +60,17 @@ public class VideoAnonymizer(
                 if (!capture.Read(frameMat) || frameMat.Empty())
                     break;
 
-                var objectsToBlur = GetObjectsForFrame(analyzedFrames, currentFrameIndex, frameWidth, frameHeight, fps);
+                var objectsToBlur = GetObjectsForFrame(
+                    analyzedFrames,
+                    currentFrameIndex,
+                    frameWidth,
+                    frameHeight,
+                    fps,
+                    timeBufferSeconds);
 
                 foreach (var obj in objectsToBlur)
                 {
-                    BlurRegion(frameMat, obj);
+                    BlurRegion(frameMat, obj, blurSizePercent);
                 }
 
                 writer.Write(frameMat);
@@ -83,37 +87,27 @@ public class VideoAnonymizer(
             stoppingToken);
     }
 
-    private static Dictionary<int, List<DetectedObject>> GroupObjectsByAnalyzedFrame(
-        List<DetectedObject> detectedObjects,
-        double fps,
-        int? totalFrames = null)
+    private static Dictionary<double, List<DetectedObject>> GroupObjectsByAnalyzedFrame(
+        List<DetectedObject> detectedObjects)
     {
-        var analyzedFrames = new Dictionary<int, List<DetectedObject>>();
-        var lastValidFrameIndex = totalFrames.HasValue
-            ? Math.Max(0, totalFrames.Value - 1)
-            : (int?)null;
+        var analyzedFrames = new Dictionary<double, List<DetectedObject>>();
 
         foreach (var obj in detectedObjects)
         {
-            var frameIndex = Math.Max(0, (int)Math.Floor(obj.AnalyzedFrame.TimeSeconds * fps));
+            var timeSeconds = obj.AnalyzedFrame.TimeSeconds;
 
-            if (lastValidFrameIndex.HasValue)
+            if (!analyzedFrames.TryGetValue(timeSeconds, out var objects))
             {
-                frameIndex = Math.Min(frameIndex, lastValidFrameIndex.Value);
-            }
-
-            if (!analyzedFrames.TryGetValue(frameIndex, out var objects))
-            {
-                objects = new List<DetectedObject>();
-                analyzedFrames[frameIndex] = objects;
+                objects = [];
+                analyzedFrames[timeSeconds] = objects;
             }
 
             objects.Add(obj);
         }
 
-        foreach (var frameIndex in analyzedFrames.Keys.ToList())
+        foreach (var timeSeconds in analyzedFrames.Keys.ToList())
         {
-            analyzedFrames[frameIndex] = analyzedFrames[frameIndex]
+            analyzedFrames[timeSeconds] = analyzedFrames[timeSeconds]
                 .GroupBy(o => o.Id)
                 .Select(g => g.Last())
                 .ToList();
@@ -123,16 +117,19 @@ public class VideoAnonymizer(
     }
 
     private static List<DetectedObject> GetObjectsForFrame(
-        Dictionary<int, List<DetectedObject>> analyzedFrames,
+        Dictionary<double, List<DetectedObject>> analyzedFrames,
         int currentFrameIndex,
         int frameWidth,
         int frameHeight,
-        double fps)
+        double fps,
+        double timeBufferSeconds)
     {
         var sourceObjects = GetObjectsFromRelevantAnalyzedFrames(
             analyzedFrames,
             currentFrameIndex,
-            fps);
+            fps,
+            timeBufferSeconds);
+
         var result = new List<DetectedObject>();
 
         foreach (var obj in sourceObjects)
@@ -146,6 +143,8 @@ public class VideoAnonymizer(
             {
                 result.Add(new DetectedObject
                 {
+                    Id = obj.Id,
+                    TrackId = obj.TrackId,
                     X = rect.X,
                     Y = rect.Y,
                     Width = rect.Width,
@@ -158,29 +157,37 @@ public class VideoAnonymizer(
     }
 
     private static List<DetectedObject> GetObjectsFromRelevantAnalyzedFrames(
-        Dictionary<int, List<DetectedObject>> analyzedFrames,
+        Dictionary<double, List<DetectedObject>> analyzedFrames,
         int currentFrameIndex,
-        double fps)
+        double fps,
+        double timeBufferSeconds)
     {
         if (analyzedFrames.Count == 0)
             return [];
 
         var currentTime = currentFrameIndex / fps;
 
-        var result = new List<DetectedObject>();
+        var result = new Dictionary<string, DetectedObject>();
 
         foreach (var kvp in analyzedFrames)
         {
-            var analyzedFrameIndex = kvp.Key;
-            var analyzedTime = analyzedFrameIndex / fps;
+            var analyzedTime = kvp.Key;
 
-            if (Math.Abs(analyzedTime - currentTime) <= TimeToleranceSeconds)
+            if (Math.Abs(analyzedTime - currentTime) <= timeBufferSeconds)
             {
-                result.AddRange(kvp.Value);
+                foreach (var obj in kvp.Value)
+                {
+                    var key = obj.TrackId?.ToString() ?? obj.Id.ToString();
+
+                    if (!result.ContainsKey(key))
+                    {
+                        result[key] = obj;
+                    }
+                }
             }
         }
 
-        return result;
+        return result.Values.ToList();
     }
 
     private static string BuildOutputPath(string sourcePath)
@@ -210,18 +217,15 @@ public class VideoAnonymizer(
         return FourCC.MP4V;
     }
 
-    private static void BlurRegion(Mat frame, DetectedObject detectedObject)
+    private static void BlurRegion(Mat frame, DetectedObject detectedObject, int blurSizePercent)
     {
-        const double scaleX = 1.25;
-        const double scaleY = 1.40;
-        const int marginX = 10;
-        const int marginY = 20;
+        var scale = blurSizePercent / 100.0;
 
         int originalCenterX = detectedObject.X + detectedObject.Width / 2;
         int originalCenterY = detectedObject.Y + detectedObject.Height / 2;
 
-        int expandedWidth = (int)(detectedObject.Width * scaleX) + marginX;
-        int expandedHeight = (int)(detectedObject.Height * scaleY) + marginY;
+        int expandedWidth = (int)(detectedObject.Width * scale);
+        int expandedHeight = (int)(detectedObject.Height * scale);
 
         var rect = ClampRect(
             new Rect(
@@ -243,6 +247,7 @@ public class VideoAnonymizer(
         var blurHeight = MakeOdd(Math.Max(15, rect.Height / 3));
 
         using var blurred = new Mat();
+
         Cv2.GaussianBlur(
             roi,
             blurred,

@@ -16,7 +16,7 @@ namespace VideoAnonymizer.Web.Pages
         private IDisposable? _videoAnalyzedSubscription;
         private IDisposable? _videoAnonymizedSubscription;
 
-        private ReviewExportTab _reviewExportTab;
+        private ReviewExportTab? _reviewExportTab;
 
         private IBrowserFile? _selectedFile;
         private Guid? _currentVideoId;
@@ -161,19 +161,29 @@ namespace VideoAnonymizer.Web.Pages
 
         private async Task StartAnonymizationAsync()
         {
-            if (_currentVideoId.IsNullOrEmpty())
+            if (_currentVideoId.IsNullOrEmpty() || _reviewExportTab is null)
                 return;
 
             try
             {
                 IsBusy = true;
 
-                _analyzedFrames = _reviewExportTab.Frames.ToList();
+                var request = new AnonymizeVideoRequestDto()
+                {
+                    Frames = _reviewExportTab.Frames.ToList(),
+                    Settings = new()
+                    {
+                        BlurSizePercent = _reviewExportTab.BlurSizePercent,
+                        TimeBufferMs = _reviewExportTab.TimeBufferMs,
+                    }
+
+                };
+
 
                 using var httpClient = HttpClientFactory.CreateClient("ApiService");
                 var response = await httpClient.PostAsJsonAsync(
                     $"/{SharedConstants.Paths.Anonymize}/{_currentVideoId}",
-                    _analyzedFrames);
+                    request);
 
                 response.EnsureSuccessStatusCode();
 

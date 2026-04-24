@@ -107,12 +107,12 @@ namespace VideoAnonymizer.ApiService
 
 
         [HttpPost($"{SharedConstants.Paths.Anonymize}/{{videoId:guid}}")]
-        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] List<AnalyzedFrameDto> frames, CancellationToken cancellationToken)
+        public async Task<IActionResult> Anonymize([FromRoute] Guid videoId, [FromBody] AnonymizeVideoRequestDto request, CancellationToken cancellationToken)
         {
             var jobId = Guid.NewGuid();
             try
             {
-                var video = await videoDataService.UpdateFramesAndObjects(videoId, frames);
+                var video = await videoDataService.UpdateFramesAndObjects(videoId, request);
                 await messagePublisher.PublishAsync(
                     RabbitMQConstants.RoutingKeys.Anonymize,
                     new AnonymizeVideo(jobId, video.Id, DateTime.Now),

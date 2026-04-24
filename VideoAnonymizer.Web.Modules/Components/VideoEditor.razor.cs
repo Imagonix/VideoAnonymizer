@@ -16,10 +16,10 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     [Parameter] 
     public IReadOnlyList<AnalyzedFrameDto> Frames { get; set; } = Array.Empty<AnalyzedFrameDto>();
     [Parameter]
-    public double BlurSizePercent { get; set; } = 120;
+    public int BlurSizePercent { get; set; } = 120;
 
     [Parameter]
-    public int TimeBufferMs { get; set; } = 300;
+    public int TimeBufferMs { get; set; } = 0;
 
     private ElementReference _hostElement;
     private IJSObjectReference? _hostModule;
