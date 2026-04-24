@@ -28,11 +28,14 @@ namespace VideoAnonymizer.Web.Tests
 
         protected virtual void SetupServices() { }
 
+        protected virtual async Task BeforeRender() { }
+
         [BeforeScenario]
         public virtual async Task Initialize()
         {
             SetupServices();
             Services.AddMudServices();
+            await BeforeRender();
             ComponentUnderTest = Render<TComponent>();
             await Task.CompletedTask;
         }

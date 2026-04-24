@@ -72,6 +72,10 @@ namespace VideoAnonymizer.ApiService.DataServices
             {
                 existingVideo.BlurSizePercent = request.Settings.BlurSizePercent;
                 existingVideo.TimeBufferMs = request.Settings.TimeBufferMs;
+            } else
+            {
+                existingVideo.BlurSizePercent = 130;
+                existingVideo.TimeBufferMs = 100;
             }
             db.RemoveRange(existingVideo.AnalyzedFrames.SelectMany(x => x.DetectedObjects));
             db.RemoveRange(existingVideo.AnalyzedFrames);

@@ -56,6 +56,11 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
         }
 
+        protected override async Task BeforeRender()
+        {
+            Render<MudPopoverProvider>();
+        }
+
         [Given("I open the homepage")]
         [When("I open the homepage")]
         public void WhenIOpenTheHomepage()
@@ -70,7 +75,7 @@ namespace VideoAnonymizer.Web.Tests.Pages
                 .Should().NotBeNull("There should be a file upload field!");
 
             var mudButtons = ComponentUnderTest.FindAll("label");
-            var uploadButtons = mudButtons.Where(x => x.InnerHtml.Contains("Upload"));
+            var uploadButtons = mudButtons.Where(x => x.InnerHtml.Contains("Select Video"));
             uploadButtons.Count().Should().Be(1, "There should be exactly one upload button");
         }
 
@@ -86,6 +91,12 @@ namespace VideoAnonymizer.Web.Tests.Pages
 
             mudFileUpload.FindComponent<InputFile>()
                 .UploadFiles([dummyVideo]);
+
+            var detectButton = ComponentUnderTest
+                .FindAll("button")
+                .Single(x => x.TextContent.Contains("Detect Objects"));
+
+            detectButton.Click();
         }
 
         [Given("I press anonymize")]
@@ -212,15 +223,12 @@ namespace VideoAnonymizer.Web.Tests.Pages
         }
 
         [AfterScenario]
-        public void Cleanup()
+        public async Task Cleanup()
         {
             MockHttpMessageHandler.Clear();
-        }
-
-        public new void Dispose()
-        {
             MockHttpMessageHandler.Dispose();
-            base.Dispose();
+
+            await DisposeAsync();
         }
     }
 }

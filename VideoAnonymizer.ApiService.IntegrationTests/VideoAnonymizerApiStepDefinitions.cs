@@ -121,7 +121,6 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             await WaitHealthy("videoAnonymizerDb");
             await WaitHealthy("apiservice");
             await WaitHealthy("videoanonymizer-videoprocessor");
-            await WaitHealthy("videoanonymizer-database-migrationservice");
 
             Log("Create client");
             var client = CreteApiServiceHttpClient();
@@ -260,7 +259,7 @@ namespace VideoAnonymizer.ApiService.IntegrationTests
             var selectedObjects = new List<AnalyzedFrame>();
             using var httpClient = CreteApiServiceHttpClient();
             var firstFrame = AnalyzedVideoResponse.Payload.First();
-            var response = await httpClient.PostAsJsonAsync($"anonymize/{firstFrame.VideoId}", AnalyzedVideoResponse.Payload);
+            var response = await httpClient.PostAsJsonAsync($"anonymize/{firstFrame.VideoId}", new AnonymizeVideoRequestDto() { Frames = AnalyzedVideoResponse.Payload });
             AnonymizeVideoResponse = await response.Content.ReadFromJsonAsync<ApiResponse<Guid>>();
         }
 
