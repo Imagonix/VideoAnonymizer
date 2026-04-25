@@ -2,7 +2,8 @@ param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
     [string]$PythonExe = "",
-    [switch]$SkipPythonBuild
+    [switch]$SkipPythonBuild,
+    [switch]$SkipVueBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +15,7 @@ $publishDir = Join-Path $publishRoot "bin"
 $objectDetectionProject = Join-Path $root "VideoAnonymizer.ObjectDetection"
 $objectDetectionDist = Join-Path $artifacts "object-detection"
 $objectDetectionSpec = Join-Path $objectDetectionProject "VideoAnonymizer.ObjectDetection.spec"
+$videoEditorProject = Join-Path $root "VideoAnonymizer.Web.Modules\ClientApp\video-editor"
 $standaloneProject = Join-Path $root "VideoAnonymizer.StandaloneHost\VideoAnonymizer.StandaloneHost.csproj"
 $launcherProject = Join-Path $root "VideoAnonymizer.StandaloneLauncher\VideoAnonymizer.StandaloneLauncher.csproj"
 
@@ -74,6 +76,42 @@ if (Test-Path $publishRoot) {
 }
 
 New-Item -ItemType Directory -Force -Path $publishDir | Out-Null
+
+if (-not $SkipVueBuild) {
+    $npmCommand = Get-Command "npm.cmd" -ErrorAction SilentlyContinue
+    if (-not $npmCommand) {
+        $npmCommand = Get-Command "npm" -ErrorAction SilentlyContinue
+    }
+
+    if (-not $npmCommand) {
+        throw "npm was not found. Install Node.js/npm or rerun with -SkipVueBuild when the Vue components are already built."
+    }
+
+    Push-Location $videoEditorProject
+    try {
+        if (-not (Test-Path (Join-Path $videoEditorProject "node_modules"))) {
+            if (Test-Path (Join-Path $videoEditorProject "package-lock.json")) {
+                & $npmCommand.Source ci
+            }
+            else {
+                & $npmCommand.Source install
+            }
+
+            if ($LASTEXITCODE -ne 0) {
+                throw "npm dependency restore failed with exit code $LASTEXITCODE."
+            }
+        }
+
+        & $npmCommand.Source run build
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Vue component build failed with exit code $LASTEXITCODE."
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
 
 dotnet publish $standaloneProject `
     -c $Configuration `
