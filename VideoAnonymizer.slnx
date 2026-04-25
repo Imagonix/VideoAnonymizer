@@ -18,6 +18,8 @@
     <Build Project="false" />
   </Project>
   <Project Path="VideoAnonymizer.ServiceDefaults/VideoAnonymizer.ServiceDefaults.csproj" />
+  <Project Path="VideoAnonymizer.StandaloneLauncher/VideoAnonymizer.StandaloneLauncher.csproj" />
+  <Project Path="VideoAnonymizer.StandaloneHost/VideoAnonymizer.StandaloneHost.csproj" />
   <Project Path="VideoAnonymizer.VideoProcessor/VideoAnonymizer.VideoProcessor.csproj" />
   <Project Path="VideoAnonymizer.Web.Contracts/VideoAnonymizer.Web.Shared.csproj" Id="216ea1fb-7bdc-4ffa-9b6c-4187d42f92c5" />
   <Project Path="VideoAnonymizer.Web.Modules.Tests.Harness/VideoAnonymizer.Web.Modules.Tests.Harness.Client/VideoAnonymizer.Web.Modules.Tests.Harness.Client.csproj" />

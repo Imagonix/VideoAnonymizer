@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Internal;
 using System.ComponentModel.DataAnnotations;
 using VideoAnonymizer.ApiService.DataServices;
 using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared;

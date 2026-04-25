@@ -28,6 +28,7 @@
     <Compile Include="main.py" />
     <Compile Include="models.py" />
     <Compile Include="object_tracker_manager.py" />
+    <Compile Include="standalone_entry.py" />
     <Compile Include="services\detection_service.py" />
     <Compile Include="services\image_decoder.py" />
     <Compile Include="services\model_session.py" />
@@ -43,6 +44,8 @@
   <ItemGroup>
     <Content Include="models\FaceDetector.onnx" />
     <Content Include="requirements.txt" />
+    <Content Include="requirements-standalone.txt" />
+    <Content Include="VideoAnonymizer.ObjectDetection.spec" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

@@ -1,8 +1,9 @@
 using MassTransit;
-using Microsoft.AspNetCore.Http.Features;
+using VideoAnonymizer.ApiService;
 using VideoAnonymizer.ApiService.DataServices;
 using VideoAnonymizer.ApiService.Notifications;
 using VideoAnonymizer.Contracts.Extensions;
+using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database.Extensions;
 using VideoAnonymizer.ObjectDetectionClient;
@@ -12,14 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
-builder.Services.AddProblemDetails();
-
-builder.Services.AddOpenApi();
-var mvcBuilder = builder.Services.AddControllers();
-builder.Services.AddSignalR();
-
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+var mvcBuilder = builder.AddVideoAnonymizerApiServices();
 
 if (builder.Environment.IsDevelopment())
 {
@@ -38,50 +32,10 @@ if (builder.Environment.IsDevelopment())
 builder.ConfigureRabbitMQConnection();
 builder.Services.AddSingleton<IMessagePublisher, RabbitMqMessagePublisher>();
 builder.Services.AddSingleton<IRabbitMqConnectionFactory, RabbitMqConnectionFactory>();
-builder.Services.AddHostedService<VideoAnalyzedConsumer>();
-builder.Services.AddHostedService<VideoAnonymizedConsumer>();
-builder.Services.AddSingleton<LongRunningJobsHub>();
-builder.Services.AddScoped<VideoDataService>();
-builder.Services.AddScoped<StateDataService>();
-builder.Services.AddSingleton<IObjectDetectionApiReadyState, ObjectDetectionApiReadyState>();
-builder.Services.AddHostedService<ObjectDetectionApiStartupWaiter>();
-
-var objectDetectionUrl = builder.Configuration["services:objectDetection:https:0"]
-    ?? throw new InvalidOperationException("objectDetection URL not found");
-
-builder.Services.AddHttpClient<ObjectDetectionClient>("objectDetection", client =>
-{
-    client.BaseAddress = new Uri(objectDetectionUrl);
-    client.Timeout = TimeSpan.FromMilliseconds(500);
-});
-
-builder.Services.AddTransient<ObjectDetectionClient>(sp =>
-{
-    var httpClient = sp.GetRequiredService<IHttpClientFactory>()
-        .CreateClient("objectDetection");
-
-    var baseUrl = httpClient.BaseAddress?.ToString()
-        ?? throw new InvalidOperationException("objectDetection BaseAddress is not configured.");
-
-    return new ObjectDetectionClient(baseUrl, httpClient);
-});
+builder.Services.AddRabbitMqVideoAnonymizerNotificationConsumers();
 
 
 builder.AddVideoAnonymizerDbContextFactory();
-
-builder.WebHost.ConfigureKestrel(options =>
-{
-    options.Limits.MaxRequestBodySize = 500 * 1024 * 1024;
-});
-
-builder.Services.Configure<FormOptions>(options =>
-{
-    options.MultipartBodyLengthLimit = 500 * 1024 * 1024;
-    options.MultipartHeadersLengthLimit = 32 * 1024;
-    options.MultipartBoundaryLengthLimit = 256;
-    options.MemoryBufferThreshold = 128 * 1024;
-    options.ValueLengthLimit = int.MaxValue;
-});
 
 var app = builder.Build();
 

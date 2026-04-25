@@ -9,9 +9,10 @@ public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
 {
     private readonly HubConnection _hubConnection;
 
-    public JobHubClient(IConfiguration configuration)
+    public JobHubClient(IConfiguration configuration, NavigationManager navigationManager)
     {
-        var hubUrl = $"{configuration.GetApiServiceBaseUrl()}{SharedConstants.SignalR.JobHubUrl}";
+        var apiBaseUrl = configuration.GetApiServiceBaseUrl(navigationManager.BaseUri).TrimEnd('/');
+        var hubUrl = $"{apiBaseUrl}{SharedConstants.SignalR.JobHubUrl}";
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(hubUrl)
             .WithAutomaticReconnect()

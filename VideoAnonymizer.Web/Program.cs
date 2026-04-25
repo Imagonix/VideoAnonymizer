@@ -15,7 +15,7 @@ builder.Services.AddServiceDiscovery();
 
 builder.Services.AddHttpClient("ApiService", client =>
 {
-    var baseUrl = builder.Configuration.GetApiServiceBaseUrl();
+    var baseUrl = builder.Configuration.GetApiServiceBaseUrl(builder.HostEnvironment.BaseAddress);
     client.BaseAddress = new Uri(baseUrl);
 });
 

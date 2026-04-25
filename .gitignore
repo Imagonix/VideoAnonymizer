@@ -1,4 +1,6 @@
 /.vs
+/.dotnet-home
+/artifacts
 obj
 bin
 /VideoAnonymizer.ObjectDetection/.venv

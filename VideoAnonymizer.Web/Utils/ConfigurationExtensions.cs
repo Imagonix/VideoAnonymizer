@@ -2,10 +2,10 @@
 {
     public static class ConfigurationExtensions
     {
-        public static string GetApiServiceBaseUrl(this IConfiguration configuration)
+        public static string GetApiServiceBaseUrl(this IConfiguration configuration, string fallbackBaseUrl)
         {
             return configuration["ApiService:BaseUrl"]
-                    ?? throw new InvalidOperationException("ApiService:BaseUrl not found in appsettings");
+                    ?? fallbackBaseUrl;
         }
     }
 }
