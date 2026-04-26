@@ -1,279 +1,224 @@
 # 🎥 VideoAnonymizer
 
-> Privacy-first video anonymization powered by Computer Vision
+**Local-first video anonymization for faces, built as a full-stack engineering project.**
 
-Automatically detect and anonymize sensitive information in videos — such as faces, license plates, or other identifiable objects — using a modern, scalable architecture.
+VideoAnonymizer helps detect faces in videos, review the detections, select which detected objects should be anonymized, and export a blurred version of the video. The standalone variant runs on the user's own machine: videos, extracted frames, detection results, and exports stay local instead of being uploaded to a remote service.
 
----
+The project is also designed as a recruiter-friendly reference implementation: it combines .NET, Blazor, Vue, Python computer vision, background workers, messaging abstractions, packaging automation, and a cloud-ready Aspire architecture.
 
-## ✨ Features
-
-- 🎯 Automatic face detection (powered by RetinaFace)
-- 🎬 Video anonymization by blurring sensitive regions
-- ⚡ Asynchronous processing with RabbitMQ
-- 🌐 Web-based UI built with Blazor and Vue
-- 🧠 Python AI service based on FastAPI
-- 🧩 Modular distributed architecture with .NET Aspire
-- 🔌 Designed for local and cloud deployment
-
----
-
-## 🎞️ Demo
+## Demo
 
 ### Before / After
-Automatically anonymized faces in a sample video:
 
 ![Before After Demo](docs/img/demo_slider_reveal.gif)
 
-### 🧩 Review Tool (Work in Progress)
-
-The review tool allows inspecting detected objects before anonymization.
+### Review Tool
 
 ![Editor Preview](docs/img/editor_preview.png)
 
-Current capabilities:
+The review UI lets users inspect detected faces directly in the video, see object occurrences on a timeline, and decide which detected objects should be included in the anonymization step.
 
-- Inspect detected faces directly in the video preview
-- Visualize object occurrences on a timeline
-- Deselect objects from anonymization
-- Review tracked objects with consistent colors across the UI
+## Architecture
 
-Current limitations:
+VideoAnonymizer supports two execution styles: a standalone local build and a cloud-ready distributed setup.
 
-- No manual creation of new objects yet
-- No moving or resizing of bounding boxes yet
+## Current Scope
 
-The current review tool is intended to evolve into a full editor with manual object creation and adjustment capabilities.
+VideoAnonymizer currently focuses on **face anonymization**.
 
-#### Rendering approach
+What works today:
 
-For performance reasons, the review tool is implemented using Vue and browser APIs such as `requestVideoFrameCallback`.
+- upload/select a video
+- analyze frames with a Python object detection service
+- detect faces using an ONNX model
+- review detected objects in a video/timeline UI
+- deselect objects that should not be anonymized
+- blur selected detections
+- export and download the anonymized video
+- run as a distributed Aspire app or as a standalone local Windows package
 
-The rest of the UI is Blazor-based.
+What is not there yet:
 
+- manual drawing of new boxes
+- moving or resizing detections
+- detection of license plates, addresses, labels, or other sensitive objects
+- multi-user hosted product experience
+- signed Windows releases without SmartScreen friction
 
----
+## Why The Standalone Version Matters
 
-## 🏗️ Architecture Overview
+Video anonymization often touches private material. A local desktop workflow is useful when users do not want to upload raw footage to a cloud service just to remove faces.
 
-The system is built as a distributed service architecture with the following main components:
+The standalone version starts the local web UI, API, workers, and object detection service from one launcher. It is intended for privacy-sensitive desktop usage while keeping the same product workflow as the distributed version.
 
-- **webfrontend** – Blazor WebAssembly UI with a Vue-based review tool for high-performance rendering
-- **apiservice** – .NET backend exposing a JSON API
-- **video processor** – background worker for frame extraction, blurring, and video generation
-- **objectDetection** – Python FastAPI service for object detection
-- **RabbitMQ** – asynchronous job queue
-- **PostgreSQL** – storage for metadata, analysis results, and processing state
-- **modeldownloader** – startup component that ensures the required AI model is available
-- **database migration service** – applies schema migrations automatically on startup
+In standalone mode:
 
-The architecture is designed to scale individual components (e.g. AI processing) independently. The frontend combines Blazor for general application structure with Vue for performance-critical UI components.
+- processing happens locally on the user's machine
+- user videos are not sent to a remote backend
+- the Python object detection API is launched locally as a bundled executable
+- the face detection model is downloaded on first start if missing
+- CUDA status is shown in the UI, with warnings when CPU fallback is used
 
-### Processing Flow
+### Standalone Mode
 
-1. The user uploads a video through the frontend.
-2. The API stores metadata and creates a processing job.
-3. The job is published to RabbitMQ.
-4. The video processor consumes the job and extracts frames.
-5. The processor sends frames to the Python detection service.
-6. Detected regions are returned and blurred in the video.
-7. The processed video is reassembled and stored.
-8. The user can download the anonymized result.
+The standalone package is built for local Windows usage. It starts:
 
----
+- local web frontend
+- API service
+- video processing workers
+- Python object detection executable
+- local direct messaging
+- local/in-memory storage
 
-## 🔌 API Overview
+This variant is optimized for simple desktop usage and privacy-sensitive processing.
 
-The backend exposes a REST-like JSON API for asynchronous video processing workflows.
+### Cloud-Ready Mode
 
-### Endpoints
+The distributed variant keeps service boundaries explicit and is orchestrated with .NET Aspire:
 
-```http
-POST   /upload
-POST   /analyze/{videoId}
-POST   /anonymize/{videoId}
-GET    /analyzed/{videoId}
-```
+- `webfrontend` - Blazor WebAssembly frontend
+- `apiservice` - ASP.NET Core backend and SignalR notifications
+- `video processor` - worker service for frame extraction, anonymization, and export
+- `objectDetection` - Python FastAPI computer vision service
+- `RabbitMQ` - asynchronous job queue
+- `PostgreSQL` - metadata and processing state
+- `modeldownloader` - startup model provisioning
+- `database migration service` - schema migration on startup
 
-### Typical Flow
+The two modes share the same application concepts while using different infrastructure adapters for persistence and messaging.
 
-✔ Actual flow (today)
-```text
-1. Upload a video
-2. Start analysis
-3. Review detected objects
-4. Start anonymization
-5. Download the processed video
-```
-🚧 Planned (Review Tool → Editor)
-```text
-1. Upload a video
-2. Start analysis
-3. Review detected objects
-4. Edit objects / areas to anonymize
-5. Start anonymization
-6. Download the processed video
-```
+## Processing Flow
 
----
+1. The user selects a video.
+2. The API creates an analysis job.
+3. The video processor extracts frames.
+4. Frames are sent to the Python detection service.
+5. Detected faces are stored and displayed in the review UI.
+6. The user deselects objects that should remain visible.
+7. Selected detections are blurred.
+8. The processed video is exported for download.
 
-## 🚀 Getting Started
+## Getting Started
 
-### Requirements
+Requirements:
 
 - .NET 10
 - Python 3.10+
+- Node.js/npm
 - Docker
-- GPU (optional, for faster inference)
-- A development HTTPS certificate may be required:
-```bash
-dotnet dev-certs https --trust
-```
+- GPU optional, recommended for faster inference
+  - CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12
 
-### Platform Notes
-The current development setup is primarily tested on Windows.
-The video processing component currently depends on native OpenCvSharp runtime support and is not fully configured for Linux/WSL yet.
+### Build Standalone Package
 
-
-### Clone the repository
-
-```bash
+```powershell
 git clone https://github.com/Imagonix/VideoAnonymizer.git
 cd VideoAnonymizer
+.\publish-standalone.ps1
 ```
 
-### First-time setup
+Output:
 
-Initialize development secrets:
-
-```bash
-./setup-dev.ps1
+```text
+artifacts/standalone/VideoAnonymizer.exe
 ```
+The standalone package starts the app locally and opens the browser UI automatically.
 
-### Start the application
+### Distributed Development Setup
 
-```bash
+```powershell
+git clone https://github.com/Imagonix/VideoAnonymizer.git
+cd VideoAnonymizer
+.\setup-dev.ps1
+cd VideoAnonymizer.Web.Modules/ClientApp/video-editor
+npm ci
+npm run build
+cd ../../..
 dotnet run --project VideoAnonymizer.AppHost
 ```
 
-This starts the distributed application, including:
+This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, workers, model downloader, and Python object detection.
 
-- frontend
-- API
-- RabbitMQ
-- PostgreSQL
-- Python object detection service
-
-### Open the web UI
-
-Open the URL shown by the Aspire dashboard or console output.
-
----
-
-## 🤖 AI Model
-
-- Face detection is based on **RetinaFace (ONNX)**.
-- The model file is **not included in the repository**
-- It is automatically downloaded on startup via the `modeldownloader` service
-- No manual setup is required
-
-> Note: The model is fetched from a public source and stored locally.
-
----
-
-## 🧪 Tech Stack
+## Tech Stack
 
 ### Backend
 
 - .NET 10
 - ASP.NET Core
 - Entity Framework Core
-- RabbitMQ
 - SignalR
+- RabbitMQ for distributed messaging
+- direct messaging abstraction for standalone mode
 
 ### Frontend
 
 - Blazor WebAssembly
-- Vue (used for performance-critical components)
+- Vue for the video review/editor component
 - MudBlazor
 
-### AI / Processing
+### AI and Processing
 
 - Python
 - FastAPI
-- RetinaFace (ONNX)
-- OpenCV
+- ONNX Runtime
+- RetinaFace-style face detection model
+- OpenCV / OpenCvSharp
 
-### Infrastructure
+### Infrastructure and Delivery
 
 - .NET Aspire
 - PostgreSQL
 - RabbitMQ
 - Docker
+- PyInstaller for the Python object detection executable
+- GitHub Actions for standalone packaging and prerelease artifacts
 
-## Status
+## AI Model
 
-### ✅ Already implemented
-- [x] Video upload via web interface
-- [x] Automatic face detection (RetinaFace)
-- [x] Real-time anonymization (face blurring)
-- [x] Download of processed videos
-- [x] Asynchronous processing pipeline (RabbitMQ)
-- [x] Local-first architecture (self-hosted)
-- [x] Timeline-based object selection for precise anonymization control
+- Face detection uses an ONNX model.
+- The model file is not included in the repository.
+- It is downloaded automatically on startup when missing.
+- In standalone mode the model is stored locally under the standalone data folder.
 
-### 🚧 Currently in progress
-- [ ] Bounding box editor for manual correction
+## Testing and Quality
 
-### 🛣️ Planned
-- [ ] Detection of additional sensitive objects (license plates, labels, addresses)
-- [ ] Improved object tracking across frames
-- [ ] Optional cloud deployment (multi-user access)
+The project includes:
 
-## 💡 Use Cases
+- Python tests for the object detection API
+- Web component tests for the Blazor UI
+- API integration tests for distributed workflows
 
-- Privacy-safe video sharing
-- Dashcam footage anonymization
-- Content creation workflows
-- Research datasets
-- Internal company documentation and demos
+The standalone release pipeline currently runs Python tests, builds Vue assets, builds the .NET solution, runs web tests, publishes the local Windows package, uploads an artifact, and creates a GitHub prerelease.
 
----
+## Roadmap
 
-## Testing & Quality
+In progress:
 
-The application includes behavior-driven integration tests to verify end-to-end workflows such as:
+- manual bounding box editing
+- signed standalone releases for smoother Windows execution
+- clearer installer/distribution experience
 
-- Uploading a video
-- Running the analysis pipeline
-- Receiving completion events via SignalR
-- Retrieving the anonymized result
+Planned:
 
-This ensures that the full system behaves correctly across service boundaries.
-
----
-
-## 📦 Deployment
-
-The architecture is intended to support both:
-
-- **local execution** for simple desktop usage
-- **hosted deployment** for browser-based access across devices
-
----
-
-## 📄 License
-
-MIT License
-
----
+- license plate detection
+- additional sensitive object categories
+- improved object tracking across frames
+- hosted multi-user deployment option
+- persistent standalone project/session storage
 
 ## Project Purpose
 
-This project was created as a reference implementation demonstrating:
+VideoAnonymizer is built as a practical product-style reference project. It demonstrates how AI inference can be turned into a usable workflow with review, correction points, background processing, and export.
 
-- distributed system design with .NET Aspire
-- asynchronous processing pipelines
-- integration of AI (computer vision) into real-world workflows
+It is intended to show:
 
-Designed and implemented as a full-stack distributed system from scratch.
+- privacy-aware product thinking
+- full-stack .NET application development
+- Python AI service integration
+- distributed architecture with Aspire
+- local standalone packaging
+- pragmatic CI/CD and release automation
+
+## License
+
+MIT License
