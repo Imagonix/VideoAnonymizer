@@ -5,7 +5,7 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
-import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject } from './types';
+import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
 const props = defineProps<{
@@ -17,6 +17,12 @@ defineExpose({
 
 const currentTime = ref(0);
 const videoDuration = ref(0);
+const isVideoPlaying = ref(false);
+const videoVolume = ref(1);
+const videoPlayerRef = ref<{
+    setVolume: (volume: number) => void;
+    togglePlayback: () => Promise<void>;
+} | null>(null);
 
 const frames = computed(() => props.state.frames ?? []);
 
@@ -58,6 +64,15 @@ const timelineObjects = computed<TimelineObject[]>(() => {
     const tracked = Object.values(grouped);
 
     return [...tracked, ...untracked];
+});
+
+const timelineObjectCounts = computed<TimelineObjectCount[]>(() => {
+    return frames.value
+        .map(frame => ({
+            timeSeconds: frame.timeSeconds,
+            count: frame.detectedObjects.length
+        }))
+        .sort((a, b) => a.timeSeconds - b.timeSeconds);
 });
 
 const orderedCurrentFrameObjects = computed(() => {
@@ -162,6 +177,24 @@ function onTimeUpdate(time: number) {
 
 function onVideoLoaded(duration: number) {
     if (duration && duration > 0) videoDuration.value = duration;
+    videoPlayerRef.value?.setVolume(videoVolume.value);
+}
+
+function onVideoPlayStateChange(isPlaying: boolean) {
+    isVideoPlaying.value = isPlaying;
+}
+
+function onVideoVolumeChange(volume: number) {
+    videoVolume.value = volume;
+}
+
+function toggleVideoPlayback() {
+    videoPlayerRef.value?.togglePlayback();
+}
+
+function setVideoVolume(volume: number) {
+    videoVolume.value = volume;
+    videoPlayerRef.value?.setVolume(volume);
 }
 </script>
 
@@ -169,8 +202,9 @@ function onVideoLoaded(duration: number) {
     <div class="video-editor" data-testid="video-editor">
         <div class="top-layout">
             <div class="video-stage">
-                <VideoPlayer :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
-                    @time-update="onTimeUpdate" @loaded="onVideoLoaded" />
+                <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
+                    @time-update="onTimeUpdate" @loaded="onVideoLoaded"
+                    @play-state-change="onVideoPlayStateChange" @volume-change="onVideoVolumeChange" />
                 <BoundingBoxOverlay v-if="currentFrame && visibleBlurPreviewObjects.length > 0"
                     :objects="visibleBlurPreviewObjects" :anonymization-settings="state.anonymizationSettings" />
             </div>
@@ -185,7 +219,9 @@ function onVideoLoaded(duration: number) {
                 <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject" />
             </div>
             <div class="timeline-content">
-                <Timeline :duration="videoDuration" :currentTime="currentTime" @seek="seekTo">
+                <Timeline :duration="videoDuration" :currentTime="currentTime" :is-playing="isVideoPlaying"
+                    :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
+                    @volume-change="setVideoVolume">
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
                         :video-duration="videoDuration" />
                 </Timeline>
