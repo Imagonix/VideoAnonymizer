@@ -6,6 +6,7 @@ const props = defineProps<{
     videoDuration : number
 }>()
 function toPercent(time: number) {
+  if (!props.videoDuration || props.videoDuration <= 0) return '0%'
   return `${(time / props.videoDuration) * 100}%`
 }
 </script>

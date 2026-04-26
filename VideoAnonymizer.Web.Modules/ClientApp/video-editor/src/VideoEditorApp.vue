@@ -163,17 +163,6 @@ function onTimeUpdate(time: number) {
 function onVideoLoaded(duration: number) {
     if (duration && duration > 0) videoDuration.value = duration;
 }
-const currentTimePercent = computed(() => {
-    if (!videoDuration || videoDuration.value <= 0) {
-        return '0%';
-    }
-
-    return `${(currentTime.value / videoDuration.value) * 100}%`;
-});
-
-const formattedCurrentTime = computed(() => {
-    return `${currentTime.value.toFixed(1)}s`;
-});
 </script>
 
 <template>
@@ -191,16 +180,12 @@ const formattedCurrentTime = computed(() => {
 
         <div class="timeline-wrapper">
             <div class="timeline-labels">
+                <div class="timeline-toolbar-spacer"></div>
                 <div class="timeline-header-spacer"></div>
                 <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject" />
             </div>
-            <div>
+            <div class="timeline-content">
                 <Timeline :duration="videoDuration" :currentTime="currentTime" @seek="seekTo">
-                    <div class="timeline-time-row">
-                        <div class="timeline-current-time-marker" :style="{ left: currentTimePercent }">
-                            {{ formattedCurrentTime }}
-                        </div>
-                    </div>
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
                         :video-duration="videoDuration" />
                 </Timeline>
@@ -255,50 +240,23 @@ const formattedCurrentTime = computed(() => {
     min-width: 0;
 }
 
-.timeline-header-spacer {
+.timeline-toolbar-spacer {
     position: sticky;
     top: 0;
+    z-index: 20;
+    background: var(--mud-palette-surface);
+    height: 32px;
+    margin-bottom: 12px;
+    isolation: isolate;
+}
+
+.timeline-header-spacer {
+    position: sticky;
+    top: 44px;
     z-index: 20;
     background: var(--mud-palette-surface);
     height: 34px;
     margin-bottom: 12px;
     isolation: isolate;
-}
-
-.timeline-time-row {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--mud-palette-surface);
-    height: 34px;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    margin-bottom: 12px;
-    overflow: visible;
-}
-
-.timeline-current-time-marker {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: inline-block;
-    z-index: 100;
-    white-space: nowrap;
-    font-size: 12px;
-    line-height: 1;
-    pointer-events: none;
-    color: var(--mud-palette-text-primary);
-    background: var(--mud-palette-surface);
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.timeline-current-time-marker::before {
-    content: "";
-    z-index: 100;
-    position: absolute;
-    inset: -2px -6px;
-    background: var(--mud-palette-surface);
-    border-radius: 4px;
-    z-index: -1;
 }
 </style>
