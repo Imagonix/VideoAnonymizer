@@ -19,7 +19,7 @@ env:
 jobs:
   test-and-publish:
     name: Test and publish standalone
-    runs-on: [self-hosted, Windows, X64]
+    runs-on: windows-latest
     timeout-minutes: 120
 
     defaults:
