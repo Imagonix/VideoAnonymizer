@@ -9,25 +9,20 @@ RUN npm run build
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS opencvsharp-bridge
 RUN apt-get update && apt-get install -y \
     build-essential cmake git ca-certificates \
-    libopencv-dev \
+    libopencv-dev libopencv-contrib-dev \
     libavcodec-dev libavformat-dev libswscale-dev \
     libdc1394-dev libtiff-dev libopenjp2-7-dev \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --depth 1 --branch 4.13.0.20260317 \
     https://github.com/shimat/opencvsharp.git /src/opencvsharp
+RUN cd /src/opencvsharp/src/OpenCvSharpExtern && \
+    rm -f barcode.cpp barcode.h dnn_superres.cpp dnn_superres.h \
+          wechat_qrcode.cpp wechat_qrcode.h
 RUN mkdir -p /src/opencvsharp/src/build && cd /src/opencvsharp/src/build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
+          -DNO_CONTRIB=ON \
           -DNO_HIGHGUI=ON \
-          -DNO_OBJDETECT=ON \
-          -DNO_DNN=ON \
-          -DNO_CALIB3D=ON \
-          -DNO_STITCHING=ON \
-          -DNO_FEATURES2D=ON \
-          -DNO_FLANN=ON \
-          -DNO_ML=ON \
-          -DNO_PHOTO=ON \
-          -DNO_BARCODE=ON \
           -DCMAKE_INSTALL_PREFIX=/opt/opencvsharp \
           .. && \
     make -j$(nproc) && \
@@ -40,10 +35,10 @@ RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-COPY .editorconfig Directory.Build.props VideoAnonymizer.slnx ./
+COPY VideoAnonymizer.slnx ./
 COPY VideoAnonymizer.ServiceDefaults/ VideoAnonymizer.ServiceDefaults/
 COPY VideoAnonymizer.Contracts/ VideoAnonymizer.Contracts/
-COPY VideoAnonymizer.Web.Contracts/ VideoAnonymizer.Web.Shared/
+COPY VideoAnonymizer.Web.Contracts/ VideoAnonymizer.Web.Contracts/
 COPY VideoAnonymizer.Database/ VideoAnonymizer.Database/
 COPY VideoAnonymizer.ObjectDetectionClient/ VideoAnonymizer.ObjectDetectionClient/
 COPY VideoAnonymizer.Web.Modules/ VideoAnonymizer.Web.Modules/
@@ -58,15 +53,15 @@ COPY --from=vue-builder /wwwroot/vue/video-editor /src/VideoAnonymizer.Web.Modul
 RUN sed -i '/OpenCvSharp4.runtime.win/d' \
     VideoAnonymizer.VideoProcessor/VideoAnonymizer.VideoProcessor.csproj
 
-RUN dotnet restore VideoAnonymizer.StandaloneHost/VideoAnonymizer.StandaloneHost.csproj -r linux-x64
+RUN dotnet restore VideoAnonymizer.StandaloneHost/VideoAnonymizer.StandaloneHost.csproj -p:NuGetAudit=false
 RUN dotnet publish VideoAnonymizer.StandaloneHost/VideoAnonymizer.StandaloneHost.csproj \
-    -c Release -r linux-x64 --self-contained false -o /publish
+    -c Release -r linux-x64 --self-contained false -o /publish -p:NuGetAudit=false
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
-    libopencv-dev \
+    libopencv-dev libopencv-contrib-dev \
     libavcodec-dev libavformat-dev libswscale-dev \
     libdc1394-dev libtiff-dev libopenjp2-7-dev \
     libgtk2.0-0 libcanberra0 \
