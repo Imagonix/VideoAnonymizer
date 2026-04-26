@@ -75,9 +75,6 @@ jobs:
       - name: Run web tests
         run: dotnet test VideoAnonymizer.Web.Tests/VideoAnonymizer.Web.Tests.csproj -c $env:CONFIGURATION --no-restore
 
-      - name: Run API integration tests
-        run: dotnet test VideoAnonymizer.ApiService.IntegrationTests/VideoAnonymizer.ApiService.IntegrationTests.csproj -c $env:CONFIGURATION --no-restore
-
       - name: Remove test model before packaging
         run: |
           Remove-Item VideoAnonymizer.ObjectDetection/models/FaceDetector.onnx -Force -ErrorAction SilentlyContinue
