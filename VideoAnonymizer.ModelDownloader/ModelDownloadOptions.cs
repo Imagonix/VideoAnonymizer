@@ -9,4 +9,5 @@ public class ModelDownloadOptions
     public string Url { get; set; } = default!;
     public string TargetPath { get; set; } = default!;
     public string? SourceModelPath { get; set; }
+    public string? BasePath { get; set; }
 }

@@ -218,7 +218,7 @@ if ($sourceModel) {
     Copy-Item $sourceModel (Join-Path $targetModelDir "FaceDetector.onnx") -Force
 }
 else {
-    Write-Warning "FaceDetector.onnx was not found. The standalone app will start, but object detection cannot become ready until the model is provided."
+    Write-Warning "FaceDetector.onnx was not found locally. The standalone app will download it on first start when network access is available."
 }
 
 dotnet publish $launcherProject `

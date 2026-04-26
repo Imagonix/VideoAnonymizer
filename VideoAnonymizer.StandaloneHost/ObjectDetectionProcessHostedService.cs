@@ -4,21 +4,16 @@ namespace VideoAnonymizer.StandaloneHost;
 
 public sealed class ObjectDetectionProcessHostedService(
     IConfiguration configuration,
-    ILogger<ObjectDetectionProcessHostedService> logger) : IHostedService, IDisposable
+    ILogger<ObjectDetectionProcessHostedService> logger) : BackgroundService, IDisposable
 {
     private Process? _process;
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var port = configuration.GetValue("ObjectDetection:Port", 8765);
         var modelPath = ResolvePath(configuration["ObjectDetection:ModelPath"] ?? "data/models/FaceDetector.onnx");
-        if (!File.Exists(modelPath) || new FileInfo(modelPath).Length == 0)
-        {
-            logger.LogWarning(
-                "Object detection model was not found at {ModelPath}. Object detection service will not be started.",
-                modelPath);
-            return Task.CompletedTask;
-        }
+
+        await WaitForModelAsync(modelPath, stoppingToken);
 
         var configuredExecutable = configuration["ObjectDetection:ExecutablePath"] ?? "ObjectDetection/VideoAnonymizer.ObjectDetection.exe";
         var executablePath = ResolvePath(configuredExecutable);
@@ -41,17 +36,17 @@ public sealed class ObjectDetectionProcessHostedService(
             throw new InvalidOperationException("Object detection process could not be started.");
         }
 
-        _ = PipeOutputAsync(_process.StandardOutput, LogLevel.Information, cancellationToken);
-        _ = PipeOutputAsync(_process.StandardError, LogLevel.Warning, cancellationToken);
+        _ = PipeOutputAsync(_process.StandardOutput, LogLevel.Information, stoppingToken);
+        _ = PipeOutputAsync(_process.StandardError, LogLevel.Warning, stoppingToken);
 
-        return Task.CompletedTask;
+        await _process.WaitForExitAsync(stoppingToken);
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public override Task StopAsync(CancellationToken cancellationToken)
     {
         if (_process is null || _process.HasExited)
         {
-            return Task.CompletedTask;
+            return base.StopAsync(cancellationToken);
         }
 
         try
@@ -63,12 +58,31 @@ public sealed class ObjectDetectionProcessHostedService(
             logger.LogWarning(ex, "Could not stop object detection process.");
         }
 
-        return Task.CompletedTask;
+        return base.StopAsync(cancellationToken);
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _process?.Dispose();
+        base.Dispose();
+    }
+
+    private async Task WaitForModelAsync(string modelPath, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            if (IsValidModelFile(modelPath))
+            {
+                logger.LogInformation("Object detection model is available at {ModelPath}.", modelPath);
+                return;
+            }
+
+            logger.LogInformation(
+                "Object detection model is not available yet at {ModelPath}. Waiting for standalone model download.",
+                modelPath);
+
+            await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
+        }
     }
 
     private static ProcessStartInfo CreateExecutableStartInfo(
@@ -135,5 +149,10 @@ public sealed class ObjectDetectionProcessHostedService(
         return Path.IsPathRooted(path)
             ? path
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
+    }
+
+    private static bool IsValidModelFile(string modelPath)
+    {
+        return File.Exists(modelPath) && new FileInfo(modelPath).Length > 0;
     }
 }

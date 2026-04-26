@@ -2,6 +2,7 @@ using VideoAnonymizer.ApiService;
 using VideoAnonymizer.ApiService.Notifications;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Database.Extensions;
+using VideoAnonymizer.ModelDownloader;
 using VideoAnonymizer.VideoProcessor;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.StandaloneHost;
@@ -18,7 +19,15 @@ builder.Services.AddVideoProcessorMessageHandlers();
 builder.AddVideoAnonymizerDbContextFactory();
 builder.AddVideoAnonymizerApiServices();
 
-builder.Services.AddHostedService<StandaloneModelStateHostedService>();
+builder.Services.Configure<ModelDownloadOptions>(builder.Configuration.GetSection("ModelDownload"));
+builder.Services.PostConfigure<ModelDownloadOptions>(options =>
+{
+    options.BasePath ??= AppContext.BaseDirectory;
+    options.TargetPath ??= builder.Configuration["ObjectDetection:ModelPath"] ?? "data/models/FaceDetector.onnx";
+});
+builder.Services.AddHttpClient<ModelDownloadService>();
+
+builder.Services.AddHostedService<StandaloneModelDownloadHostedService>();
 builder.Services.AddHostedService<ObjectDetectionProcessHostedService>();
 builder.Services.AddHostedService<BrowserLauncherHostedService>();
 

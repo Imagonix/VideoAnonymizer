@@ -11,29 +11,31 @@ public class ModelDownloadService
     private readonly ILogger<ModelDownloadService> _logger;
     private readonly ModelDownloadOptions _options;
     private readonly HttpClient _httpClient;
-    private readonly VideoAnonymizerDbContext _dbContext;
+    private readonly IDbContextFactory<VideoAnonymizerDbContext> _dbFactory;
 
     public ModelDownloadService(
         ILogger<ModelDownloadService> logger,
         IOptions<ModelDownloadOptions> options,
         HttpClient httpClient,
-        VideoAnonymizerDbContext dbContext)
+        IDbContextFactory<VideoAnonymizerDbContext> dbFactory)
     {
         _logger = logger;
         _options = options.Value;
         _httpClient = httpClient;
-        _dbContext = dbContext;
+        _dbFactory = dbFactory;
     }
 
     public async Task EnsureModelExistsAsync(CancellationToken stoppingToken)
     {
-        var modelAvailableSystemSetting = await _dbContext.SystemSettings.FirstOrDefaultAsync(x => x.Key.Equals(SystemSettingConstants.ModelAvailable));
+        await using var dbContext = await _dbFactory.CreateDbContextAsync(stoppingToken);
+        var modelAvailableSystemSetting = await dbContext.SystemSettings
+            .FirstOrDefaultAsync(x => x.Key.Equals(SystemSettingConstants.ModelAvailable), stoppingToken);
         if (modelAvailableSystemSetting is null)
         {
             modelAvailableSystemSetting = new SystemSetting { Key = SystemSettingConstants.ModelAvailable };
-            await _dbContext.AddAsync(modelAvailableSystemSetting);
+            await dbContext.AddAsync(modelAvailableSystemSetting, stoppingToken);
         }
-        await SaveModelAvailable(modelAvailableSystemSetting, false);
+        await SaveModelAvailable(dbContext, modelAvailableSystemSetting, false, stoppingToken);
 
         if (string.IsNullOrWhiteSpace(_options.TargetPath))
             throw new InvalidOperationException("ModelDownload:TargetPath is missing.");
@@ -41,17 +43,17 @@ public class ModelDownloadService
         if (string.IsNullOrWhiteSpace(_options.Url))
             throw new InvalidOperationException("ModelDownload:Url is missing.");
 
-        var targetPath = Path.GetFullPath(_options.TargetPath);
+        var targetPath = ResolvePath(_options.TargetPath);
         var sourcePath = string.IsNullOrWhiteSpace(_options.SourceModelPath)
             ? null
-            : Path.GetFullPath(_options.SourceModelPath);
+            : ResolvePath(_options.SourceModelPath);
 
         Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
         if (IsValidFile(targetPath))
         {
             _logger.LogInformation("Model already exists at target: {TargetPath}", targetPath);
-            await SaveModelAvailable(modelAvailableSystemSetting, true);
+            await SaveModelAvailable(dbContext, modelAvailableSystemSetting, true, stoppingToken);
             return;
         }
 
@@ -70,7 +72,7 @@ public class ModelDownloadService
             if (!IsValidFile(targetPath))
                 throw new InvalidOperationException("Copied model file is invalid.");
 
-            await SaveModelAvailable(modelAvailableSystemSetting, true);
+            await SaveModelAvailable(dbContext, modelAvailableSystemSetting, true, stoppingToken);
             return;
         }
 
@@ -109,15 +111,26 @@ public class ModelDownloadService
         }
 
         File.Move(tempPath, targetPath, overwrite: true);
-        await SaveModelAvailable(modelAvailableSystemSetting, true);
+        await SaveModelAvailable(dbContext, modelAvailableSystemSetting, true, stoppingToken);
 
         _logger.LogInformation("Model downloaded successfully to {TargetPath}", targetPath);
     }
 
-    private async Task SaveModelAvailable(SystemSetting modelAvailableSystemSetting, bool modelAvailable)
+    private async Task SaveModelAvailable(
+        VideoAnonymizerDbContext dbContext,
+        SystemSetting modelAvailableSystemSetting,
+        bool modelAvailable,
+        CancellationToken cancellationToken)
     {
         modelAvailableSystemSetting.SetBooleanValue(modelAvailable);
-        await _dbContext.SaveChangesAsync();
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private string ResolvePath(string path)
+    {
+        return Path.IsPathRooted(path)
+            ? path
+            : Path.GetFullPath(Path.Combine(_options.BasePath ?? Directory.GetCurrentDirectory(), path));
     }
 
     private static bool IsValidFile(string path)
