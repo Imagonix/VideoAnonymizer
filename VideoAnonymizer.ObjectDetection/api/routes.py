@@ -26,9 +26,9 @@ def detect_objects_endpoint(request: DetectRequest):
 @router.post("/resetTracker")
 def reset_tracker_endpoint(sessionId: str):
     reset_tracker(sessionId)
-    return {"status": "ok", "message": f"Tracker für Session {sessionId} zurückgesetzt"}
+    return {"status": "ok", "message": f"Tracker for session {sessionId} reset"}
 
 @router.post("/cleanupTracker")
 def cleanup_tracker_endpoint(sessionId: str):
     cleanup_tracker(sessionId)
-    return {"status": "ok", "message": f"Tracker für Session {sessionId} entfernt"}
+    return {"status": "ok", "message": f"Tracker for session {sessionId} removed"}

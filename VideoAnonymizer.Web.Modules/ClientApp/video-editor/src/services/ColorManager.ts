@@ -52,7 +52,7 @@ class ColorManager {
         return Math.min(diff, 360 - diff)
     }
 
-    // optional: reset für Tests
+  // optional: reset for tests
     reset() {
         this.colorMap.clear()
         this.usedHues = []

@@ -17,11 +17,11 @@
     <script src="@Assets["_framework/blazor.web.js"]"></script>
     <script>
         window.onerror = function (message, source, lineno, colno, error) {
-        console.error("🔥 GLOBAL ERROR:", message, error);
+        console.error("GLOBAL ERROR:", message, error);
         };
 
         window.onunhandledrejection = function (event) {
-        console.error("🔥 PROMISE ERROR:", event.reason);
+        console.error("PROMISE ERROR:", event.reason);
         };
     </script>
 </body>

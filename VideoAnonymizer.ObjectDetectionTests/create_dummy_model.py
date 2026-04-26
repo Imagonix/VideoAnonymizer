@@ -31,5 +31,5 @@ model = helper.make_model(graph, producer_name="DummyFaceDetector", opset_import
 
 onnx.save(model, "models/FaceDetector.onnx")
 
-print("✅ Dummy FaceDetector.onnx created successfully (Opset 17)")
+print("Dummy FaceDetector.onnx created successfully (Opset 17)")
 print("Path: models/FaceDetector.onnx")

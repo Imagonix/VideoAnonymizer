@@ -45,7 +45,7 @@ public class ObjectDetectionApiStartupWaiter : BackgroundService
             }
             catch (Exception)
             {
-                // ignore → retry
+                // ignore and retry
             }
 
             await Task.Delay(500, stoppingToken);
