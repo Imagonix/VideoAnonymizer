@@ -1,5 +1,5 @@
 <script setup lang="ts">
-    import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
+    import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
     import PlaybackIndicator from './PlaybackIndicator.vue';
 
     const props = defineProps<{
@@ -106,6 +106,7 @@
     function updateViewportWidth() {
         if (!viewportRef.value) return;
         viewportWidth.value = Math.max(1, viewportRef.value.clientWidth);
+        syncScrollToCurrentTime();
     }
 
     function getAnchorViewportX() {
@@ -122,6 +123,27 @@
         return viewport.clientWidth / 2;
     }
 
+    function getCurrentTimeX() {
+        if (!props.duration || props.duration <= 0) return 0;
+        const ratio = clamp(props.currentTime / props.duration, 0, 1);
+        return ratio * contentWidth.value;
+    }
+
+    function syncScrollToCurrentTime() {
+        const viewport = viewportRef.value;
+        if (!viewport || !props.duration || props.duration <= 0) return;
+
+        const maxScrollLeft = Math.max(0, contentWidth.value - viewport.clientWidth);
+        if (maxScrollLeft <= 0) {
+            viewport.scrollLeft = 0;
+            return;
+        }
+
+        const fixedIndicatorX = viewport.clientWidth / 2;
+        const targetScrollLeft = clamp(getCurrentTimeX() - fixedIndicatorX, 0, maxScrollLeft);
+        viewport.scrollLeft = targetScrollLeft;
+    }
+
     async function setZoom(nextZoom: number, anchorViewportX = getAnchorViewportX()) {
         const viewport = viewportRef.value;
         const currentWidth = contentWidth.value;
@@ -134,6 +156,7 @@
 
         if (!viewport) return;
         viewport.scrollLeft = Math.max(0, (anchorRatio * contentWidth.value) - anchorViewportX);
+        syncScrollToCurrentTime();
     }
 
     function zoomIn() {
@@ -182,11 +205,17 @@
 
     onMounted(() => {
         updateViewportWidth();
+        syncScrollToCurrentTime();
 
         if (!viewportRef.value) return;
         resizeObserver = new ResizeObserver(updateViewportWidth);
         resizeObserver.observe(viewportRef.value);
     });
+
+    watch(
+        () => [props.currentTime, props.duration, contentWidth.value, viewportWidth.value],
+        () => nextTick(syncScrollToCurrentTime)
+    );
 
     onBeforeUnmount(() => {
         resizeObserver?.disconnect();
