@@ -57,6 +57,31 @@ RUN dotnet restore VideoAnonymizer.StandaloneHost/VideoAnonymizer.StandaloneHost
 RUN dotnet publish VideoAnonymizer.StandaloneHost/VideoAnonymizer.StandaloneHost.csproj \
     -c Release -r linux-x64 --self-contained false -o /publish -p:NuGetAudit=false
 
+# Resolve the Blazor WebAssembly #[.{fingerprint}] placeholder in index.html
+# (same workaround as publish-standalone.ps1)
+RUN BLAZOR_JS=$(ls /publish/wwwroot/_framework/blazor.webassembly.*.js 2>/dev/null | head -1) && \
+    if [ -n "$BLAZOR_JS" ]; then \
+        BLAZOR_NAME=$(basename "$BLAZOR_JS") && \
+        sed -i "s|_framework/blazor.webassembly#\[\.{fingerprint}\]\.js|_framework/$BLAZOR_NAME|" /publish/wwwroot/index.html && \
+        echo "Fixed index.html: blazor.webassembly placeholder -> $BLAZOR_NAME"; \
+    else \
+        echo "WARNING: blazor.webassembly*.js not found in publish output"; \
+    fi && \
+    for pair in "dotnet.*.js:dotnet.js" "dotnet.native.*.js:dotnet.native.js" "dotnet.runtime.*.js:dotnet.runtime.js"; do \
+        pattern=$(echo "$pair" | cut -d: -f1); \
+        name=$(echo "$pair" | cut -d: -f2); \
+        script=$(ls /publish/wwwroot/_framework/$pattern 2>/dev/null | head -1); \
+        if [ -n "$script" ]; then \
+            cp "$script" "/publish/wwwroot/_framework/$name" && \
+            echo "Copied $(basename $script) -> $name"; \
+        else \
+            echo "WARNING: $pattern not found"; \
+        fi; \
+    done && \
+    rm -rf /publish/BlazorDebugProxy 2>/dev/null; \
+    rm -rf /publish/App_Data 2>/dev/null; \
+    echo "Cleaned up publish-only payload directories"
+
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 
 RUN apt-get update && apt-get install -y \

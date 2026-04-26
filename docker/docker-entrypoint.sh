@@ -15,25 +15,28 @@ if [ ! -L /app/data ]; then
     ln -sf "$DATA_DIR" /app/data
 fi
 
-echo "Starting object detection service..."
-cd /opt/object-detection
-export FACE_DETECTOR_MODEL_PATH="$DATA_DIR/models/FaceDetector.onnx"
-export PORT=8765
-/opt/venv/bin/python -m uvicorn main:app \
-    --host 127.0.0.1 --port 8765 &
-DETECTION_PID=$!
+cleanup() {
+    echo "Shutting down..."
+    kill $DOTNET_PID 2>/dev/null || true
+    wait
+}
+trap cleanup SIGTERM SIGINT
 
-for i in $(seq 1 30); do
-    if curl -s http://127.0.0.1:8765/health > /dev/null 2>&1; then
-        echo "Object detection service ready."
+echo "Starting VideoAnonymizer..."
+cd /app
+dotnet VideoAnonymizer.StandaloneHost.dll &
+DOTNET_PID=$!
+
+echo "Waiting for model file at $DATA_DIR/models/FaceDetector.onnx..."
+for i in $(seq 1 120); do
+    if [ -f "$DATA_DIR/models/FaceDetector.onnx" ] && [ -s "$DATA_DIR/models/FaceDetector.onnx" ]; then
+        echo "Model file found."
         break
     fi
-    if [ $i -eq 30 ]; then
-        echo "WARNING: Object detection service did not start in time."
+    if [ $i -eq 120 ]; then
+        echo "WARNING: Model file did not appear within timeout."
     fi
-    sleep 1
+    sleep 2
 done
 
-cd /app
-echo "Starting VideoAnonymizer..."
-exec dotnet VideoAnonymizer.StandaloneHost.dll
+wait $DOTNET_PID

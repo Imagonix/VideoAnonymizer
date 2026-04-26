@@ -130,9 +130,71 @@ Key projects under `VideoAnonymizer.slnx`:
 - API integration tests: `dotnet test VideoAnonymizer.ApiService.IntegrationTests/`
 - Python detection tests: in `VideoAnonymizer.ObjectDetectionTests/`
 
+## Docker Setup
+
+### Files
+
+| File | Purpose |
+|---|---|
+| `Dockerfile` | Multi-stage build: Vue editor → OpenCvSharpExtern native bridge → .NET publish → runtime |
+| `docker-compose.yml` | Single service, mounts `./docker-data:/data`, exposes port 5117 |
+| `docker/docker-entrypoint.sh` | Starts .NET app first (downloads ONNX model), then launches Python detection service |
+| `docker/appsettings.Docker.json` | Docker config: headless, absolute paths on `/data` volume, CPU-only ONNX |
+| `docker/object-detection-wrapper.sh` | Prevents port conflict when .NET app's `ObjectDetectionProcessHostedService` runs |
+| `.dockerignore` | Optimized build context (only source files + project dirs) |
+
+### Build & Run
+
+```bash
+docker compose build     # first build: ~30-60 min (native bridge compilation + model download)
+docker compose up -d     # start container
+docker compose logs -f   # follow logs
+# Open http://localhost:5117
+```
+
+Rebuild with `docker compose build` after code changes. The native bridge layer is cached.
+
+### Data Volume
+
+`./docker-data/` on the host (mounted at `/data` in the container):
+
+```
+docker-data/
+  App_Data/Uploads/    # uploaded + anonymized videos
+  models/              # downloaded FaceDetector.onnx (persistent)
+```
+
+Symlinked into `/app/` so existing code finds paths without changes. To reset, delete files in `./docker-data/`.
+
+### Architecture Differences from Standalone
+
+- **OpenCvSharp**: Native bridge (`libOpenCvSharpExtern.so`) built from source via CMake against system OpenCV from apt (not the NuGet `runtime.win` package, which is removed via `sed` in the Dockerfile)
+- **Detection Service**: Launched in the entrypoint script (not as a child process of .NET) after waiting for the ONNX model to be downloaded
+- **No browser launch**: `Standalone.OpenBrowser` set to `false`
+- **CPU-only ONNX**: Uses `onnxruntime` (not `onnxruntime-gpu`); falls back from CUDA to CPU at import time
+- **Data directory**: Absolutized to `/data` via `appsettings.Docker.json`; symlinks bridge into `/app/App_Data` and `/app/data`
+
+### Common Build Failures
+
+| Error | Fix |
+|---|---|
+| `opencv2/xfeatures2d.hpp` not found | Install `libopencv-contrib-dev`; add `-DNO_CONTRIB=ON` to cmake |
+| `cv::barcode` not a member of `cv` | Delete `barcode.cpp` / `barcode.h` from OpenCvSharpExtern source before build |
+| NuGet audit treats vulnerability as error | Pass `-p:NuGetAudit=false` to restore/publish |
+| Blazor WASM Mono runtime not found for linux-x64 | Don't pass `-r linux-x64` to `dotnet restore` (only needed for publish) |
+
+### Start-up Order (Container Runtime)
+
+1. Entrypoint creates symlinks: `/app/App_Data` → `/data/App_Data`, `/app/data` → `/data`
+2. `.NET` app starts in background → `StandaloneModelDownloadHostedService` downloads `FaceDetector.onnx` to `/data/models/`
+3. Entrypoint polls for model file (up to 4 min)
+4. Python detection service starts via uvicorn on port 8765
+5. `.NET` app's `ObjectDetectionProcessHostedService` detects port is already in use → wrapper script exits silently
+6. App is ready at `http://localhost:5117`
+
 ## Important Notes
 
-- The solution has a **standalone mode** and a **distributed mode** sharing the same app concepts
+- The solution has a **standalone mode**, a **distributed mode** (Aspire), and a **Docker mode** sharing the same app concepts
 - `Home.razor.cs` manages all SignalR subscriptions in `OnInitializedAsync()` and implements `IAsyncDisposable` for cleanup
 - The `DownloadAsync()` method is called automatically from the `videoAnonymized` SignalR handler (no download button)
 - `SelectedFileName` is preserved from the initial file selection (not nullified after analysis) to ensure correct download filename
