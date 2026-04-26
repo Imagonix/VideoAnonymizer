@@ -3,7 +3,8 @@ param(
     [string]$Runtime = "win-x64",
     [string]$PythonExe = "",
     [switch]$SkipPythonBuild,
-    [switch]$SkipVueBuild
+    [switch]$SkipVueBuild,
+    [switch]$BundleCudaDependencies
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,6 +19,69 @@ $objectDetectionSpec = Join-Path $objectDetectionProject "VideoAnonymizer.Object
 $videoEditorProject = Join-Path $root "VideoAnonymizer.Web.Modules\ClientApp\video-editor"
 $standaloneProject = Join-Path $root "VideoAnonymizer.StandaloneHost\VideoAnonymizer.StandaloneHost.csproj"
 $launcherProject = Join-Path $root "VideoAnonymizer.StandaloneLauncher\VideoAnonymizer.StandaloneLauncher.csproj"
+
+function Remove-BundledCudaDependencies {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if ($BundleCudaDependencies -or -not (Test-Path $Path)) {
+        return
+    }
+
+    $cudaDependencyPatterns = @(
+        "cublas*.dll",
+        "cudart*.dll",
+        "cudnn*.dll",
+        "cufft*.dll",
+        "curand*.dll",
+        "cusolver*.dll",
+        "cusparse*.dll",
+        "nccl*.dll",
+        "npp*.dll",
+        "nvjitlink*.dll",
+        "nvrtc*.dll"
+    )
+
+    $filesToRemove = foreach ($pattern in $cudaDependencyPatterns) {
+        Get-ChildItem -LiteralPath $Path -Recurse -File -Filter $pattern -ErrorAction SilentlyContinue
+    }
+
+    $filesToRemove = $filesToRemove | Sort-Object -Property FullName -Unique
+
+    $removedCount = 0
+    [long]$removedBytes = 0
+
+    foreach ($file in $filesToRemove) {
+        $removedBytes += $file.Length
+        $removedCount++
+        Remove-Item -LiteralPath $file.FullName -Force
+    }
+
+    if ($removedCount -gt 0) {
+        $removedMb = [math]::Round($removedBytes / 1MB, 2)
+        Write-Host "Removed $removedCount bundled CUDA dependency file(s) from $Path ($removedMb MB). GPU mode will use CUDA/cuDNN from the system PATH."
+    }
+}
+
+function Remove-StandalonePublishBloat {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    foreach ($relativePath in @(
+        "App_Data",
+        "BlazorDebugProxy"
+    )) {
+        $target = Join-Path $Path $relativePath
+        if (Test-Path $target) {
+            Remove-Item -LiteralPath $target -Recurse -Force
+            Write-Host "Removed publish-only payload: $target"
+        }
+    }
+}
 
 New-Item -ItemType Directory -Force -Path $artifacts | Out-Null
 
@@ -60,6 +124,8 @@ if (-not $SkipPythonBuild) {
         if ($LASTEXITCODE -ne 0) {
             throw "PyInstaller failed with exit code $LASTEXITCODE."
         }
+
+        Remove-BundledCudaDependencies -Path (Join-Path $objectDetectionDist "VideoAnonymizer.ObjectDetection")
     }
     finally {
         Pop-Location
@@ -122,6 +188,8 @@ dotnet publish $standaloneProject `
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE."
 }
+
+Remove-StandalonePublishBloat -Path $publishDir
 
 foreach ($serviceExe in @(
     "VideoAnonymizer.ApiService.exe",
@@ -200,6 +268,7 @@ if (Test-Path $objectDetectionOutput) {
     }
 
     Copy-Item $objectDetectionOutput $targetObjectDetection -Recurse
+    Remove-BundledCudaDependencies -Path $targetObjectDetection
 }
 else {
     Write-Warning "ObjectDetection output not found at $objectDetectionOutput. Use -SkipPythonBuild only when it was copied manually."
