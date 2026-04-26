@@ -1,0 +1,11 @@
+services:
+  video-anonymizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video-anonymizer
+    ports:
+      - "5117:5117"
+    volumes:
+      - ./docker-data:/data
+    restart: unless-stopped
