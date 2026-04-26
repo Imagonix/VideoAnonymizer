@@ -14,6 +14,16 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
 {
     protected override async Task HandleJob(AnalyzeVideo job, CancellationToken stoppingToken)
     {
+        var lastReportedProgress = -1;
+        lastReportedProgress = await ReportProgressAsync(
+            job.VideoId,
+            job.VideoId,
+            "analyze",
+            0,
+            lastReportedProgress,
+            "Loading video...",
+            stoppingToken);
+
         var objectDetectionClient = serviceProvider.CreateScope().ServiceProvider.GetService<ObjectDetectionClient.ObjectDetectionClient>()!;
         if (string.IsNullOrWhiteSpace(job.Path))
             throw new ArgumentException("Video path is empty.", nameof(job.Path));
@@ -31,6 +41,14 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         var dbFactory = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
         using var db = await dbFactory.CreateDbContextAsync();
         var video = await db.Videos.FindAsync(job.VideoId);
+        lastReportedProgress = await ReportProgressAsync(
+            job.VideoId,
+            job.VideoId,
+            "analyze",
+            5,
+            lastReportedProgress,
+            "Analyzing frames...",
+            stoppingToken);
 
         var sessionId = $"{Guid.NewGuid()}";
 
@@ -43,18 +61,8 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
         var lastFrameIndex = Math.Max(0, totalFrames - 1);
         var totalFramesToAnalyze = CountFramesToAnalyze(totalFrames, frameStep);
-        var lastReportedProgress = -1;
 
         var analyzedFrames = new List<AnalyzedFrame>();
-        lastReportedProgress = await ReportProgressAsync(
-            job.VideoId,
-            job.VideoId,
-            "analyze",
-            0,
-            totalFramesToAnalyze,
-            lastReportedProgress,
-            "Analyzing frames...",
-            stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -117,8 +125,10 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
                 "analyze",
                 processedFrameCount,
                 totalFramesToAnalyze,
+                5,
+                95,
                 lastReportedProgress,
-                "Analyzing frames...",
+                $"Analyzing frame {processedFrameCount} of {totalFramesToAnalyze}...",
                 stoppingToken);
             frameIndex++;
         }
@@ -131,19 +141,43 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
             processedFrameCount);
 
         video.AnalyzedFrames = analyzedFrames;
+        lastReportedProgress = await ReportProgressAsync(
+            job.VideoId,
+            job.VideoId,
+            "analyze",
+            95,
+            lastReportedProgress,
+            "Writing analysis to database...",
+            stoppingToken);
         await db.SaveChangesAsync();
 
-        if (totalFramesToAnalyze > 0)
-        {
-            await PublishProgressAsync(
-                job.VideoId,
-                job.VideoId,
-                "analyze",
-                100,
-                "Analyzing frames...",
-                stoppingToken);
-        }
+        await ReportProgressAsync(
+            job.VideoId,
+            job.VideoId,
+            "analyze",
+            100,
+            lastReportedProgress,
+            "Analysis saved.",
+            stoppingToken);
         await messagePublisher.PublishAsync(RabbitMQConstants.RoutingKeys.Analyzed, new AnalyzedVideo(job.VideoId, DateTime.Now), stoppingToken);
+    }
+
+    private async Task<int> ReportProgressAsync(
+        Guid jobId,
+        Guid? videoId,
+        string operation,
+        int progressPercent,
+        int lastReportedProgress,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        progressPercent = Math.Clamp(progressPercent, 0, 100);
+
+        if (progressPercent == lastReportedProgress)
+            return lastReportedProgress;
+
+        await PublishProgressAsync(jobId, videoId, operation, progressPercent, status, cancellationToken);
+        return progressPercent;
     }
 
     private async Task<int> ReportProgressAsync(
@@ -152,6 +186,8 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         string operation,
         int completed,
         int total,
+        int rangeStart,
+        int rangeEnd,
         int lastReportedProgress,
         string status,
         CancellationToken cancellationToken)
@@ -159,10 +195,10 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         if (total <= 0)
             return lastReportedProgress;
 
-        var progressPercent = Math.Clamp(
-            (int)Math.Round(completed * 100.0 / total, MidpointRounding.AwayFromZero),
-            0,
-            100);
+        var progressPercent = rangeStart + (int)Math.Round(
+            completed * (rangeEnd - rangeStart) / (double)total,
+            MidpointRounding.AwayFromZero);
+        progressPercent = Math.Clamp(progressPercent, rangeStart, rangeEnd);
 
         if (progressPercent == lastReportedProgress)
             return lastReportedProgress;
