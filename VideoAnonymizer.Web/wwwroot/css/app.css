@@ -1,9 +1,55 @@
+.status-indicator {
+    text-align: center;
+}
+
+.loading-circle-shell {
+    position: relative;
+    display: inline-flex;
+    width: 90px;
+    height: 90px;
+    align-items: center;
+    justify-content: center;
+}
+
 .loading-spinner {
+    width: 90px;
+    height: 90px;
+    transform-origin: center;
+}
+
+.loading-spinner-indeterminate {
     animation: spin 1.35s linear infinite;
 }
 
+.loading-spinner-determinate {
+    transform: rotate(-90deg);
+}
+
 .loading-progress-circle {
+    transition: stroke-dashoffset 180ms ease-out;
+}
+
+.loading-progress-circle-indeterminate {
     animation: dash 1.6s ease-in-out infinite;
+}
+
+.loading-progress-percent {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.status-indicator-text {
+    margin-top: 28px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: #ffffff;
 }
 
 @keyframes spin {

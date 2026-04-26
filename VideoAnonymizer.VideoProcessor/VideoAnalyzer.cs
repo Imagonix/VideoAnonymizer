@@ -39,11 +39,22 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         var processedFrameCount = 0;
 
         var frameStep = Math.Max(1, (int)Math.Round(fps * job.CaptureIntervalMs * 0.001));
-        
+
         var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
         var lastFrameIndex = Math.Max(0, totalFrames - 1);
+        var totalFramesToAnalyze = CountFramesToAnalyze(totalFrames, frameStep);
+        var lastReportedProgress = -1;
 
         var analyzedFrames = new List<AnalyzedFrame>();
+        lastReportedProgress = await ReportProgressAsync(
+            job.VideoId,
+            job.VideoId,
+            "analyze",
+            0,
+            totalFramesToAnalyze,
+            lastReportedProgress,
+            "Analyzing frames...",
+            stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -100,6 +111,15 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
                 detections?.Count ?? 0);
 
             processedFrameCount++;
+            lastReportedProgress = await ReportProgressAsync(
+                job.VideoId,
+                job.VideoId,
+                "analyze",
+                processedFrameCount,
+                totalFramesToAnalyze,
+                lastReportedProgress,
+                "Analyzing frames...",
+                stoppingToken);
             frameIndex++;
         }
         await objectDetectionClient.Cleanup_tracker_endpoint_cleanupTracker_postAsync(sessionId);
@@ -113,7 +133,77 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         video.AnalyzedFrames = analyzedFrames;
         await db.SaveChangesAsync();
 
+        if (totalFramesToAnalyze > 0)
+        {
+            await PublishProgressAsync(
+                job.VideoId,
+                job.VideoId,
+                "analyze",
+                100,
+                "Analyzing frames...",
+                stoppingToken);
+        }
         await messagePublisher.PublishAsync(RabbitMQConstants.RoutingKeys.Analyzed, new AnalyzedVideo(job.VideoId, DateTime.Now), stoppingToken);
+    }
+
+    private async Task<int> ReportProgressAsync(
+        Guid jobId,
+        Guid? videoId,
+        string operation,
+        int completed,
+        int total,
+        int lastReportedProgress,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        if (total <= 0)
+            return lastReportedProgress;
+
+        var progressPercent = Math.Clamp(
+            (int)Math.Round(completed * 100.0 / total, MidpointRounding.AwayFromZero),
+            0,
+            100);
+
+        if (progressPercent == lastReportedProgress)
+            return lastReportedProgress;
+
+        await PublishProgressAsync(jobId, videoId, operation, progressPercent, status, cancellationToken);
+        return progressPercent;
+    }
+
+    private Task PublishProgressAsync(
+        Guid jobId,
+        Guid? videoId,
+        string operation,
+        int? progressPercent,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        return messagePublisher.PublishAsync(
+            RabbitMQConstants.RoutingKeys.Progress,
+            new VideoProcessingProgress(
+                jobId,
+                videoId,
+                operation,
+                progressPercent,
+                status,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
+    }
+
+    private static int CountFramesToAnalyze(int totalFrames, int frameStep)
+    {
+        if (totalFrames <= 0)
+            return 0;
+
+        var lastFrameIndex = totalFrames - 1;
+        var safeFrameStep = Math.Max(1, frameStep);
+        var count = lastFrameIndex / safeFrameStep + 1;
+
+        if (lastFrameIndex > 0 && lastFrameIndex % safeFrameStep != 0)
+            count++;
+
+        return count;
     }
 
     private static string ConvertMatToBase64Jpeg(Mat frame)

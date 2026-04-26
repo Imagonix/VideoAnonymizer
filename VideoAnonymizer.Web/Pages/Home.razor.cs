@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using MudBlazor;
 using System.Globalization;
@@ -15,6 +15,7 @@ namespace VideoAnonymizer.Web.Pages
     {
         private IDisposable? _videoAnalyzedSubscription;
         private IDisposable? _videoAnonymizedSubscription;
+        private IDisposable? _jobProgressSubscription;
 
         private ReviewExportTab? _reviewExportTab;
 
@@ -28,6 +29,7 @@ namespace VideoAnonymizer.Web.Pages
 
         private bool IsBusy { get; set; }
         private string? StatusText { get; set; }
+        private int? ProgressPercent { get; set; }
         private string? SelectedFileName { get; set; }
         private List<AnalyzedFrameDto> _analyzedFrames = [];
         private bool _showEditor;
@@ -61,11 +63,32 @@ namespace VideoAnonymizer.Web.Pages
 
             _videoAnonymizedSubscription = JobHubClient.OnVideoAnonymized(async message =>
             {
+                if (!_anonymizeVideoJobId.IsNullOrEmpty() && message.JobId != _anonymizeVideoJobId)
+                    return;
+
                 _anonymizeVideoJobId = message.JobId;
                 IsAnonymized = true;
+                ProgressPercent = 100;
                 IsBusy = false;
                 StatusText = "Video anonymized successfully.";
                 Snackbar.Add("Video anonymized successfully. You can now download it.", Severity.Success);
+
+                await InvokeAsync(StateHasChanged);
+            });
+
+            _jobProgressSubscription = JobHubClient.OnJobProgress(async message =>
+            {
+                if (!IsProgressForCurrentJob(message))
+                    return;
+
+                ProgressPercent = message.ProgressPercent is null
+                    ? null
+                    : Math.Clamp(message.ProgressPercent.Value, 0, 100);
+
+                if (!string.IsNullOrWhiteSpace(message.Status))
+                {
+                    StatusText = message.Status;
+                }
 
                 await InvokeAsync(StateHasChanged);
             });
@@ -85,6 +108,7 @@ namespace VideoAnonymizer.Web.Pages
             _videoSourceUrl = null;
             _analyzedFrames = [];
             _activeTabIndex = 0;
+            ProgressPercent = null;
 
             return Task.CompletedTask;
         }
@@ -97,6 +121,7 @@ namespace VideoAnonymizer.Web.Pages
             try
             {
                 IsBusy = true;
+                ProgressPercent = null;
                 StatusText = "Uploading and analyzing video...";
 
                 await InvokeAsync(StateHasChanged);
@@ -127,6 +152,7 @@ namespace VideoAnonymizer.Web.Pages
             catch (Exception ex)
             {
                 IsBusy = false;
+                ProgressPercent = null;
                 StatusText = "Upload failed.";
                 Snackbar.Add($"Upload failed: {ex.Message}", Severity.Error);
             }
@@ -150,6 +176,7 @@ namespace VideoAnonymizer.Web.Pages
 
                 _analyzedFrames = result?.Payload ?? [];
                 IsBusy = false;
+                ProgressPercent = null;
                 StatusText = "Analysis loaded. You can now review detected objects.";
 
                 _videoSourceUrl = $"{httpClient.BaseAddress}{SharedConstants.Paths.Video}/{videoId}";
@@ -157,6 +184,7 @@ namespace VideoAnonymizer.Web.Pages
             catch (Exception ex)
             {
                 IsBusy = false;
+                ProgressPercent = null;
                 StatusText = "Loading editor failed.";
                 Snackbar.Add($"Loading editor failed: {ex.Message}", Severity.Error);
             }
@@ -170,6 +198,9 @@ namespace VideoAnonymizer.Web.Pages
             try
             {
                 IsBusy = true;
+                ProgressPercent = null;
+                StatusText = "Starting anonymization...";
+                await InvokeAsync(StateHasChanged);
 
                 var request = new AnonymizeVideoRequestDto()
                 {
@@ -197,11 +228,15 @@ namespace VideoAnonymizer.Web.Pages
                     _anonymizeVideoJobId = result.Payload;
                 }
 
-                StatusText = "Anonymization started. Waiting for completion...";
+                if (ProgressPercent is null)
+                {
+                    StatusText = "Anonymization started. Waiting for completion...";
+                }
             }
             catch (Exception ex)
             {
                 IsBusy = false;
+                ProgressPercent = null;
                 StatusText = "Anonymization failed.";
                 Snackbar.Add($"Anonymization failed: {ex.Message}", Severity.Error);
             }
@@ -234,7 +269,22 @@ namespace VideoAnonymizer.Web.Pages
         {
             _videoAnalyzedSubscription?.Dispose();
             _videoAnonymizedSubscription?.Dispose();
+            _jobProgressSubscription?.Dispose();
             await JobHubClient.StopAsync();
+        }
+
+        private bool IsProgressForCurrentJob(LongRunningJobProgressMessage message)
+        {
+            if (!IsBusy)
+                return false;
+
+            if (!_currentVideoId.IsNullOrEmpty() && message.JobId == _currentVideoId)
+                return true;
+
+            if (!_anonymizeVideoJobId.IsNullOrEmpty() && message.JobId == _anonymizeVideoJobId)
+                return true;
+
+            return !_currentVideoId.IsNullOrEmpty() && message.VideoId == _currentVideoId;
         }
     }
 }

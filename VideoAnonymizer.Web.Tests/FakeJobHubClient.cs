@@ -1,4 +1,4 @@
-﻿using VideoAnonymizer.Web.Shared;
+using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Services;
 
 namespace VideoAnonymizer.Web.Tests.TestDoubles;
@@ -7,12 +7,14 @@ public sealed class FakeJobHubClient : IJobHubClient
 {
     private Func<LongRunningJobFinishedMessage, Task>? _videoAnalyzedHandler;
     private Func<LongRunningJobFinishedMessage, Task>? _videoAnonymizedHandler;
+    private Func<LongRunningJobProgressMessage, Task>? _jobProgressHandler;
 
     public bool StartCalled { get; private set; }
     public bool StopCalled { get; private set; }
 
     public int VideoAnalyzedSubscriptionCount { get; private set; }
     public int VideoAnonymizedSubscriptionCount { get; private set; }
+    public int JobProgressSubscriptionCount { get; private set; }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -40,6 +42,13 @@ public sealed class FakeJobHubClient : IJobHubClient
         return new CallbackDisposable(() => _videoAnonymizedHandler = null);
     }
 
+    public IDisposable OnJobProgress(Func<LongRunningJobProgressMessage, Task> handler)
+    {
+        JobProgressSubscriptionCount++;
+        _jobProgressHandler = handler;
+        return new CallbackDisposable(() => _jobProgressHandler = null);
+    }
+
     public async Task RaiseVideoAnalyzedAsync(LongRunningJobFinishedMessage message)
     {
         if (_videoAnalyzedHandler is not null)
@@ -53,6 +62,14 @@ public sealed class FakeJobHubClient : IJobHubClient
         if (_videoAnonymizedHandler is not null)
         {
             await _videoAnonymizedHandler(message);
+        }
+    }
+
+    public async Task RaiseJobProgressAsync(LongRunningJobProgressMessage message)
+    {
+        if (_jobProgressHandler is not null)
+        {
+            await _jobProgressHandler(message);
         }
     }
 
