@@ -8,5 +8,5 @@ Scenario: AnonomyzeVideo
 	Given I open the homepage
 	And I uploaded a video
 	And I press anonymize
-	When I press download
+	When the video has been anonymized
 	Then I get an anonymized video back

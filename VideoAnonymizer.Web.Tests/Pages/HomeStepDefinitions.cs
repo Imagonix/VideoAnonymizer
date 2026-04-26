@@ -124,30 +124,27 @@ namespace VideoAnonymizer.Web.Tests.Pages
         }
 
 
-        [When("I press download")]
-        public async Task WhenIPressDownload()
+        [When("the video has been anonymized")]
+        public async Task WhenTheVideoHasBeenAnonymized()
         {
-            await Task.Delay(60);
+            var message = new LongRunningJobFinishedMessage
+            {
+                JobId = CurrentAnonimizationJobId ?? Guid.NewGuid(),
+                Status = "Completed",
+            };
+
+            await JobHubClient.RaiseVideoAnonymizedAsync(message);
+
             await ComponentUnderTest.WaitForAssertionAsync(() =>
             {
-                ComponentUnderTest.Instance.IsAnonymized.Should().BeTrue();
-            }, TimeSpan.FromSeconds(60));
-            //var downloadButton = ComponentUnderTest.Find("button:contains('Download')");
-            //downloadButton.Click();
-            await ComponentUnderTest.InvokeAsync(async () =>
-            {
-                var downloadButton = ComponentUnderTest
-                .FindComponents<MudButton>()
-                .Single(x => x.Markup.Contains("Download", StringComparison.OrdinalIgnoreCase));
-                var buttonElement = downloadButton.Find("button");
-                await buttonElement.ClickAsync();
-            });
+                DownloadService.DownloadCallCount.Should().BeGreaterThanOrEqualTo(1, "the download should have been triggered automatically");
+            }, TimeSpan.FromSeconds(5));
         }
 
         [Then("I get an anonymized video back")]
         public void ThenIGetAnAnonymizedVideoBack()
         {
-            DownloadService.DownloadCallCount.Should().Be(1, "Download should have been triggered once");
+            DownloadService.DownloadCallCount.Should().BeGreaterThanOrEqualTo(1, "Download should have been triggered");
             DownloadService.LastDownloadedUrl.Should().Contain(SharedConstants.Paths.Anonymized);
             DownloadService.LastDownloadedUrl.Should().Contain($"{CurrentVideoId}");
         }

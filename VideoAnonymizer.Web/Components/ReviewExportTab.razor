@@ -68,12 +68,6 @@
             Anonymize selected objects
         </MudButton>
 
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Secondary"
-                   Disabled="@(!IsAnonymized || AnonymizeVideoJobId is null)"
-                   OnClick="Download">
-            Download
-        </MudButton>
     </MudStack>
 </MudPaper>
 
@@ -92,17 +86,8 @@
     [Parameter]
     public bool ShowEditor { get; set; }
 
-    [Parameter]
-    public bool IsAnonymized { get; set; }
-
-    [Parameter]
-    public Guid? AnonymizeVideoJobId { get; set; }
-
     [Parameter, EditorRequired]
     public EventCallback StartAnonymization { get; set; }
-
-    [Parameter, EditorRequired]
-    public EventCallback Download { get; set; }
 
     [Parameter]
     public int BlurSizePercent { get; set; } = 120;

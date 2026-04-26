@@ -168,7 +168,7 @@ this.ScenarioInitialize(scenarioInfo, ruleInfo);
  await testRunner.AndAsync("I press anonymize", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 11
- await testRunner.WhenAsync("I press download", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+ await testRunner.WhenAsync("the video has been anonymized", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 12
  await testRunner.ThenAsync("I get an anonymized video back", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
