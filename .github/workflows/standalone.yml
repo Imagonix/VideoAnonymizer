@@ -1,0 +1,97 @@
+name: Standalone
+
+on:
+  push:
+    branches:
+      - standalone
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_VERSION: 10.0.x
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  CONFIGURATION: Release
+  RUNTIME: win-x64
+
+jobs:
+  test-and-publish:
+    name: Test and publish standalone
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 120
+
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: VideoAnonymizer.Web.Modules/ClientApp/video-editor/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r VideoAnonymizer.ObjectDetection/requirements-standalone.txt
+          python -m pip install -r VideoAnonymizer.ObjectDetectionTests/requirements.txt
+
+      - name: Create dummy model for tests
+        working-directory: VideoAnonymizer.ObjectDetection
+        run: python ../VideoAnonymizer.ObjectDetectionTests/create_dummy_model.py
+
+      - name: Run Python tests
+        run: python -m pytest VideoAnonymizer.ObjectDetectionTests -v
+
+      - name: Build Vue components
+        working-directory: VideoAnonymizer.Web.Modules/ClientApp/video-editor
+        run: |
+          npm ci
+          npm run build
+
+      - name: Restore .NET solution
+        run: dotnet restore VideoAnonymizer.slnx
+
+      - name: Build .NET solution
+        run: dotnet build VideoAnonymizer.slnx -c $env:CONFIGURATION --no-restore
+
+      - name: Run web tests
+        run: dotnet test VideoAnonymizer.Web.Tests/VideoAnonymizer.Web.Tests.csproj -c $env:CONFIGURATION --no-restore
+
+      - name: Run API integration tests
+        run: dotnet test VideoAnonymizer.ApiService.IntegrationTests/VideoAnonymizer.ApiService.IntegrationTests.csproj -c $env:CONFIGURATION --no-restore
+
+      - name: Remove test model before packaging
+        run: |
+          Remove-Item VideoAnonymizer.ObjectDetection/models/FaceDetector.onnx -Force -ErrorAction SilentlyContinue
+          Remove-Item data/models/FaceDetector.onnx -Force -ErrorAction SilentlyContinue
+
+      - name: Publish standalone
+        run: ./publish-standalone.ps1 -Configuration $env:CONFIGURATION -Runtime $env:RUNTIME -PythonExe python -SkipVueBuild
+
+      - name: Zip standalone artifact
+        run: Compress-Archive -Path artifacts/standalone/* -DestinationPath artifacts/VideoAnonymizer-standalone-win-x64.zip -Force
+
+      - name: Upload standalone artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VideoAnonymizer-standalone-win-x64
+          path: artifacts/VideoAnonymizer-standalone-win-x64.zip
+          retention-days: 14
