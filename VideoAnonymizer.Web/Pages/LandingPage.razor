@@ -90,12 +90,12 @@ else
 
     private string GetLoadingMessage()
     {
-        if (_appState is not { ObjectDetectionApiRunning: true })
+        if (!_appState.ModelAvailable)
         {
-            return "Starting AI Service ...";
+            return "Preparing Face Recognition Model ...";
         }
 
-        return "Preparing Face Recognition Model ...";
+        return "Starting AI Service ...";
     }
 
     public void Dispose()
