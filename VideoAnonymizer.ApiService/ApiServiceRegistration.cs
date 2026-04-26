@@ -35,7 +35,8 @@ public static class ApiServiceRegistration
         builder.Services.AddHttpClient<VideoAnonymizer.ObjectDetectionClient.ObjectDetectionClient>("objectDetection", client =>
         {
             client.BaseAddress = new Uri(objectDetectionUrl);
-            client.Timeout = TimeSpan.FromMilliseconds(500);
+            client.Timeout = TimeSpan.FromSeconds(
+                builder.Configuration.GetValue("ObjectDetection:RequestTimeoutSeconds", 300));
         });
 
         builder.Services.AddTransient(sp =>

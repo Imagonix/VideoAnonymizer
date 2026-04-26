@@ -9,12 +9,15 @@
 
 @if (IsReady)
 {
-    <Home />
+    <Home InitialAppState="_appState" />
 }
 else
 {
     <div style="height: 100vh; width: 100vw; display: flex; align-items: center; justify-content: center; background-color: #32333d;">
-        <StatusIndicator StatusText="@GetLoadingMessage()" />
+        <div style="width: min(720px, calc(100vw - 48px));">
+            <StatusIndicator StatusText="@GetLoadingMessage()" />
+            <LocalRuntimeFeedback AppState="_appState" Mode="LocalRuntimeFeedbackMode.Center" Class="mt-6" />
+        </div>
     </div>
 }
 

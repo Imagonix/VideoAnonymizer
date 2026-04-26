@@ -35,6 +35,9 @@ namespace VideoAnonymizer.Web.Pages
 
         private int DetectionIntervalMs { get; set; } = 100;
 
+        [Parameter]
+        public AppStateDto? InitialAppState { get; set; }
+
         protected override async Task OnInitializedAsync()
         {
             _videoAnalyzedSubscription = JobHubClient.OnVideoAnalyzed(async message =>

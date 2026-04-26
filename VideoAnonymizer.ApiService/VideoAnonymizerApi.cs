@@ -160,9 +160,9 @@ namespace VideoAnonymizer.ApiService
         }
 
         [HttpGet($"{SharedConstants.Paths.AppState}")]
-        public async Task<IActionResult> GetAppState()
+        public async Task<IActionResult> GetAppState(CancellationToken cancellationToken)
         {
-            var appState = await stateDataService.LoadState();
+            var appState = await stateDataService.LoadState(cancellationToken);
             return Ok(appState);
         }
     }

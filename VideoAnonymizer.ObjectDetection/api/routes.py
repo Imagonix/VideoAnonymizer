@@ -7,6 +7,7 @@ from services.detection_service import (
     cleanup_tracker
 )
 from services.model_session import cuda_available
+from services.model_session import runtime_status
 
 router = APIRouter()
 
@@ -15,6 +16,7 @@ def health():
     return {
         "status": "running",
         "cuda_available": cuda_available(),
+        "cuda": runtime_status(),
     }
 
 @router.post("/detectObjects", response_model=List[DetectionResult])

@@ -12,7 +12,15 @@
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8">
     <MudStack Spacing="3">
-        <MudText Typo="Typo.h4">Video Anonymizer</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="gap: 16px;">
+            <MudText Typo="Typo.h4">Video Anonymizer</MudText>
+            <LocalRuntimeFeedback AppState="InitialAppState" Mode="LocalRuntimeFeedbackMode.Header" />
+        </MudStack>
+
+        @if (_activeTabIndex == 0)
+        {
+            <LocalRuntimeFeedback AppState="InitialAppState" Mode="LocalRuntimeFeedbackMode.Banner" />
+        }
 
         <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" @bind-ActivePanelIndex="_activeTabIndex">
             <MudTabPanel Text="Upload">
