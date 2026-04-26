@@ -4,6 +4,10 @@
 
 Full-stack video anonymization app: upload a video, detect faces via AI, review detections in a visual editor, select which objects to blur, then export and download the anonymized result.
 
+## Build Rules
+
+Do not modify compiled or generated files. Always modify source files and rebuild.
+
 ## Tech Stack
 
 - **Frontend**: Blazor WebAssembly (.NET 10) with MudBlazor UI library

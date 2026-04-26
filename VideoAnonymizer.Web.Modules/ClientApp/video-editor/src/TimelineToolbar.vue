@@ -162,6 +162,7 @@ function onVolumeInput(e: Event) {
 
 .volume-slider {
   width: 110px;
+  accent-color: var(--mud-palette-primary);
 }
 
 .timeline-icon-button,
@@ -192,6 +193,7 @@ function onVolumeInput(e: Event) {
 
 .timeline-zoom-slider {
   width: clamp(120px, 20vw, 260px);
+  accent-color: var(--mud-palette-primary);
 }
 
 .timeline-zoom-value {
