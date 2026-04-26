@@ -8,6 +8,6 @@ def decode_base64_image(image_base64: str) -> np.ndarray:
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
 
     if image is None:
-        raise ValueError("Bild konnte nicht decodiert werden.")
+        raise ValueError("Image could not be decoded.")
 
     return image
