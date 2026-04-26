@@ -45,7 +45,15 @@ public class VideoAnonymizer(
         var fps = capture.Fps > 0 ? capture.Fps : 25;
         var frameWidth = capture.FrameWidth;
         var frameHeight = capture.FrameHeight;
-        var totalFrames = (int)capture.Get(VideoCaptureProperties.FrameCount);
+        await PublishProgressAsync(
+            job.JobId,
+            job.VideoId,
+            "anonymize",
+            null,
+            "Preparing anonymized video...",
+            stoppingToken);
+        var totalFrames = CountReadableFrames(capture);
+        capture.Set(VideoCaptureProperties.PosFrames, 0);
         var lastReportedProgress = -1;
 
         var blurSizePercent = video.BlurSizePercent > 0 ? video.BlurSizePercent : 120;
@@ -292,6 +300,29 @@ public class VideoAnonymizer(
         }
 
         return FourCC.MP4V;
+    }
+
+    private static int CountReadableFrames(VideoCapture capture)
+    {
+        var originalFramePosition = capture.Get(VideoCaptureProperties.PosFrames);
+        using var frame = new Mat();
+        var count = 0;
+
+        try
+        {
+            capture.Set(VideoCaptureProperties.PosFrames, 0);
+
+            while (capture.Read(frame) && !frame.Empty())
+            {
+                count++;
+            }
+
+            return count;
+        }
+        finally
+        {
+            capture.Set(VideoCaptureProperties.PosFrames, originalFramePosition);
+        }
     }
 
     private static void BlurRegion(Mat frame, DetectedObject detectedObject, int blurSizePercent)
