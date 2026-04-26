@@ -82,7 +82,7 @@ RUN BLAZOR_JS=$(ls /publish/wwwroot/_framework/blazor.webassembly.*.js 2>/dev/nu
     rm -rf /publish/App_Data 2>/dev/null; \
     echo "Cleaned up publish-only payload directories"
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
+FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04 AS runtime
 
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
@@ -90,6 +90,12 @@ RUN apt-get update && apt-get install -y \
     libavcodec-dev libavformat-dev libswscale-dev \
     libdc1394-dev libtiff-dev libopenjp2-7-dev \
     libgtk2.0-0 libcanberra0 \
+    wget ca-certificates \
+    && wget https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -O packages-microsoft-prod.deb \
+    && dpkg -i packages-microsoft-prod.deb \
+    && rm packages-microsoft-prod.deb \
+    && apt-get update \
+    && apt-get install -y aspnetcore-runtime-10.0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=opencvsharp-bridge /opt/opencvsharp/lib/libOpenCvSharpExtern.so \
@@ -97,7 +103,7 @@ COPY --from=opencvsharp-bridge /opt/opencvsharp/lib/libOpenCvSharpExtern.so \
 
 RUN python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir \
-    fastapi uvicorn[standard] onnxruntime opencv-python-headless \
+    fastapi uvicorn[standard] onnxruntime-gpu opencv-python-headless \
     numpy pydantic supervision
 
 COPY --from=dotnet-build /publish /app

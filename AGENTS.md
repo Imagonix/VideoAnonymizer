@@ -138,8 +138,8 @@ Key projects under `VideoAnonymizer.slnx`:
 |---|---|
 | `Dockerfile` | Multi-stage build: Vue editor → OpenCvSharpExtern native bridge → .NET publish → runtime |
 | `docker-compose.yml` | Single service, mounts `./docker-data:/data`, exposes port 5117 |
-| `docker/docker-entrypoint.sh` | Starts .NET app first (downloads ONNX model), then launches Python detection service |
-| `docker/appsettings.Docker.json` | Docker config: headless, absolute paths on `/data` volume, CPU-only ONNX |
+| `docker/docker-entrypoint.sh` | Starts .NET app (model download), waits for model, then waits for .NET process |
+| `docker/appsettings.Docker.json` | Docker config: headless, absolute paths on `/data` volume |
 | `docker/object-detection-wrapper.sh` | Prevents port conflict when .NET app's `ObjectDetectionProcessHostedService` runs |
 | `.dockerignore` | Optimized build context (only source files + project dirs) |
 
@@ -169,9 +169,9 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 ### Architecture Differences from Standalone
 
 - **OpenCvSharp**: Native bridge (`libOpenCvSharpExtern.so`) built from source via CMake against system OpenCV from apt (not the NuGet `runtime.win` package, which is removed via `sed` in the Dockerfile)
-- **Detection Service**: Launched in the entrypoint script (not as a child process of .NET) after waiting for the ONNX model to be downloaded
+- **Detection Service**: Launched by .NET's `ObjectDetectionProcessHostedService` (via the wrapper script) after model download completes
 - **No browser launch**: `Standalone.OpenBrowser` set to `false`
-- **CPU-only ONNX**: Uses `onnxruntime` (not `onnxruntime-gpu`); falls back from CUDA to CPU at import time
+- **GPU acceleration**: Runtime based on `nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04` with `onnxruntime-gpu`; requires NVIDIA Container Toolkit and `deploy.resources.reservations.devices` with GPU capabilities in docker-compose
 - **Data directory**: Absolutized to `/data` via `appsettings.Docker.json`; symlinks bridge into `/app/App_Data` and `/app/data`
 
 ### Common Build Failures
@@ -188,9 +188,8 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 1. Entrypoint creates symlinks: `/app/App_Data` → `/data/App_Data`, `/app/data` → `/data`
 2. `.NET` app starts in background → `StandaloneModelDownloadHostedService` downloads `FaceDetector.onnx` to `/data/models/`
 3. Entrypoint polls for model file (up to 4 min)
-4. Python detection service starts via uvicorn on port 8765
-5. `.NET` app's `ObjectDetectionProcessHostedService` detects port is already in use → wrapper script exits silently
-6. App is ready at `http://localhost:5117`
+4. `.NET` app's `ObjectDetectionProcessHostedService` starts Python detection service via wrapper script on port 8765
+5. App is ready at `http://localhost:5117`
 
 ## Important Notes
 
