@@ -35,7 +35,7 @@ What works today:
 - deselect objects that should not be anonymized
 - blur selected detections
 - export and download the anonymized video
-- run as a distributed Aspire app or as a standalone local Windows package
+- run as a distributed Aspire app, as a standalone local Windows package, or via Docker on any OS
 
 What is not there yet:
 
@@ -100,6 +100,18 @@ The two modes share the same application concepts while using different infrastr
 
 ## Getting Started
 
+### Docker (Cross-Platform)
+
+Requirements: [Docker](https://docs.docker.com/engine/install/) and optionally [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) for GPU acceleration.
+
+Run the tool on any OS. See [docker/README.md](docker/README.md) for details.
+
+```bash
+docker run -d -p 5117:5117 -v ./docker-data:/data --gpus all ghcr.io/imagonix/videoanonymizer-local:latest
+```
+
+### From Source Code
+
 Requirements:
 
 - .NET 10
@@ -109,7 +121,7 @@ Requirements:
 - GPU optional, recommended for faster inference
   - CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12
 
-### Build Standalone Package
+#### Build Standalone Package
 
 ```powershell
 git clone https://github.com/Imagonix/VideoAnonymizer.git
@@ -124,7 +136,7 @@ artifacts/standalone/VideoAnonymizer.exe
 ```
 The standalone package starts the app locally and opens the browser UI automatically.
 
-### Distributed Development Setup
+#### Distributed Development Setup
 
 ```powershell
 git clone https://github.com/Imagonix/VideoAnonymizer.git
