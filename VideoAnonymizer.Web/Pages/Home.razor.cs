@@ -55,7 +55,6 @@ namespace VideoAnonymizer.Web.Pages
                 _showEditor = true;
                 _activeTabIndex = 1;
                 _selectedFile = null;
-                SelectedFileName = null;
                 Snackbar.Add("Video processed. You can now review detected objects.", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);
@@ -70,10 +69,11 @@ namespace VideoAnonymizer.Web.Pages
                 IsAnonymized = true;
                 ProgressPercent = 100;
                 IsBusy = false;
-                StatusText = "Video anonymized successfully.";
-                Snackbar.Add("Video anonymized successfully. You can now download it.", Severity.Success);
+                StatusText = "Video anonymized successfully. Downloading...";
+                Snackbar.Add("Video anonymized successfully. Download starting...", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);
+                await DownloadAsync();
             });
 
             _jobProgressSubscription = JobHubClient.OnJobProgress(async message =>
