@@ -4,8 +4,14 @@ import type { VideoEditorProps } from './types';
 
 type AppHandle = {
     update: (nextProps: VideoEditorProps) => void;
+    updateSettings: (settings: AnonymizationSettings) => void;
     unmount: () => void;
     getFrames: () => any[]
+};
+
+type AnonymizationSettings = {
+    blurSizePercent: number;
+    timeBufferMs: number;
 };
 
 declare global {
@@ -34,6 +40,10 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
             state.videoSourceUrl = nextProps.videoSourceUrl;
             state.frames = nextProps.frames ?? [];
             state.anonymizationSettings = nextProps.anonymizationSettings;
+        },
+        updateSettings(settings: AnonymizationSettings) {
+            state.anonymizationSettings.blurSizePercent = settings.blurSizePercent;
+            state.anonymizationSettings.timeBufferMs = settings.timeBufferMs;
         },
         getFrames() {
             return vm.getFrames?.() ?? []
