@@ -46,6 +46,11 @@ export type TrackedTimelineObject = TimelineObjectBase & {
 
 export type TimelineObject = SingleTimelineObject | TrackedTimelineObject;
 
+export type TimelineObjectCount = {
+  timeSeconds: number;
+  count: number;
+};
+
 export type PreviewObject = {
   detectedObject: DetectedObjectDto;
   activation: 'detected' | 'pre' | 'post';

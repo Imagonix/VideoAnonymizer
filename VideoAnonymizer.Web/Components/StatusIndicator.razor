@@ -1,13 +1,21 @@
-﻿<div style="text-align: center;">
-    <svg width="90" height="90" viewBox="0 0 100 100" class="loading-spinner">
-        <circle cx="50" cy="50" r="40" fill="none" stroke="#444" stroke-width="9" />
-        <circle cx="50" cy="50" r="40" fill="none" stroke="var(--mud-palette-primary)"
-                stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
-                stroke-dasharray="251" stroke-dashoffset="251"
-                class="loading-progress-circle" />
-    </svg>
+<div class="status-indicator">
+    <div class="loading-circle-shell">
+        <svg width="90" height="90" viewBox="0 0 100 100" class="@SpinnerClass">
+            <circle cx="50" cy="50" r="40" fill="none" stroke="#444" stroke-width="9" />
+            <circle cx="50" cy="50" r="40" fill="none" stroke="var(--mud-palette-primary)"
+                    stroke-width="9" stroke-linecap="round" stroke-linejoin="round"
+                    stroke-dasharray="251.327"
+                    stroke-dashoffset="@StrokeDashOffset"
+                    class="@ProgressCircleClass" />
+        </svg>
 
-    <div style="margin-top: 28px; font-size: 1.2rem; font-weight: 500; color: #ffffff;">
+        @if (NormalizedProgress is not null)
+        {
+            <div class="loading-progress-percent">@NormalizedProgress%</div>
+        }
+    </div>
+
+    <div class="status-indicator-text">
         @StatusText
     </div>
 </div>
@@ -15,4 +23,26 @@
 @code {
     [Parameter]
     public string? StatusText { get; set; }
+
+    [Parameter]
+    public int? ProgressPercent { get; set; }
+
+    private const double CircleCircumference = 251.327;
+
+    private int? NormalizedProgress => ProgressPercent is null
+        ? null
+        : Math.Clamp(ProgressPercent.Value, 0, 100);
+
+    private string SpinnerClass => NormalizedProgress is null
+        ? "loading-spinner loading-spinner-indeterminate"
+        : "loading-spinner loading-spinner-determinate";
+
+    private string ProgressCircleClass => NormalizedProgress is null
+        ? "loading-progress-circle loading-progress-circle-indeterminate"
+        : "loading-progress-circle loading-progress-circle-determinate";
+
+    private string StrokeDashOffset => NormalizedProgress is null
+        ? CircleCircumference.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+        : (CircleCircumference * (1 - NormalizedProgress.Value / 100.0))
+            .ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
 }

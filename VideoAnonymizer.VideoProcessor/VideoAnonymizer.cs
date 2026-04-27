@@ -17,6 +17,16 @@ public class VideoAnonymizer(
 {
     protected override async Task HandleJob(AnonymizeVideo job, CancellationToken stoppingToken)
     {
+        var lastReportedProgress = -1;
+        lastReportedProgress = await ReportProgressAsync(
+            job.JobId,
+            job.VideoId,
+            "anonymize",
+            0,
+            lastReportedProgress,
+            "Loading anonymization data...",
+            stoppingToken);
+
         await using var scope = serviceProvider.CreateAsyncScope();
 
         var db = scope.ServiceProvider.GetRequiredService<VideoAnonymizerDbContext>();
@@ -31,6 +41,14 @@ public class VideoAnonymizer(
             .Include(o => o.AnalyzedFrame)
             .OrderBy(o => o.AnalyzedFrame.TimeSeconds)
             .ToListAsync(stoppingToken);
+        lastReportedProgress = await ReportProgressAsync(
+            job.JobId,
+            job.VideoId,
+            "anonymize",
+            5,
+            lastReportedProgress,
+            "Opening video...",
+            stoppingToken);
 
         if (!File.Exists(video.SourcePath))
             throw new FileNotFoundException($"Source video not found: {video.SourcePath}");
@@ -45,11 +63,28 @@ public class VideoAnonymizer(
         var fps = capture.Fps > 0 ? capture.Fps : 25;
         var frameWidth = capture.FrameWidth;
         var frameHeight = capture.FrameHeight;
+        (var totalFrames, lastReportedProgress) = await CountReadableFramesAsync(
+            capture,
+            job.JobId,
+            job.VideoId,
+            lastReportedProgress,
+            stoppingToken);
+        capture.Set(VideoCaptureProperties.PosFrames, 0);
 
         var blurSizePercent = video.BlurSizePercent > 0 ? video.BlurSizePercent : 120;
         var timeBufferSeconds = Math.Max(0, video.TimeBufferMs) / 1000.0;
 
-        using (var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight)))
+        lastReportedProgress = await ReportProgressAsync(
+            job.JobId,
+            job.VideoId,
+            "anonymize",
+            10,
+            lastReportedProgress,
+            "Anonymizing frames...",
+            stoppingToken);
+
+        var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight));
+        try
         {
             var analyzedFrames = GroupObjectsByAnalyzedFrame(selectedObjects);
 
@@ -76,16 +111,121 @@ public class VideoAnonymizer(
 
                 writer.Write(frameMat);
                 currentFrameIndex++;
+                lastReportedProgress = await ReportProgressAsync(
+                    job.JobId,
+                    job.VideoId,
+                    "anonymize",
+                    currentFrameIndex,
+                    totalFrames,
+                    10,
+                    90,
+                    lastReportedProgress,
+                    $"Anonymizing frame {currentFrameIndex} of {totalFrames}...",
+                    stoppingToken);
             }
+
+            lastReportedProgress = await ReportProgressAsync(
+                job.JobId,
+                job.VideoId,
+                "anonymize",
+                90,
+                lastReportedProgress,
+                "Finalizing anonymized video file...",
+                stoppingToken);
+        }
+        finally
+        {
+            writer.Dispose();
         }
 
         video.AnonomizedPath = outputPath;
+        lastReportedProgress = await ReportProgressAsync(
+            job.JobId,
+            job.VideoId,
+            "anonymize",
+            95,
+            lastReportedProgress,
+            "Saving anonymized result...",
+            stoppingToken);
         await db.SaveChangesAsync(stoppingToken);
 
+        await ReportProgressAsync(
+            job.JobId,
+            job.VideoId,
+            "anonymize",
+            100,
+            lastReportedProgress,
+            "Anonymized video saved.",
+            stoppingToken);
         await messagePublisher.PublishAsync(
             RabbitMQConstants.RoutingKeys.Anonymized,
             new AnonymizedVideo(job.JobId, DateTime.Now),
             stoppingToken);
+    }
+
+    private async Task<int> ReportProgressAsync(
+        Guid jobId,
+        Guid? videoId,
+        string operation,
+        int progressPercent,
+        int lastReportedProgress,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        progressPercent = Math.Clamp(progressPercent, 0, 100);
+
+        if (progressPercent == lastReportedProgress)
+            return lastReportedProgress;
+
+        await PublishProgressAsync(jobId, videoId, operation, progressPercent, status, cancellationToken);
+        return progressPercent;
+    }
+
+    private async Task<int> ReportProgressAsync(
+        Guid jobId,
+        Guid? videoId,
+        string operation,
+        int completed,
+        int total,
+        int rangeStart,
+        int rangeEnd,
+        int lastReportedProgress,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        if (total <= 0)
+            return lastReportedProgress;
+
+        var progressPercent = rangeStart + (int)Math.Round(
+            completed * (rangeEnd - rangeStart) / (double)total,
+            MidpointRounding.AwayFromZero);
+        progressPercent = Math.Clamp(progressPercent, rangeStart, rangeEnd);
+
+        if (progressPercent == lastReportedProgress)
+            return lastReportedProgress;
+
+        await PublishProgressAsync(jobId, videoId, operation, progressPercent, status, cancellationToken);
+        return progressPercent;
+    }
+
+    private Task PublishProgressAsync(
+        Guid jobId,
+        Guid? videoId,
+        string operation,
+        int? progressPercent,
+        string status,
+        CancellationToken cancellationToken)
+    {
+        return messagePublisher.PublishAsync(
+            RabbitMQConstants.RoutingKeys.Progress,
+            new VideoProcessingProgress(
+                jobId,
+                videoId,
+                operation,
+                progressPercent,
+                status,
+                DateTimeOffset.UtcNow),
+            cancellationToken);
     }
 
     private static Dictionary<double, List<DetectedObject>> GroupObjectsByAnalyzedFrame(
@@ -216,6 +356,46 @@ public class VideoAnonymizer(
         }
 
         return FourCC.MP4V;
+    }
+
+    private async Task<(int Count, int LastReportedProgress)> CountReadableFramesAsync(
+        VideoCapture capture,
+        Guid jobId,
+        Guid? videoId,
+        int lastReportedProgress,
+        CancellationToken cancellationToken)
+    {
+        var originalFramePosition = capture.Get(VideoCaptureProperties.PosFrames);
+        var estimatedFrameCount = (int)capture.Get(VideoCaptureProperties.FrameCount);
+        var count = 0;
+
+        try
+        {
+            capture.Set(VideoCaptureProperties.PosFrames, 0);
+
+            while (!cancellationToken.IsCancellationRequested && capture.Grab())
+            {
+                count++;
+                lastReportedProgress = await ReportProgressAsync(
+                    jobId,
+                    videoId,
+                    "anonymize",
+                    count,
+                    estimatedFrameCount,
+                    5,
+                    10,
+                    lastReportedProgress,
+                    $"Opening video: counting frame {count}...",
+                    cancellationToken);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            return (count, lastReportedProgress);
+        }
+        finally
+        {
+            capture.Set(VideoCaptureProperties.PosFrames, originalFramePosition);
+        }
     }
 
     private static void BlurRegion(Mat frame, DetectedObject detectedObject, int blurSizePercent)

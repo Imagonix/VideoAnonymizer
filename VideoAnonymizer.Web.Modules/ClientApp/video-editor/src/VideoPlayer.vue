@@ -26,12 +26,54 @@ function onFrame(_: number, metadata: VideoFrameCallbackMetadata) {
 const emit = defineEmits<{
   (e: 'time-update', time: number): void;
   (e: 'loaded', duration: number): void;
+  (e: 'play-state-change', isPlaying: boolean): void;
+  (e: 'volume-change', volume: number): void;
 }>();
 
 const videoRef = ref<HTMLVideoElement | null>(null);
+const isPlaying = ref(false);
 
 function onLoaded() {
   if (videoRef.value) emit('loaded', videoRef.value.duration);
+}
+
+async function togglePlayback() {
+  const video = videoRef.value;
+  if (!video) return;
+
+  if (video.paused || video.ended) {
+    try {
+      await video.play();
+    } catch {
+      isPlaying.value = false;
+    }
+  } else {
+    video.pause();
+  }
+}
+
+function onPlay() {
+  isPlaying.value = true;
+  emit('play-state-change', true);
+}
+
+function onPause() {
+  isPlaying.value = false;
+  emit('play-state-change', false);
+}
+
+function onEnded() {
+  isPlaying.value = false;
+  emit('play-state-change', false);
+}
+
+function setVolume(nextVolume: number) {
+  const clampedVolume = Math.max(0, Math.min(1, nextVolume));
+
+  if (!videoRef.value) return;
+  videoRef.value.volume = clampedVolume;
+  videoRef.value.muted = clampedVolume === 0;
+  emit('volume-change', clampedVolume);
 }
 
 watch(() => props.currentTime, (t) => {
@@ -39,13 +81,30 @@ watch(() => props.currentTime, (t) => {
     videoRef.value.currentTime = t;
   }
 });
+
+defineExpose({
+  setVolume,
+  togglePlayback
+});
 </script>
 
 <template>
   <video
     ref="videoRef"
+    class="video-player-video"
     :src="videoSourceUrl"
-    controls
+    playsinline
     @loadedmetadata="onLoaded"
+    @play="onPlay"
+    @pause="onPause"
+    @ended="onEnded"
   />
 </template>
+
+<style scoped>
+.video-player-video {
+  display: block;
+  max-width: 100%;
+  background: #000;
+}
+</style>

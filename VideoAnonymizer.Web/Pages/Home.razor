@@ -1,4 +1,4 @@
-﻿@using VideoAnonymizer.Web.Components
+@using VideoAnonymizer.Web.Components
 
 @implements IAsyncDisposable
 @inject IDownloadService DownloadService
@@ -7,7 +7,7 @@
 @inject ISnackbar Snackbar
 
 <MudOverlay Visible="@IsBusy" Class="d-flex align-center justify-center" DarkBackground="true" ZIndex="2000">
-    <StatusIndicator StatusText="@StatusText" />
+    <StatusIndicator StatusText="@StatusText" ProgressPercent="@ProgressPercent" />
 </MudOverlay>
 
 <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8">
@@ -37,10 +37,7 @@
                                  VideoSourceUrl="@_videoSourceUrl"
                                  Frames="@_analyzedFrames"
                                  ShowEditor="@_showEditor"
-                                 IsAnonymized="@IsAnonymized"
-                                 AnonymizeVideoJobId="@_anonymizeVideoJobId"
-                                 StartAnonymization="StartAnonymizationAsync"
-                                 Download="DownloadAsync"/>
+                                 StartAnonymization="StartAnonymizationAsync"/>
             </MudTabPanel>
         </MudTabs>
     </MudStack>

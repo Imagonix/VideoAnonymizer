@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -25,6 +25,7 @@ namespace VideoAnonymizer.Web.Shared
             {
                 public const string VideoAnalyzed = "videoAnalyzed";
                 public const string VideoAnonymized = "videoAnonymized";
+                public const string JobProgress = "jobProgress";
 
             }
             public static class Status

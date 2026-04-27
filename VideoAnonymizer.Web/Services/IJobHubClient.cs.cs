@@ -1,4 +1,4 @@
-﻿using VideoAnonymizer.Web.Shared;
+using VideoAnonymizer.Web.Shared;
 
 namespace VideoAnonymizer.Web.Services;
 
@@ -9,4 +9,5 @@ public interface IJobHubClient
 
     IDisposable OnVideoAnalyzed(Func<LongRunningJobFinishedMessage, Task> handler);
     IDisposable OnVideoAnonymized(Func<LongRunningJobFinishedMessage, Task> handler);
+    IDisposable OnJobProgress(Func<LongRunningJobProgressMessage, Task> handler);
 }

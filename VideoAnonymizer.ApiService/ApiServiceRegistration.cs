@@ -71,6 +71,7 @@ public static class ApiServiceRegistration
     {
         services.AddSingleton<IMessageHandler<AnalyzedVideo>, VideoAnalyzedNotificationHandler>();
         services.AddSingleton<IMessageHandler<AnonymizedVideo>, VideoAnonymizedNotificationHandler>();
+        services.AddSingleton<IMessageHandler<VideoProcessingProgress>, VideoProcessingProgressNotificationHandler>();
         return services;
     }
 
@@ -78,6 +79,7 @@ public static class ApiServiceRegistration
     {
         services.AddHostedService<VideoAnalyzedConsumer>();
         services.AddHostedService<VideoAnonymizedConsumer>();
+        services.AddHostedService<VideoProcessingProgressConsumer>();
         return services;
     }
 }

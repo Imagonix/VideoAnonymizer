@@ -5,7 +5,7 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
-import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject } from './types';
+import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
 const props = defineProps<{
@@ -17,6 +17,12 @@ defineExpose({
 
 const currentTime = ref(0);
 const videoDuration = ref(0);
+const isVideoPlaying = ref(false);
+const videoVolume = ref(1);
+const videoPlayerRef = ref<{
+    setVolume: (volume: number) => void;
+    togglePlayback: () => Promise<void>;
+} | null>(null);
 
 const frames = computed(() => props.state.frames ?? []);
 
@@ -58,6 +64,15 @@ const timelineObjects = computed<TimelineObject[]>(() => {
     const tracked = Object.values(grouped);
 
     return [...tracked, ...untracked];
+});
+
+const timelineObjectCounts = computed<TimelineObjectCount[]>(() => {
+    return frames.value
+        .map(frame => ({
+            timeSeconds: frame.timeSeconds,
+            count: frame.detectedObjects.length
+        }))
+        .sort((a, b) => a.timeSeconds - b.timeSeconds);
 });
 
 const orderedCurrentFrameObjects = computed(() => {
@@ -162,26 +177,34 @@ function onTimeUpdate(time: number) {
 
 function onVideoLoaded(duration: number) {
     if (duration && duration > 0) videoDuration.value = duration;
+    videoPlayerRef.value?.setVolume(videoVolume.value);
 }
-const currentTimePercent = computed(() => {
-    if (!videoDuration || videoDuration.value <= 0) {
-        return '0%';
-    }
 
-    return `${(currentTime.value / videoDuration.value) * 100}%`;
-});
+function onVideoPlayStateChange(isPlaying: boolean) {
+    isVideoPlaying.value = isPlaying;
+}
 
-const formattedCurrentTime = computed(() => {
-    return `${currentTime.value.toFixed(1)}s`;
-});
+function onVideoVolumeChange(volume: number) {
+    videoVolume.value = volume;
+}
+
+function toggleVideoPlayback() {
+    videoPlayerRef.value?.togglePlayback();
+}
+
+function setVideoVolume(volume: number) {
+    videoVolume.value = volume;
+    videoPlayerRef.value?.setVolume(volume);
+}
 </script>
 
 <template>
     <div class="video-editor" data-testid="video-editor">
         <div class="top-layout">
             <div class="video-stage">
-                <VideoPlayer :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
-                    @time-update="onTimeUpdate" @loaded="onVideoLoaded" />
+                <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
+                    @time-update="onTimeUpdate" @loaded="onVideoLoaded"
+                    @play-state-change="onVideoPlayStateChange" @volume-change="onVideoVolumeChange" />
                 <BoundingBoxOverlay v-if="currentFrame && visibleBlurPreviewObjects.length > 0"
                     :objects="visibleBlurPreviewObjects" :anonymization-settings="state.anonymizationSettings" />
             </div>
@@ -191,16 +214,14 @@ const formattedCurrentTime = computed(() => {
 
         <div class="timeline-wrapper">
             <div class="timeline-labels">
+                <div class="timeline-toolbar-spacer"></div>
                 <div class="timeline-header-spacer"></div>
                 <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject" />
             </div>
-            <div>
-                <Timeline :duration="videoDuration" :currentTime="currentTime" @seek="seekTo">
-                    <div class="timeline-time-row">
-                        <div class="timeline-current-time-marker" :style="{ left: currentTimePercent }">
-                            {{ formattedCurrentTime }}
-                        </div>
-                    </div>
+            <div class="timeline-content">
+                <Timeline :duration="videoDuration" :currentTime="currentTime" :is-playing="isVideoPlaying"
+                    :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
+                    @volume-change="setVideoVolume">
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
                         :video-duration="videoDuration" />
                 </Timeline>
@@ -255,50 +276,23 @@ const formattedCurrentTime = computed(() => {
     min-width: 0;
 }
 
-.timeline-header-spacer {
+.timeline-toolbar-spacer {
     position: sticky;
     top: 0;
+    z-index: 20;
+    background: var(--mud-palette-surface);
+    height: 32px;
+    margin-bottom: 12px;
+    isolation: isolate;
+}
+
+.timeline-header-spacer {
+    position: sticky;
+    top: 44px;
     z-index: 20;
     background: var(--mud-palette-surface);
     height: 34px;
     margin-bottom: 12px;
     isolation: isolate;
-}
-
-.timeline-time-row {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-    background: var(--mud-palette-surface);
-    height: 34px;
-    border-bottom: 1px solid var(--mud-palette-lines-default);
-    margin-bottom: 12px;
-    overflow: visible;
-}
-
-.timeline-current-time-marker {
-    position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: inline-block;
-    z-index: 100;
-    white-space: nowrap;
-    font-size: 12px;
-    line-height: 1;
-    pointer-events: none;
-    color: var(--mud-palette-text-primary);
-    background: var(--mud-palette-surface);
-    padding: 2px 8px;
-    border-radius: 4px;
-}
-
-.timeline-current-time-marker::before {
-    content: "";
-    z-index: 100;
-    position: absolute;
-    inset: -2px -6px;
-    background: var(--mud-palette-surface);
-    border-radius: 4px;
-    z-index: -1;
 }
 </style>

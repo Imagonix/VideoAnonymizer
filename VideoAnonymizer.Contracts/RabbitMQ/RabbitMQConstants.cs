@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -12,6 +12,7 @@ namespace VideoAnonymizer.Contracts.RabbitMQ
             public const string Analyzed = RoutingKeys.Analyzed + ".queue";
             public const string Anonymize = RoutingKeys.Anonymize + ".queue";
             public const string Anonymized = RoutingKeys.Anonymized + ".queue";
+            public const string Progress = RoutingKeys.Progress + ".queue";
         }
         public class RoutingKeys
         {
@@ -19,6 +20,7 @@ namespace VideoAnonymizer.Contracts.RabbitMQ
             public const string Analyzed = "video.analyzed";
             public const string Anonymize = "video.anonymize";
             public const string Anonymized = "video.anonymized";
+            public const string Progress = "video.progress";
         }
     }
 }

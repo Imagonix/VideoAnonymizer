@@ -1,0 +1,19 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+   "model": "deepseek/deepseek-v4-flash",
+  "provider": {
+    "deepseek": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "https://api.deepseek.com"
+      }
+    }
+  },
+  "instructions": [
+    "Always use deepseek-v4-flash unless explicitly told otherwise.",
+    "Do not switch to more expensive models.",
+    "Always read AGENTS.md before planning changes.",
+    "Use AGENTS.md as the primary repository guide.",
+    "If you learn important durable information about the repository, update AGENTS.md before finishing."
+  ]
+}
