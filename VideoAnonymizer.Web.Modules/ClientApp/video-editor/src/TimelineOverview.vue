@@ -86,7 +86,7 @@ function onClick(e: MouseEvent) {
 .timeline-overview {
   position: relative;
   height: 36px;
-  margin-top: 8px;
+  margin-bottom: 8px;
   border: 1px solid var(--mud-palette-lines-default);
   border-radius: 6px;
   overflow: hidden;

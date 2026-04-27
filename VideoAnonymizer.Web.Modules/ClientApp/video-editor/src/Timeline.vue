@@ -194,13 +194,6 @@
             @fit="fitTimeline"
             @zoom="setZoom"
         />
-        <div class="timeline-viewport" ref="viewportRef" @click="onClick" @scroll="onScroll" @wheel="onWheel">
-            <div class="timeline" data-testid="timeline" :style="{ width: contentWidthPx }">
-                <PlaybackIndicator :time="currentTime" :duration="duration" />
-                <TimelineRuler :current-time="currentTime" :duration="duration" :ticks="ticks" />
-                <slot />
-            </div>
-        </div>
         <TimelineOverview
             :duration="duration"
             :current-time="currentTime"
@@ -209,6 +202,13 @@
             :object-counts="objectCounts"
             @seek="(time: number) => emit('seek', time)"
         />
+        <div class="timeline-viewport" ref="viewportRef" @click="onClick" @scroll="onScroll" @wheel="onWheel">
+            <div class="timeline" data-testid="timeline" :style="{ width: contentWidthPx }">
+                <PlaybackIndicator :time="currentTime" :duration="duration" />
+                <TimelineRuler :current-time="currentTime" :duration="duration" :ticks="ticks" />
+                <slot />
+            </div>
+        </div>
     </div>
 </template>
 
