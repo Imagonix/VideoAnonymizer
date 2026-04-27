@@ -73,6 +73,7 @@
 
 @code {
     private VideoEditor? _videoEditor;
+    private List<AnalyzedFrameDto> _capturedFrames = [];
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -95,12 +96,14 @@
     [Parameter]
     public int TimeBufferMs { get; set; } = 300;
 
+    public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
+
     private async Task OnStartAnonymizationClicked()
     {
         if (_videoEditor is null)
             return;
 
-        Frames = (await _videoEditor.GetFramesAsync()).ToList();
+        _capturedFrames = (await _videoEditor.GetFramesAsync()).ToList();
         await StartAnonymization.InvokeAsync();
     }
 }

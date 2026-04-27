@@ -200,11 +200,14 @@ namespace VideoAnonymizer.Web.Pages
                 IsBusy = true;
                 ProgressPercent = null;
                 StatusText = "Starting anonymization...";
+
+                var frames = _reviewExportTab.CapturedFrames.ToList();
+
                 await InvokeAsync(StateHasChanged);
 
                 var request = new AnonymizeVideoRequestDto()
                 {
-                    Frames = _reviewExportTab.Frames.ToList(),
+                    Frames = frames,
                     Settings = new()
                     {
                         BlurSizePercent = _reviewExportTab.BlurSizePercent,
