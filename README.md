@@ -16,7 +16,7 @@ The demo shows the current local workflow: select a video, analyze it, review de
 
 ## Quickstart
 
-The currently recommended way to run VideoAnonymizer is locally via Docker, this runs it in standalone mode:
+The currently recommended way to run VideoAnonymizer is locally via Docker, this runs it in standalone mode, all data stays on your device:
 
 ```bash
 docker pull ghcr.io/imagonix/videoanonymizer-local:latest
@@ -27,10 +27,6 @@ docker run -d --name video-anonymizer -p 5117:5117 -v ./docker-data:/data --gpus
 ```
 
 Open [http://localhost:5117](http://localhost:5117) after the container has started.
-
-## Architecture
-
-VideoAnonymizer supports two execution styles: a standalone local build and a cloud-ready distributed setup.
 
 ## Current Scope
 
@@ -54,7 +50,11 @@ What is not there yet:
 - detection of license plates, addresses, labels, or other sensitive objects
 - signed Windows releases without SmartScreen friction
 
-## Why The Standalone Version Matters
+## Architecture
+
+VideoAnonymizer supports two execution styles: a standalone local build and a cloud-ready distributed setup.
+
+### Why The Standalone Version Matters
 
 Video anonymization often touches private material. A local desktop workflow is useful when users do not want to upload raw footage to a cloud service just to remove faces.
 
@@ -216,16 +216,12 @@ The standalone release pipeline currently runs Python tests, builds Vue assets, 
 In progress:
 
 - manual bounding box editing
-- signed standalone releases for smoother Windows execution
-- clearer installer/distribution experience
 
 Planned:
 
 - license plate detection
 - additional sensitive object categories
 - improved object tracking across frames
-- hosted multi-user deployment option
-- persistent standalone project/session storage
 
 ## Project Purpose
 
