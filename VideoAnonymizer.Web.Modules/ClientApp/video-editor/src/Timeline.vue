@@ -144,6 +144,8 @@
     function onWheel(e: WheelEvent) {
         if (props.duration <= 0 || !viewportRef.value) return;
 
+        if (!e.ctrlKey && !e.metaKey) return;
+
         e.preventDefault();
 
         const rect = viewportRef.value.getBoundingClientRect();
