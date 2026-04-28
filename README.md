@@ -14,6 +14,20 @@ The project is also designed as a recruiter-friendly reference implementation: i
 
 The demo shows the current local workflow: select a video, analyze it, review detections in the editor, deselect a face, anonymize selected detections, and play the exported result.
 
+## Quickstart
+
+The currently recommended way to run VideoAnonymizer is locally via Docker, this runs it in standalone mode:
+
+```bash
+docker pull ghcr.io/imagonix/videoanonymizer-local:latest
+```
+
+```bash
+docker run -d --name video-anonymizer -p 5117:5117 -v ./docker-data:/data --gpus all --restart unless-stopped ghcr.io/imagonix/videoanonymizer-local:latest
+```
+
+Open [http://localhost:5117](http://localhost:5117) after the container has started.
+
 ## Architecture
 
 VideoAnonymizer supports two execution styles: a standalone local build and a cloud-ready distributed setup.
