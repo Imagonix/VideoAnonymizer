@@ -71,6 +71,9 @@ RUN BLAZOR_JS=$(ls /publish/wwwroot/_framework/blazor.webassembly.*.js 2>/dev/nu
         pattern=$(echo "$pair" | cut -d: -f1); \
         name=$(echo "$pair" | cut -d: -f2); \
         script=$(ls /publish/wwwroot/_framework/$pattern 2>/dev/null | head -1); \
+        if [ "$pattern" = "dotnet.*.js" ]; then \
+            script=$(echo "$script" | grep -v -E '(native|runtime)\.'); \
+        fi; \
         if [ -n "$script" ]; then \
             cp "$script" "/publish/wwwroot/_framework/$name" && \
             echo "Copied $(basename $script) -> $name"; \
