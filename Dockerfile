@@ -67,18 +67,21 @@ RUN BLAZOR_JS=$(ls /publish/wwwroot/_framework/blazor.webassembly.*.js 2>/dev/nu
     else \
         echo "WARNING: blazor.webassembly*.js not found in publish output"; \
     fi && \
-    for pair in "dotnet.*.js:dotnet.js" "dotnet.native.*.js:dotnet.native.js" "dotnet.runtime.*.js:dotnet.runtime.js"; do \
-        pattern=$(echo "$pair" | cut -d: -f1); \
+    for pair in "dotnet.js:dotnet.js" "dotnet.native.js:dotnet.native.js" "dotnet.runtime.js:dotnet.runtime.js"; do \
         name=$(echo "$pair" | cut -d: -f2); \
-        script=$(ls /publish/wwwroot/_framework/$pattern 2>/dev/null | head -1); \
-        if [ "$pattern" = "dotnet.*.js" ]; then \
-            script=$(echo "$script" | grep -v -E '(native|runtime)\.'); \
-        fi; \
-        if [ -n "$script" ]; then \
-            cp "$script" "/publish/wwwroot/_framework/$name" && \
-            echo "Copied $(basename $script) -> $name"; \
-        else \
-            echo "WARNING: $pattern not found"; \
+        if [ ! -f "/publish/wwwroot/_framework/$name" ]; then \
+            if [ "$name" = "dotnet.js" ]; then \
+                script=$(find /publish/wwwroot/_framework -maxdepth 1 -name 'dotnet.*.js' ! -name 'dotnet.native.*' ! -name 'dotnet.runtime.*' 2>/dev/null | head -1); \
+            else \
+                script=$(find /publish/wwwroot/_framework -maxdepth 1 -name "${name%.js}.*.js" 2>/dev/null | head -1); \
+            fi; \
+            if [ -n "$script" ]; then \
+                cp "$script" "/publish/wwwroot/_framework/$name" && \
+                echo "Copied $(basename $script) -> $name"; \
+            else \
+                echo "WARNING: $name not found in publish output"; \
+                ls /publish/wwwroot/_framework/dotnet.*.js 2>/dev/null || true; \
+            fi; \
         fi; \
     done && \
     rm -rf /publish/BlazorDebugProxy 2>/dev/null; \
