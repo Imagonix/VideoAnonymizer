@@ -37,6 +37,8 @@ docker run -d --name video-anonymizer -p 5117:5117 -v ./docker-data:/data --rest
 
 Open [http://localhost:5117](http://localhost:5117) after the container has started.
 
+> **You are in control of your data:** Uploaded videos, detection results, and anonymized exports are stored in the `./docker-data/` directory on your host — nothing leaves your machine. See [Data Control & Cleanup](#data-control--cleanup) for how to inspect, or delete your data at any time.
+
 See [docker/README.md](docker/README.md) for more details.
 
 ## Highlights
@@ -220,6 +222,24 @@ It is intended to show:
 - distributed architecture with Aspire
 - local standalone packaging
 - pragmatic CI/CD and release automation
+
+## Data Control & Cleanup
+
+VideoAnonymizer is built local-first so you stay in full control of your data. Nothing is uploaded to any remote service — the only external request is the AI model download (no user data).
+
+### Where data is stored
+
+| Mode | Storage location | What's there |
+|---|---|---|
+| **Docker** | `./docker-data/` on your host machine (mapped to `/data` in the container) | Source videos, anonymized exports, cached AI model, processing metadata |
+| **Standalone** | `App_Data/` folder next to `VideoAnonymizer.exe` | Same as Docker |
+| **Development** | `VideoAnonymizer.ApiService/App_Data/Uploads/` and `/data` in the project directory | Videos and exports from local dev runs, downloaded AI model |
+
+### How to clean up
+
+- **Docker:** Stop the container, delete the `./docker-data/` directory (or just `./docker-data/App_Data/Uploads/` to keep the model cache), then restart. The folder structure is recreated automatically.
+- **Standalone:** Delete the `App_Data/` folder next to the executable.
+- **Development:** Delete `App_Data/` and `data/` from the repository root.
 
 ## License
 
