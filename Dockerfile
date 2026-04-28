@@ -92,6 +92,7 @@ FROM nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04 AS runtime
 
 RUN apt-get update && apt-get install -y \
     python3 python3-pip python3-venv \
+    ffmpeg \
     libopencv-dev libopencv-contrib-dev \
     libavcodec-dev libavformat-dev libswscale-dev \
     libdc1394-dev libtiff-dev libopenjp2-7-dev \

@@ -1,3 +1,4 @@
+using FFMpegCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OpenCvSharp;
@@ -54,6 +55,7 @@ public class VideoAnonymizer(
 
         var sourcePath = video.SourcePath;
         var outputPath = BuildOutputPath(sourcePath);
+        var tempPath = Path.ChangeExtension(outputPath, null) + "_temp" + Path.GetExtension(outputPath);
 
         using var capture = new VideoCapture(sourcePath);
         if (!capture.IsOpened())
@@ -82,7 +84,7 @@ public class VideoAnonymizer(
             "Anonymizing frames...",
             stoppingToken);
 
-        var writer = new VideoWriter(outputPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight));
+        var writer = new VideoWriter(tempPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight));
         try
         {
             var analyzedFrames = GroupObjectsByAnalyzedFrame(selectedObjects);
@@ -136,6 +138,8 @@ public class VideoAnonymizer(
         {
             writer.Dispose();
         }
+
+        await RemuxAudioAsync(sourcePath, tempPath, outputPath, stoppingToken);
 
         video.AnonomizedPath = outputPath;
         lastReportedProgress = await ReportProgressAsync(
@@ -470,5 +474,29 @@ public class VideoAnonymizer(
     {
         if (value < 1) return 1;
         return value % 2 == 0 ? value + 1 : value;
+    }
+
+    private async Task RemuxAudioAsync(string sourcePath, string tempVideoPath, string outputPath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var success = await FFMpegArguments
+                .FromFileInput(tempVideoPath)
+                .AddFileInput(sourcePath)
+                .OutputToFile(outputPath, false, options => options
+                    .WithCustomArgument("-c copy -map 0:v:0 -map 1:a:0? -shortest"))
+                .ProcessAsynchronously(false);
+
+            if (!success)
+            {
+                logger.LogWarning("FFmpeg audio remux returned failure. Video will be anonymized without audio.");
+                File.Copy(tempVideoPath, outputPath, overwrite: true);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "FFmpeg audio remux failed. Video will be anonymized without audio.");
+            File.Copy(tempVideoPath, outputPath, overwrite: true);
+        }
     }
 }
