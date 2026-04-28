@@ -1,4 +1,3 @@
-﻿using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;

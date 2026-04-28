@@ -1,4 +1,3 @@
-using MassTransit;
 using VideoAnonymizer.ApiService;
 using VideoAnonymizer.ApiService.DataServices;
 using VideoAnonymizer.ApiService.Notifications;

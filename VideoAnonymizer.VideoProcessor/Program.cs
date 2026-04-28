@@ -1,4 +1,3 @@
-using MassTransit;
 using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
