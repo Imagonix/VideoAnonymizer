@@ -1,10 +1,10 @@
-# 🎥 VideoAnonymizer
+# VideoAnonymizer
 
 **Local-first video anonymization for faces, built as a full-stack engineering project.**
 
 VideoAnonymizer helps detect faces in videos, review the detections, select which detected objects should be anonymized, and export a blurred version of the video. The standalone variant runs on the user's own machine: videos, extracted frames, detection results, and exports stay local instead of being uploaded to a remote service.
 
-The project is also designed as a recruiter-friendly reference implementation: it combines .NET, Blazor, Vue, Python computer vision, background workers, messaging abstractions, packaging automation, and a cloud-ready Aspire architecture.
+VideoAnonymizer is usable for face anonymization demos and local experimentation, but it is not yet a hardened production privacy product.
 
 ## Demo
 
@@ -16,17 +16,35 @@ The demo shows the current local workflow: select a video, analyze it, review de
 
 ## Quickstart
 
-The currently recommended way to run VideoAnonymizer is locally via Docker, this runs it in standalone mode, all data stays on your device:
+The recommended way to run VideoAnonymizer is via Docker. It runs in standalone mode, and all data stays on your device.
 
+Requirements: [Docker](https://docs.docker.com/engine/install/) and optionally [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) for GPU acceleration.
+
+Update:
 ```bash
 docker pull ghcr.io/imagonix/videoanonymizer-local:latest
 ```
-
+Start with GPU:
 ```bash
 docker run -d --name video-anonymizer -p 5117:5117 -v ./docker-data:/data --gpus all --restart unless-stopped ghcr.io/imagonix/videoanonymizer-local:latest
 ```
+Start on CPU:
+```bash
+docker run -d --name video-anonymizer -p 5117:5117 -v ./docker-data:/data --restart unless-stopped ghcr.io/imagonix/videoanonymizer-local:latest
+```
 
 Open [http://localhost:5117](http://localhost:5117) after the container has started.
+
+See [docker/README.md](docker/README.md) for more details.
+
+## Highlights
+
+- local-first privacy workflow: raw videos stay on the user's machine
+- full review loop before anonymization
+- Blazor + Vue integration for a rich video editor
+- Python ONNX inference behind a .NET application
+- standalone, Docker, and Aspire-based distributed modes
+- CI pipeline for testing and packaged releases
 
 ## Current Scope
 
@@ -54,7 +72,7 @@ What is not there yet:
 
 VideoAnonymizer supports two execution styles: a standalone local build and a cloud-ready distributed setup.
 
-### Why The Standalone Version Matters
+### Standalone Mode
 
 Video anonymization often touches private material. A local desktop workflow is useful when users do not want to upload raw footage to a cloud service just to remove faces.
 
@@ -67,8 +85,6 @@ In standalone mode:
 - the Python object detection API is launched locally as a bundled executable
 - the face detection model is downloaded on first start if missing
 - CUDA status is shown in the UI, with warnings when CPU fallback is used
-
-### Standalone Mode
 
 The standalone package is built for local Windows usage. It starts:
 
@@ -107,19 +123,7 @@ The two modes share the same application concepts while using different infrastr
 7. Selected detections are blurred.
 8. The processed video is exported for download.
 
-## Getting Started
-
-### Docker (Cross-Platform)
-
-Requirements: [Docker](https://docs.docker.com/engine/install/) and optionally [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html) for GPU acceleration.
-
-Run the tool on any OS. See [docker/README.md](docker/README.md) for details.
-
-```bash
-docker run -d -p 5117:5117 -v ./docker-data:/data --gpus all ghcr.io/imagonix/videoanonymizer-local:latest
-```
-
-### From Source Code
+## From Source Code
 
 Requirements:
 
@@ -130,7 +134,7 @@ Requirements:
 - GPU optional, recommended for faster inference
   - CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12
 
-#### Build Standalone Package
+### Build Standalone Package
 
 ```powershell
 git clone https://github.com/Imagonix/VideoAnonymizer.git
@@ -145,7 +149,7 @@ artifacts/standalone/VideoAnonymizer.exe
 ```
 The standalone package starts the app locally and opens the browser UI automatically.
 
-#### Distributed Development Setup
+### Distributed Development Setup
 
 ```powershell
 git clone https://github.com/Imagonix/VideoAnonymizer.git
@@ -200,16 +204,6 @@ This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, wor
 - The model file is not included in the repository.
 - It is downloaded automatically on startup when missing.
 - In standalone mode the model is stored locally under the standalone data folder.
-
-## Testing and Quality
-
-The project includes:
-
-- Python tests for the object detection API
-- Web component tests for the Blazor UI
-- API integration tests for distributed workflows
-
-The standalone release pipeline currently runs Python tests, builds Vue assets, builds the .NET solution, runs web tests, publishes the local Windows package, uploads an artifact, and creates a GitHub prerelease.
 
 ## Roadmap
 
