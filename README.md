@@ -76,26 +76,15 @@ VideoAnonymizer supports two execution styles: a standalone local build and a cl
 
 Video anonymization often touches private material. A local desktop workflow is useful when users do not want to upload raw footage to a cloud service just to remove faces.
 
-The standalone version starts the local web UI, API, workers, and object detection service from one launcher. It is intended for privacy-sensitive desktop usage while keeping the same product workflow as the distributed version.
+Standalone mode keeps the full workflow on the user's machine while preserving the same product experience as the distributed setup. It bundles the web UI, API, video processing worker, object detection service, messaging, and local storage into one local runtime.
 
 In standalone mode:
 
 - processing happens locally on the user's machine
 - user videos are not sent to a remote backend
-- the Python object detection API is launched locally as a bundled executable
 - the face detection model is downloaded on first start if missing
-- CUDA status is shown in the UI, with warnings when CPU fallback is used
-
-The standalone package is built for local Windows usage. It starts:
-
-- local web frontend
-- API service
-- video processing workers
-- Python object detection executable
-- local direct messaging
-- local/in-memory storage
-
-This variant is optimized for simple desktop usage and privacy-sensitive processing.
+- GPU acceleration is used when available, with CPU fallback supported
+- Docker runs this mode cross-platform; the standalone Windows package uses the same local-first architecture
 
 ### Cloud-Ready Mode
 
