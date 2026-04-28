@@ -8,15 +8,11 @@ The project is also designed as a recruiter-friendly reference implementation: i
 
 ## Demo
 
-### Before / After
+### Workflow Demo
 
-![Before After Demo](docs/img/demo_slider_reveal.gif)
+<video src="docs/video/demovideo.mp4" controls muted playsinline title="VideoAnonymizer workflow demo"></video>
 
-### Review Tool
-
-![Editor Preview](docs/img/editor_preview.png)
-
-The review UI lets users inspect detected faces directly in the video, see object occurrences on a timeline, and decide which detected objects should be included in the anonymization step.
+The demo shows the current local workflow: select a video, analyze it, review detections in the editor, deselect a face, anonymize selected detections, and play the exported result.
 
 ## Architecture
 
@@ -35,14 +31,13 @@ What works today:
 - deselect objects that should not be anonymized
 - blur selected detections
 - export and download the anonymized video
-- run as a distributed Aspire app, as a standalone local Windows package, or via Docker on any OS
+- run via Docker on any OS, as a standalone local Windows package, or from source as a distributed Aspire app
 
 What is not there yet:
 
 - manual drawing of new boxes
 - moving or resizing detections
 - detection of license plates, addresses, labels, or other sensitive objects
-- multi-user hosted product experience
 - signed Windows releases without SmartScreen friction
 
 ## Why The Standalone Version Matters
