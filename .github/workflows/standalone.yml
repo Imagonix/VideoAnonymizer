@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   DOTNET_VERSION: 10.0.x
@@ -90,5 +90,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: VideoAnonymizer-standalone-win-x64
-          path: artifacts/VideoAnonymizer-standalone-win-x64.zip
+          path: artifacts/standalone/**
           retention-days: 14
+
+      - name: Create prerelease
+        if: github.ref == 'refs/heads/standalone'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: standalone-${{ github.run_number }}
+          name: Standalone Build ${{ github.run_number }}
+          files: artifacts/VideoAnonymizer-standalone-win-x64.zip
+          prerelease: true

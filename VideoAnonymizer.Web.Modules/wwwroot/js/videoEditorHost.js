@@ -44,6 +44,12 @@ export async function updateVideoEditor(element, props) {
     appHandle.update(props);
 }
 
+export async function updateVideoEditorSettings(element, settings) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.updateSettings !== 'function') return;
+    appHandle.updateSettings(settings);
+}
+
 export async function unmountVideoEditor(element) {
     const appHandle = mountedApps.get(element);
     if (appHandle && typeof appHandle.unmount === 'function') {
@@ -55,14 +61,10 @@ export async function unmountVideoEditor(element) {
 
 export async function getFrames(element) {
     const appHandle = mountedApps.get(element);
-    console.log('getFrames called', { element, appHandle, keys: appHandle ? Object.keys(appHandle) : null });
 
     if (!appHandle || typeof appHandle.getFrames !== 'function') {
-        console.log('missing getFrames on appHandle');
         return null;
     }
 
-    const result = appHandle.getFrames();
-    console.log('frames returned', result);
-    return result;
+    return appHandle.getFrames();
 }

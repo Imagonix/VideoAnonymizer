@@ -216,6 +216,7 @@ function setVideoVolume(volume: number) {
             <div class="timeline-labels">
                 <div class="timeline-toolbar-spacer"></div>
                 <div class="timeline-header-spacer"></div>
+                <div class="timeline-overview-spacer"></div>
                 <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject" />
             </div>
             <div class="timeline-content">
@@ -294,5 +295,10 @@ function setVideoVolume(volume: number) {
     height: 34px;
     margin-bottom: 12px;
     isolation: isolate;
+}
+
+.timeline-overview-spacer {
+    height: 38px;
+    margin-bottom: 8px;
 }
 </style>

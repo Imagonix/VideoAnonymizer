@@ -25,6 +25,8 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private IJSObjectReference? _hostModule;
     private bool _mounted;
     private bool _loadFailed;
+    private int _lastBlurSizePercent;
+    private int _lastTimeBufferMs;
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
     {
@@ -40,42 +42,45 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender)
+        if (firstRender)
         {
-            if (_mounted)
-                await UpdateAsync();
+            try
+            {
+                _hostModule = await JS.InvokeAsync<IJSObjectReference>(
+                    "import",
+                    "/_content/VideoAnonymizer.Web.Modules/js/videoEditorHost.js");
 
-            return;
+                await _hostModule.InvokeVoidAsync(
+                    "mountVideoEditor",
+                    _hostElement,
+                    BuildProps());
+
+                _lastBlurSizePercent = BlurSizePercent;
+                _lastTimeBufferMs = TimeBufferMs;
+                _mounted = true;
+            }
+            catch
+            {
+                _loadFailed = true;
+            }
         }
-
-        _hostModule = await JS.InvokeAsync<IJSObjectReference>(
-            "import",
-            "/_content/VideoAnonymizer.Web.Modules/js/videoEditorHost.js");
-
-        await _hostModule.InvokeVoidAsync(
-            "mountVideoEditor",
-            _hostElement,
-            BuildProps());
-
-        _mounted = true;
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (_mounted)
-            await UpdateAsync();
-    }
-
-    private async Task UpdateAsync()
-    {
-        if (_hostModule is null)
+        if (!_mounted || _hostModule is null)
             return;
 
-        Frames = (await GetFramesAsync()).ToList();
-        await _hostModule.InvokeVoidAsync(
-            "updateVideoEditor",
-            _hostElement,
-            BuildProps());
+        if (BlurSizePercent != _lastBlurSizePercent || TimeBufferMs != _lastTimeBufferMs)
+        {
+            _lastBlurSizePercent = BlurSizePercent;
+            _lastTimeBufferMs = TimeBufferMs;
+
+            await _hostModule.InvokeVoidAsync(
+                "updateVideoEditorSettings",
+                _hostElement,
+                new { blurSizePercent = BlurSizePercent, timeBufferMs = TimeBufferMs });
+        }
     }
 
     private object BuildProps()
