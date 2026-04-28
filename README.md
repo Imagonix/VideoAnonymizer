@@ -10,7 +10,9 @@ VideoAnonymizer is usable for face anonymization demos and local experimentation
 
 ### Workflow Demo
 
-<video src="docs/video/demovideo.mp4" controls muted playsinline title="VideoAnonymizer workflow demo"></video>
+![VideoAnonymizer workflow demo](docs/img/demo_preview.gif)
+
+[Watch the full size MP4 demo](docs/video/demovideo.mp4)
 
 The demo shows the current local workflow: select a video, analyze it, review detections in the editor, deselect a face, anonymize selected detections, and play the exported result.
 
