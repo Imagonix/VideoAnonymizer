@@ -29,6 +29,13 @@ function getTimelineKey(obj: TimelineObject): string {
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
 
+const mergeHighlightStyle = computed(() => {
+    if (!isMergeSelected.value) return {};
+    const color = colorManager.getColor(sampleDetectedObject.value);
+    const bg = color.replace('hsl(', 'hsla(').replace(')', ', 0.3)');
+    return { backgroundColor: bg };
+});
+
 function getTimelineLabel(obj: TimelineObject): string {
     if (obj.type === 'single') return getLabel(obj.detectedObj);
     if (obj.type === 'tracked') return getLabel(obj.occurences[0][1]);
@@ -92,10 +99,8 @@ function onRowClick() {
 <template>
     <div
       class="label-container"
-      :class="{
-        'label-container--merge-mode': mode === 'merge',
-        'label-container--merge-selected': isMergeSelected
-      }"
+      :class="{ 'label-container--merge-mode': mode === 'merge' }"
+      :style="mergeHighlightStyle"
       @click="onRowClick"
     >
         <MudLikeCheckbox
@@ -138,12 +143,7 @@ function onRowClick() {
 }
 
 .label-container--merge-mode:hover {
-    background: color-mix(in srgb, var(--mud-palette-primary) 6%, transparent);
-}
-
-.label-container--merge-selected {
-    background: color-mix(in srgb, var(--mud-palette-secondary) 14%, transparent);
-    outline: 1px solid var(--mud-palette-secondary);
+    filter: brightness(1.3);
 }
 
 .label-text {

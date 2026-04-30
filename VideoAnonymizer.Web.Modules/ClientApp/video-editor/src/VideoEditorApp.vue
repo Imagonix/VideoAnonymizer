@@ -323,7 +323,8 @@ function setVideoVolume(volume: number) {
                     :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
                     @volume-change="setVideoVolume">
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
-                        :video-duration="videoDuration" />
+                        :video-duration="videoDuration" :mode="mergeMode ? 'merge' : 'select'"
+                        :merge-selected-keys="mergeSelectedTimelineKeys" />
                 </Timeline>
             </div>
         </div>
