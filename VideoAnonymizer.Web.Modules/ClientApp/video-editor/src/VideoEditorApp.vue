@@ -400,6 +400,6 @@ function setVideoVolume(volume: number) {
 
 .timeline-overview-spacer {
     height: 38px;
-    margin-bottom: 8px;
+    margin-bottom: 9px;
 }
 </style>
