@@ -337,16 +337,20 @@ function splitOut() {
     const map = selectedOccurrences.value;
     let anySplit = false;
 
+    const maxTrackId = frames.value.flatMap(f => f.detectedObjects)
+        .reduce((max, o) => Math.max(max, o.trackId ?? 0), 0);
+    const newTrackId = maxTrackId + 1;
+
     for (const [rowKey, times] of map) {
         if (times.size === 0) continue;
-        const trackId = parseInt(rowKey.replace('track-', ''), 10);
-        if (isNaN(trackId)) continue;
+        const sourceTrackId = parseInt(rowKey.replace('track-', ''), 10);
+        if (isNaN(sourceTrackId)) continue;
 
         for (const frame of props.state.frames) {
             if (!times.has(frame.timeSeconds)) continue;
             for (const obj of frame.detectedObjects) {
-                if (obj.trackId === trackId) {
-                    obj.trackId = null;
+                if (obj.trackId === sourceTrackId) {
+                    obj.trackId = newTrackId;
                     anySplit = true;
                 }
             }
