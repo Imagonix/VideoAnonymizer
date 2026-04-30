@@ -83,8 +83,8 @@ def _recommendation(cuda_execution_provider_active: bool) -> str:
         return "GPU acceleration is ready."
 
     return (
-        "CPU mode can make video analysis very slow and may make the computer temporarily "
-        "unresponsive. For this package, install CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12."
+        "CPU mode can make video analysis slow. "
+        "For this package, install CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12."
     )
 
 def _detect_nvidia_gpus() -> tuple[bool, list[str], str | None]:

@@ -1,48 +1,17 @@
 ﻿@using VideoAnonymizer.Web.Shared.DTO
 
-@if (AppState is { IsStandalone: true, CudaRuntime: not null })
+@if (AppState?.CudaRuntime is not null)
 {
     var cuda = AppState.CudaRuntime;
 
-    @if (Mode == LocalRuntimeFeedbackMode.Header)
-    {
-        <div class="@Class" style="display: flex; justify-content: flex-end;">
-            <MudTooltip Text="@GetHeaderTooltip(cuda)">
-                <div style="@GetHeaderStyle(cuda)">
-                    <span style="@GetDotStyle(cuda)"></span>
-                    <span>@GetHeaderText(cuda)</span>
-                </div>
-            </MudTooltip>
-        </div>
-    }
-    else if (!cuda.CudaExecutionProviderActive)
-    {
-        @if (Mode == LocalRuntimeFeedbackMode.Center)
-        {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Dense="true" Class="@Class">
-                <MudStack Spacing="1">
-                    <MudText Typo="Typo.subtitle2">@GetTitle(cuda)</MudText>
-                    <MudText Typo="Typo.body2">@GetProblemSummary(cuda)</MudText>
-                    <MudText Typo="Typo.caption">@GetSetupHint(cuda)</MudText>
-                </MudStack>
-            </MudAlert>
-        }
-        else
-        {
-            <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Dense="true" Class="@Class">
-                <MudStack Spacing="1">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                        <MudText Typo="Typo.subtitle2">@GetTitle(cuda)</MudText>
-                        <MudChip T="string" Color="Color.Warning" Size="Size.Small" Variant="Variant.Filled">CPU</MudChip>
-                    </MudStack>
-
-                    <MudText Typo="Typo.body2">@GetProblemSummary(cuda)</MudText>
-                    <MudText Typo="Typo.caption">@GetProviderText(cuda)</MudText>
-                    <MudText Typo="Typo.caption">@GetSetupHint(cuda)</MudText>
-                </MudStack>
-            </MudAlert>
-        }
-    }
+    <div class="@Class" style="display: flex; justify-content: flex-end;">
+        <MudTooltip Text="@GetTooltip(cuda, AppState.IsDocker)">
+            <div style="@GetHeaderStyle(cuda)">
+                <span style="@GetDotStyle(cuda)"></span>
+                <span>@GetHeaderText(cuda)</span>
+            </div>
+        </MudTooltip>
+    </div>
 }
 
 @code {
@@ -53,65 +22,25 @@
     public string? Class { get; set; }
 
     [Parameter]
-    public LocalRuntimeFeedbackMode Mode { get; set; } = LocalRuntimeFeedbackMode.Banner;
-
-    private static string GetTitle(CudaRuntimeStateDto cuda)
-    {
-        if (cuda.CudaExecutionProviderActive)
-        {
-            return "CUDA acceleration active";
-        }
-
-        if (cuda.NvidiaGpuDetected || cuda.CudaProviderAvailable)
-        {
-            return "CUDA not active";
-        }
-
-        return "CPU mode warning";
-    }
+    public LocalRuntimeFeedbackMode Mode { get; set; } = LocalRuntimeFeedbackMode.Header;
 
     private static string GetHeaderText(CudaRuntimeStateDto cuda)
     {
         return cuda.CudaExecutionProviderActive
-            ? "CUDA active"
+            ? "GPU mode"
             : "CPU mode";
     }
 
-    private static string GetHeaderTooltip(CudaRuntimeStateDto cuda)
+    private static string GetTooltip(CudaRuntimeStateDto cuda, bool isDocker)
     {
-        return cuda.CudaExecutionProviderActive
-            ? $"GPU acceleration is active. Providers: {FormatProviders(cuda.ActiveProviders)}"
-            : "Object detection is running on CPU. Analysis may be slow.";
-    }
-
-    private static string GetProblemSummary(CudaRuntimeStateDto cuda)
-    {
-        return string.IsNullOrWhiteSpace(cuda.Summary)
-            ? "Object detection is running on CPU. Analysis may be slow."
-            : cuda.Summary;
-    }
-
-    private static string GetProviderText(CudaRuntimeStateDto cuda)
-    {
-        var providers = FormatProviders(cuda.ActiveProviders);
-        var missing = cuda.MissingDependencies.Length == 0
-            ? string.Empty
-            : $" Missing: {string.Join(", ", cuda.MissingDependencies)}.";
-        var initializationError = string.IsNullOrWhiteSpace(cuda.InitializationError)
-            ? string.Empty
-            : $" CUDA error: {TrimError(cuda.InitializationError)}.";
-
-        return $"Active provider: {providers}.{missing}{initializationError}";
-    }
-
-    private static string GetSetupHint(CudaRuntimeStateDto cuda)
-    {
-        if (!string.IsNullOrWhiteSpace(cuda.Recommendation))
+        if (cuda.CudaExecutionProviderActive)
         {
-            return cuda.Recommendation;
+            return $"GPU acceleration is active. Providers: {FormatProviders(cuda.ActiveProviders)}";
         }
 
-        return "Install CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12, add the CUDA bin folder to PATH, then restart the app.";
+        return isDocker
+            ? "Consider passing a GPU when starting the image, for faster video processing."
+            : "Install CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12 for faster video processing.";
     }
 
     private static string GetHeaderStyle(CudaRuntimeStateDto cuda)
@@ -139,11 +68,4 @@
             : string.Join(", ", providers);
     }
 
-    private static string TrimError(string error)
-    {
-        const int maxLength = 180;
-        return error.Length <= maxLength
-            ? error
-            : $"{error[..maxLength]}...";
-    }
 }
