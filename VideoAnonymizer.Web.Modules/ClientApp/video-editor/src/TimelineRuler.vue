@@ -19,8 +19,8 @@ const formattedCurrentTime = computed(() => formatTimelineTime(props.currentTime
 
 <template>
   <div class="timeline-ruler">
-    <div v-for="tick in ticks" :key="tick.time" class="timeline-tick" :style="{ left: tick.left }">
-      <span>{{ tick.label }}</span>
+    <div v-for="(tick, index) in ticks" :key="tick.time" class="timeline-tick" :style="{ left: tick.left }">
+      <span v-if="index < ticks.length - 2">{{ tick.label }}</span>
     </div>
     <div class="timeline-current-time-marker" :style="{ left: currentTimeLeft }">
       {{ formattedCurrentTime }}
