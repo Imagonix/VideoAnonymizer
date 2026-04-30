@@ -8,6 +8,11 @@ const props = defineProps<{
     videoDuration: number;
     mode: EditorMode;
     mergeSelectedKeys: Set<string>;
+    selectedOccurrences: Map<string, Set<number>>;
+}>();
+
+const emit = defineEmits<{
+    (e: 'toggle-occurrence', rowKey: string, time: number, event: MouseEvent): void;
 }>();
 
 function toPercent(time: number) {
@@ -33,6 +38,31 @@ const mergeHighlightStyle = computed(() => {
     const bg = color.replace('hsl(', 'hsla(').replace(')', ', 0.3)');
     return { backgroundColor: bg };
 });
+
+const allowsDotSelection = computed(() =>
+    props.mode === 'split' && props.timelineObject.type === 'tracked'
+);
+
+const selectedTimesForThisRow = computed(() =>
+    props.selectedOccurrences.get(timelineKey.value) ?? new Set()
+);
+
+const hasAnySelection = computed(() => {
+    for (const times of props.selectedOccurrences.values()) {
+        if (times.size > 0) return true;
+    }
+    return false;
+});
+
+const otherRowsHaveSelection = computed(() =>
+    hasAnySelection.value && !selectedTimesForThisRow.value.size
+);
+
+function onDotClick(time: number, event: MouseEvent) {
+    if (allowsDotSelection.value) {
+        emit('toggle-occurrence', timelineKey.value, time, event);
+    }
+}
 </script>
 <template>
     <div class="timeline-row-wrapper">
@@ -44,11 +74,22 @@ const mergeHighlightStyle = computed(() => {
                 }" />
             </template>
             <template v-else>
-                <div v-for="[time, obj] in props.timelineObject.occurences" :key="time" class="dot" :style="{
-                    left: toPercent(time),
-                    background: colorManager.getColor(obj),
-                    opacity: obj.selected ? 1 : 0.3
-                }" />
+                <div
+                  v-for="[time, obj] in props.timelineObject.occurences"
+                  :key="time"
+                  class="dot"
+                  :class="{
+                      'dot--selectable': allowsDotSelection,
+                      'dot--selected': allowsDotSelection && selectedTimesForThisRow.has(time),
+                      'dot--dimmed': allowsDotSelection && otherRowsHaveSelection && !selectedTimesForThisRow.has(time)
+                  }"
+                  :style="{
+                      left: toPercent(time),
+                      background: colorManager.getColor(obj),
+                      opacity: obj.selected ? (otherRowsHaveSelection && !selectedTimesForThisRow.has(time) ? 0.2 : 1) : 0.3
+                  }"
+                  @click.stop="onDotClick(time, $event)"
+                />
             </template>
         </div>
     </div>
@@ -71,11 +112,32 @@ const mergeHighlightStyle = computed(() => {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-
   width: 8px;
   height: 8px;
   border-radius: 50%;
-
   z-index: 10;
+  transition: transform 0.1s, box-shadow 0.1s, opacity 0.15s;
+}
+
+.dot--selectable {
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+}
+
+.dot--selectable:hover {
+  transform: translate(-50%, -50%) scale(1.35);
+  z-index: 20;
+}
+
+.dot--selected {
+  box-shadow: 0 0 0 3px var(--mud-palette-secondary);
+  z-index: 15;
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.dot--dimmed {
+  width: 6px;
+  height: 6px;
 }
 </style>

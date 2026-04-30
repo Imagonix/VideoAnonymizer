@@ -56,4 +56,4 @@ export type PreviewObject = {
   activation: 'detected' | 'pre' | 'post';
 };
 
-export type EditorMode = 'select' | 'merge';
+export type EditorMode = 'select' | 'merge' | 'split';

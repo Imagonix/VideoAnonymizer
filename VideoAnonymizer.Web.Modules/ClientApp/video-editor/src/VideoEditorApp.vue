@@ -28,6 +28,10 @@ const videoPlayerRef = ref<{
 const mergeMode = ref(false);
 const mergeSelectedTimelineKeys = ref(new Set<string>());
 
+const splitMode = ref(false);
+const selectedOccurrences = ref(new Map<string, Set<number>>());
+const lastClickedTimes = ref(new Map<string, number>());
+
 const frames = computed(() => props.state.frames ?? []);
 
 function getFrames() {
@@ -250,6 +254,116 @@ function toggleMergeMode() {
     if (!mergeMode.value) {
         mergeSelectedTimelineKeys.value = new Set();
     }
+    if (mergeMode.value) {
+        splitMode.value = false;
+        selectedOccurrences.value = new Map();
+    }
+}
+
+function toggleSplitMode() {
+    splitMode.value = !splitMode.value;
+    if (!splitMode.value) {
+        selectedOccurrences.value = new Map();
+        lastClickedTimes.value = new Map();
+    }
+    if (splitMode.value) {
+        mergeMode.value = false;
+        mergeSelectedTimelineKeys.value = new Set();
+    }
+}
+
+function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
+    const map = selectedOccurrences.value;
+    if (!map.has(rowKey)) {
+        map.set(rowKey, new Set());
+    }
+    const times = map.get(rowKey)!;
+
+    if (event.ctrlKey || event.metaKey) {
+        if (times.has(time)) {
+            times.delete(time);
+        } else {
+            times.add(time);
+        }
+    } else if (event.shiftKey) {
+        const last = lastClickedTimes.value.get(rowKey);
+        if (last != null) {
+            const row = timelineObjects.value.find(o => getTimelineKey(o) === rowKey);
+            if (row && row.type === 'tracked') {
+                const sortedTimes = row.occurences.map(([t]) => t).sort((a, b) => a - b);
+                const lastIdx = sortedTimes.indexOf(last);
+                const currIdx = sortedTimes.indexOf(time);
+                if (lastIdx !== -1 && currIdx !== -1) {
+                    const start = Math.min(lastIdx, currIdx);
+                    const end = Math.max(lastIdx, currIdx);
+                    for (let i = start; i <= end; i++) {
+                        times.add(sortedTimes[i]);
+                    }
+                }
+            }
+        } else {
+            times.add(time);
+        }
+    } else {
+        map.clear();
+        map.set(rowKey, new Set([time]));
+    }
+
+    if (!times.has(time)) {
+        lastClickedTimes.value.delete(rowKey);
+    } else {
+        lastClickedTimes.value.set(rowKey, time);
+    }
+
+    selectedOccurrences.value = new Map(map);
+}
+
+function hasSelectedOccurrences(): boolean {
+    for (const times of selectedOccurrences.value.values()) {
+        if (times.size > 0) return true;
+    }
+    return false;
+}
+
+function selectedOccurrenceCount(): number {
+    let count = 0;
+    for (const times of selectedOccurrences.value.values()) {
+        count += times.size;
+    }
+    return count;
+}
+
+function splitOut() {
+    const map = selectedOccurrences.value;
+    let anySplit = false;
+
+    for (const [rowKey, times] of map) {
+        if (times.size === 0) continue;
+        const trackId = parseInt(rowKey.replace('track-', ''), 10);
+        if (isNaN(trackId)) continue;
+
+        for (const frame of props.state.frames) {
+            if (!times.has(frame.timeSeconds)) continue;
+            for (const obj of frame.detectedObjects) {
+                if (obj.trackId === trackId) {
+                    obj.trackId = null;
+                    anySplit = true;
+                }
+            }
+        }
+    }
+
+    if (anySplit) {
+        selectedOccurrences.value = new Map();
+        lastClickedTimes.value = new Map();
+    }
+}
+
+function hasSelectedOnlyTracked(): boolean {
+    for (const rowKey of selectedOccurrences.value.keys()) {
+        if (!rowKey.startsWith('track-')) return false;
+    }
+    return selectedOccurrences.value.size > 0;
 }
 
 function seekTo(time: number) {
@@ -288,8 +402,13 @@ function setVideoVolume(volume: number) {
         <EditorToolbar
           :merge-mode="mergeMode"
           :merge-count="mergeSelectedTimelineKeys.size"
+          :split-mode="splitMode"
+          :selected-occurrence-count="selectedOccurrenceCount()"
+          :can-split="hasSelectedOnlyTracked() && hasSelectedOccurrences()"
           @toggle-merge-mode="toggleMergeMode"
           @merge="mergeSelected"
+          @toggle-split-mode="toggleSplitMode"
+          @split-out="splitOut"
         />
         <div class="top-layout">
             <div class="video-stage">
@@ -323,8 +442,11 @@ function setVideoVolume(volume: number) {
                     :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
                     @volume-change="setVideoVolume">
                     <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
-                        :video-duration="videoDuration" :mode="mergeMode ? 'merge' : 'select'"
-                        :merge-selected-keys="mergeSelectedTimelineKeys" />
+                        :video-duration="videoDuration"
+                        :mode="mergeMode ? 'merge' : splitMode ? 'split' : 'select'"
+                        :merge-selected-keys="mergeSelectedTimelineKeys"
+                        :selected-occurrences="selectedOccurrences"
+                        @toggle-occurrence="toggleOccurrence" />
                 </Timeline>
             </div>
         </div>
