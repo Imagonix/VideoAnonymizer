@@ -19,14 +19,17 @@ namespace VideoAnonymizer.ApiService.DataServices
             var modelAvailable = dbContext.SystemSettings.FirstOrDefault(x => x.Key.Equals(SystemSettingConstants.ModelAvailable));
             var isStandalone = configuration.GetSection("Standalone").Exists();
 
+            var isDocker = configuration.GetSection("Docker").Exists();
+
             var appState = new AppStateDto()
             {
                 IsStandalone = isStandalone,
+                IsDocker = isDocker,
                 ModelAvailable = modelAvailable is null ? false : modelAvailable.ReadBooleanValue(),
                 ObjectDetectionApiRunning = pythonApiReadyState.IsReady,
             };
 
-            if (isStandalone && pythonApiReadyState.IsReady)
+            if (pythonApiReadyState.IsReady)
             {
                 appState.CudaRuntime = await LoadCudaRuntimeStateAsync(cancellationToken);
             }
