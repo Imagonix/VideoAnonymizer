@@ -32,37 +32,25 @@ watch(
 </script>
 
 <template>
-  <label
-    class="mud-checkbox"
-    :class="{
-      'mud-checkbox--checked': checked,
-      'mud-checkbox--disabled': disabled,
-      'mud-checkbox--indeterminate': indeterminate
-    }"
-  >
-    <input
-      ref="inputRef"
-      v-model="model"
-      type="checkbox"
-      class="mud-checkbox__native"
-      :disabled="disabled"
-    />
+  <label class="mud-checkbox" :class="{
+    'mud-checkbox--checked': checked,
+    'mud-checkbox--disabled': disabled,
+    'mud-checkbox--indeterminate': indeterminate
+  }">
+    <input ref="inputRef" v-model="model" type="checkbox" class="mud-checkbox__native" :disabled="disabled" />
 
     <span class="mud-checkbox__box">
       <svg v-if="checked && !indeterminate" class="mud-checkbox__icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"
-          fill="currentColor"
-        />
+        <path d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" fill="currentColor" />
       </svg>
 
       <span v-else-if="indeterminate" class="mud-checkbox__indeterminate"></span>
     </span>
 
-    <span v-if="$slots.default" class="mud-checkbox__label">
-      <slot />
-    </span>
   </label>
+  <span v-if="$slots.default" class="mud-checkbox__label">
+    <slot />
+  </span>
 </template>
 
 <style scoped>

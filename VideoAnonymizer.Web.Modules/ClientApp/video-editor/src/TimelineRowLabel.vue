@@ -148,8 +148,6 @@ function onRowClick() {
 
 .label-text {
     cursor: text;
-    border-bottom: 1px dashed transparent;
-    transition: border-color 0.15s;
 }
 
 .label-text:hover {
