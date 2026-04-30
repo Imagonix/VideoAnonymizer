@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AnonymizationSettings, DetectedObjectDto, PreviewObject } from './types';
+import type { AnonymizationSettings, PreviewObject } from './types';
 import { colorManager } from './services/ColorManager';
 
 const props = defineProps<{

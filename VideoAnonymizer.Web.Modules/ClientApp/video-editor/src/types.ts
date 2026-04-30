@@ -55,3 +55,5 @@ export type PreviewObject = {
   detectedObject: DetectedObjectDto;
   activation: 'detected' | 'pre' | 'post';
 };
+
+export type EditorMode = 'select' | 'merge';

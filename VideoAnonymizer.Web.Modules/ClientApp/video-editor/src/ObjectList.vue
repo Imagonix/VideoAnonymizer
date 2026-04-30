@@ -6,7 +6,6 @@ import ColorDot from './ColorDot.vue';
 
 defineProps<{ objects: DetectedObjectDto[] }>();
 const emit = defineEmits<{ (e: 'toggle', key: string, checked: boolean): void }>();
-
 </script>
 
 <template>

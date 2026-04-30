@@ -5,6 +5,7 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
+import EditorToolbar from './EditorToolbar.vue';
 import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
@@ -23,6 +24,9 @@ const videoPlayerRef = ref<{
     setVolume: (volume: number) => void;
     togglePlayback: () => Promise<void>;
 } | null>(null);
+
+const mergeMode = ref(false);
+const mergeSelectedTimelineKeys = ref(new Set<string>());
 
 const frames = computed(() => props.state.frames ?? []);
 
@@ -167,6 +171,87 @@ function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
     }
 }
 
+function getTimelineKey(obj: TimelineObject): string {
+    if (obj.type === 'single') return `obj-${obj.detectedObj.id}`;
+    const tid = obj.occurences[0]?.[1].trackId;
+    return tid != null ? `track-${tid}` : `obj-${obj.occurences[0]?.[1].id}`;
+}
+
+function mergeToggle(key: string) {
+    const set = mergeSelectedTimelineKeys.value;
+    if (set.has(key)) {
+        set.delete(key);
+    } else {
+        set.add(key);
+    }
+    mergeSelectedTimelineKeys.value = new Set(set);
+}
+
+function mergeSelected() {
+    const keys = [...mergeSelectedTimelineKeys.value];
+    if (keys.length < 2) return;
+
+    const selectedTrackIds = new Set<number>();
+    const selectedObjIds = new Set<string>();
+
+    for (const obj of timelineObjects.value) {
+        const key = getTimelineKey(obj);
+        if (!keys.includes(key)) continue;
+        if (obj.type === 'single') {
+            selectedObjIds.add(obj.detectedObj.id);
+            if (obj.detectedObj.trackId != null) {
+                selectedTrackIds.add(obj.detectedObj.trackId);
+            }
+        } else {
+            const tid = obj.occurences[0]?.[1].trackId;
+            if (tid != null) selectedTrackIds.add(tid);
+        }
+    }
+
+    const targetTrackId = selectedTrackIds.size > 0
+        ? Math.min(...selectedTrackIds)
+        : frames.value.flatMap(f => f.detectedObjects)
+            .reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1;
+
+    const allTrackIdsToMerge = new Set([targetTrackId, ...selectedTrackIds]);
+
+    for (const frame of props.state.frames) {
+        for (const obj of frame.detectedObjects) {
+            if (selectedObjIds.has(obj.id)) {
+                obj.trackId = targetTrackId;
+            } else if (obj.trackId != null && allTrackIdsToMerge.has(obj.trackId)) {
+                obj.trackId = targetTrackId;
+            }
+        }
+    }
+
+    mergeSelectedTimelineKeys.value = new Set();
+    mergeMode.value = false;
+}
+
+function setTrackId(timelineObject: TimelineObject, trackId: number) {
+    if (timelineObject.type === 'single') {
+        timelineObject.detectedObj.trackId = trackId;
+        return;
+    }
+    const oldTrackId = timelineObject.occurences[0]?.[1].trackId;
+    if (oldTrackId == null) return;
+    for (const frame of props.state.frames) {
+        for (const obj of frame.detectedObjects) {
+            if (obj.trackId === oldTrackId) {
+                obj.trackId = trackId;
+            }
+        }
+    }
+}
+
+function toggleMergeMode() {
+    mergeMode.value = !mergeMode.value;
+    if (!mergeMode.value) {
+        mergeSelectedTimelineKeys.value = new Set();
+    }
+}
+
 function seekTo(time: number) {
     currentTime.value = time;
 }
@@ -200,6 +285,12 @@ function setVideoVolume(volume: number) {
 
 <template>
     <div class="video-editor" data-testid="video-editor">
+        <EditorToolbar
+          :merge-mode="mergeMode"
+          :merge-count="mergeSelectedTimelineKeys.size"
+          @toggle-merge-mode="toggleMergeMode"
+          @merge="mergeSelected"
+        />
         <div class="top-layout">
             <div class="video-stage">
                 <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
@@ -217,7 +308,15 @@ function setVideoVolume(volume: number) {
                 <div class="timeline-toolbar-spacer"></div>
                 <div class="timeline-header-spacer"></div>
                 <div class="timeline-overview-spacer"></div>
-                <TimelineRowLabel v-for="obj in timelineObjects" :timeline-object="obj" @toggle="toggleTrackedObject" />
+                <TimelineRowLabel
+                  v-for="obj in timelineObjects"
+                  :timeline-object="obj"
+                  :mode="mergeMode ? 'merge' : 'select'"
+                  :merge-selected-keys="mergeSelectedTimelineKeys"
+                  @toggle="toggleTrackedObject"
+                  @set-track-id="setTrackId"
+                  @merge-toggle="mergeToggle"
+                />
             </div>
             <div class="timeline-content">
                 <Timeline :duration="videoDuration" :currentTime="currentTime" :is-playing="isVideoPlaying"
@@ -240,7 +339,7 @@ function setVideoVolume(volume: number) {
     height: 100%;
     min-height: 0;
     overflow: hidden;
-    gap: 16px;
+    gap: 0;
 }
 
 .top-layout {
@@ -249,6 +348,7 @@ function setVideoVolume(volume: number) {
     gap: 16px;
     align-items: start;
     flex: 0 0 auto;
+    padding: 16px;
 }
 
 .video-stage {
