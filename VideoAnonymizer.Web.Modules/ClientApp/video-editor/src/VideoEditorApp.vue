@@ -33,6 +33,7 @@ const videoPlayerRef = ref<{
 const videoDimensions = computed(() => videoPlayerRef.value?.videoDimensions ?? null);
 const frames = computed(() => props.state.frames ?? []);
 const hoveredTimelineKey = ref<string | null>(null);
+const hoveredObjectKey = ref<string | null>(null);
 
 const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isOverlayOpen } = useEditorModes();
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
@@ -197,13 +198,15 @@ function addBox(x: number, y: number, width: number, height: number, className: 
                     :objects="visibleBlurPreviewObjects"
                     :anonymization-settings="state.anonymizationSettings"
                     :video-dimensions="videoDimensions"
-                    :highlighted-row-key="isSplit && splitSourceKey ? (hoveredTimelineKey ?? splitSourceKey) : hoveredTimelineKey"
+                    :highlighted-row-key="isMerge ? hoveredTimelineKey : isSplit ? (hoveredTimelineKey ?? splitSourceKey) : hoveredObjectKey"
                     :split-source-key="isSplit ? splitSourceKey : null"
                     :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()" />
             </div>
 
             <div class="right-panel">
-                <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
+                <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects"
+                  @toggle="toggleObject"
+                  @hover-row="hoveredObjectKey = $event" />
                 <EditorControls
                   :move-mode="isMove"
                   :resize-mode="isResize"
