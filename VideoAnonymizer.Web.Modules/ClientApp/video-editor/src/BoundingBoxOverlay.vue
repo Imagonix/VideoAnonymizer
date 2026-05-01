@@ -8,6 +8,7 @@ const props = defineProps<{
   anonymizationSettings: AnonymizationSettings;
   mode: EditorMode;
   videoDimensions: VideoDimensions | null;
+  highlightedRowKey: string | null;
 }>();
 
 const emit = defineEmits<{
@@ -43,6 +44,11 @@ function getBlurEllipseStyle(obj: PreviewObject) {
     borderColor: color,
     backgroundColor: color.replace('hsl(', 'hsla(').replace(')', `, ${fillAlpha})`)
   };
+}
+
+function getObjTimelineKey(obj: PreviewObject): string {
+  const d = obj.detectedObject;
+  return d.trackId != null ? `track-${d.trackId}` : `obj-${d.id}`;
 }
 
 function getBoxStyle(obj: PreviewObject) {
@@ -98,20 +104,25 @@ function onOverlayMouseLeave() {
   >
     <template v-for="obj in objects" :key="obj.detectedObject.id">
       <div
-        data-testid="blur-area-outline"
-        class="blur-area-outline"
-        :style="getBlurEllipseStyle(obj)"
-      />
-      <div
-        data-testid="bounding-box"
-        class="bbox"
-        :class="{
-          'bbox--draggable': mode === 'move' && obj.activation === 'detected',
-          'bbox--dragging': dragState?.id === obj.detectedObject.id
-        }"
-        :style="getBoxStyle(obj)"
-        @mousedown.prevent="onBoxMouseDown($event, obj)"
-      />
+        class="obj-group"
+        :class="{ 'obj-group--dimmed': highlightedRowKey != null && getObjTimelineKey(obj) !== highlightedRowKey }"
+      >
+        <div
+          data-testid="blur-area-outline"
+          class="blur-area-outline"
+          :style="getBlurEllipseStyle(obj)"
+        />
+        <div
+          data-testid="bounding-box"
+          class="bbox"
+          :class="{
+            'bbox--draggable': mode === 'move' && obj.activation === 'detected',
+            'bbox--dragging': dragState?.id === obj.detectedObject.id
+          }"
+          :style="getBoxStyle(obj)"
+          @mousedown.prevent="onBoxMouseDown($event, obj)"
+        />
+      </div>
     </template>
   </div>
 </template>
@@ -152,6 +163,14 @@ function onOverlayMouseLeave() {
   border-style: solid;
   border-color: var(--mud-palette-primary) !important;
   box-shadow: 0 0 0 2px var(--mud-palette-primary);
+}
+
+.obj-group {
+  transition: opacity 0.15s;
+}
+
+.obj-group--dimmed {
+  opacity: 0.6;
 }
 
 .blur-area-outline {

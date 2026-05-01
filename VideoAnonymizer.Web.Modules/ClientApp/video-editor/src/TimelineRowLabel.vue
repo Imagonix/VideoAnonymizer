@@ -15,6 +15,7 @@ const emit = defineEmits<{
     (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void;
     (e: 'set-track-id', timelineObject: TimelineObject, trackId: number): void;
     (e: 'merge-toggle', key: string): void;
+    (e: 'hover-row', key: string | null): void;
 }>();
 
 const isEditing = ref(false);
@@ -102,6 +103,8 @@ function onRowClick() {
       :class="{ 'label-container--merge-mode': mode === 'merge' }"
       :style="mergeHighlightStyle"
       @click="onRowClick"
+      @mouseenter="emit('hover-row', timelineKey)"
+      @mouseleave="emit('hover-row', null)"
     >
         <MudLikeCheckbox
           :checked="checked"

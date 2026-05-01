@@ -35,6 +35,7 @@ const mergeSelectedTimelineKeys = ref(new Set<string>());
 
 const splitMode = ref(false);
 const moveMode = ref(false);
+const hoveredTimelineKey = ref<string | null>(null);
 const selectedOccurrences = ref(new Map<string, Set<number>>());
 const lastClickedTimes = ref(new Map<string, number>());
 
@@ -450,6 +451,7 @@ function setVideoVolume(volume: number) {
                     :anonymization-settings="state.anonymizationSettings"
                     :mode="moveMode ? 'move' : 'select'"
                     :video-dimensions="videoDimensions"
+                    :highlighted-row-key="mergeMode ? hoveredTimelineKey : null"
                     @move-box="moveBox" />
             </div>
 
@@ -484,6 +486,7 @@ function setVideoVolume(volume: number) {
                   @toggle="toggleTrackedObject"
                   @set-track-id="setTrackId"
                   @merge-toggle="mergeToggle"
+                  @hover-row="hoveredTimelineKey = $event"
                 />
             </div>
             <div class="timeline-content">
@@ -495,7 +498,8 @@ function setVideoVolume(volume: number) {
                         :mode="mergeMode ? 'merge' : splitMode ? 'split' : 'select'"
                         :merge-selected-keys="mergeSelectedTimelineKeys"
                         :selected-occurrences="selectedOccurrences"
-                        @toggle-occurrence="toggleOccurrence" />
+                        @toggle-occurrence="toggleOccurrence"
+                        @hover-row="hoveredTimelineKey = $event" />
                 </Timeline>
             </div>
         </div>

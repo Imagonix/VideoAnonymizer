@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'toggle-occurrence', rowKey: string, time: number, event: MouseEvent): void;
+    (e: 'hover-row', key: string | null): void;
 }>();
 
 function toPercent(time: number) {
@@ -65,7 +66,11 @@ function onDotClick(time: number, event: MouseEvent) {
 }
 </script>
 <template>
-    <div class="timeline-row-wrapper">
+    <div
+      class="timeline-row-wrapper"
+      @mouseenter="emit('hover-row', timelineKey)"
+      @mouseleave="emit('hover-row', null)"
+    >
         <div class="timeline-row" :style="mergeHighlightStyle">
             <template v-if="props.timelineObject.type === 'single'">
                 <div class="dot" :style="{
