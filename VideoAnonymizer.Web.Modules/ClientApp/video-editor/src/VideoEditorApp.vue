@@ -277,7 +277,7 @@ function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
     if (!map.has(rowKey)) {
         map.set(rowKey, new Set());
     }
-    const times = map.get(rowKey)!;
+    let times = map.get(rowKey)!;
 
     if (event.ctrlKey || event.metaKey) {
         if (times.has(time)) {
@@ -307,6 +307,7 @@ function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
     } else {
         map.clear();
         map.set(rowKey, new Set([time]));
+        times = map.get(rowKey)!;
     }
 
     if (!times.has(time)) {
