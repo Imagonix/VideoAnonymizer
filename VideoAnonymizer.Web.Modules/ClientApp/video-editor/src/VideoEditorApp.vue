@@ -37,6 +37,7 @@ const mergeSelectedTimelineKeys = ref(new Set<string>());
 const splitMode = ref(false);
 const moveMode = ref(false);
 const resizeMode = ref(false);
+const addMode = ref(false);
 const hoveredTimelineKey = ref<string | null>(null);
 const selectedOccurrences = ref(new Map<string, Set<number>>());
 const lastClickedTimes = ref(new Map<string, number>());
@@ -325,6 +326,39 @@ function toggleResizeMode() {
 function onMoveOverlayDone() {
     moveMode.value = false;
     resizeMode.value = false;
+    addMode.value = false;
+}
+
+function toggleAddMode() {
+    addMode.value = !addMode.value;
+    if (addMode.value) {
+        moveMode.value = false;
+        resizeMode.value = false;
+        mergeMode.value = false;
+        splitMode.value = false;
+        mergeSelectedTimelineKeys.value = new Set();
+        selectedOccurrences.value = new Map();
+        lastClickedTimes.value = new Map();
+        splitSourceKey.value = null;
+    }
+}
+
+function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
+    if (!currentFrame.value) return;
+    const frame = currentFrame.value;
+    const resolvedTrackId = trackId === 'new'
+        ? frames.value.flatMap(f => f.detectedObjects).reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1
+        : trackId;
+    const dto: DetectedObjectDto = {
+        id: crypto.randomUUID(),
+        confidence: 1,
+        className: className || null,
+        selected: true,
+        trackId: resolvedTrackId,
+        x, y, width, height,
+        analyzedFrameId: frame.id,
+    };
+    frame.detectedObjects.push(dto);
 }
 
 function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
@@ -484,8 +518,10 @@ function setVideoVolume(volume: number) {
                   :can-split="hasSelectedOnlyTracked() && hasSelectedOccurrences()"
                   :split-count="selectedOccurrenceCount()"
                   :resize-mode="resizeMode"
+                  :add-mode="addMode"
                   @toggle-move-mode="toggleMoveMode"
                   @toggle-resize-mode="toggleResizeMode"
+                  @toggle-add-mode="toggleAddMode"
                   @toggle-merge-mode="toggleMergeMode"
                   @merge="mergeSelected"
                   @toggle-split-mode="toggleSplitMode"
@@ -529,13 +565,15 @@ function setVideoVolume(volume: number) {
         </div>
     </div>
     <DetailedView
-      v-if="(moveMode || resizeMode) && currentFrame"
+      v-if="(moveMode || resizeMode || addMode) && currentFrame"
       :frame="currentFrame"
+      :frames="frames"
       :video-ref="videoPlayerRef?.videoRef ?? null"
       :anonymization-settings="state.anonymizationSettings"
-      :mode="resizeMode ? 'resize' : 'move'"
+      :mode="addMode ? 'add' : resizeMode ? 'resize' : 'move'"
       @done="onMoveOverlayDone"
-      @mode-change="(m) => { moveMode = m === 'move'; resizeMode = m === 'resize'; }"
+      @mode-change="(m) => { moveMode = m === 'move'; resizeMode = m === 'resize'; addMode = m === 'add'; }"
+      @add-box="addBox"
     />
 </template>
 

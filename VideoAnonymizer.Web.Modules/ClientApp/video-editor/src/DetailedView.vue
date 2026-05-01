@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import type { DetectedObjectDto, AnalyzedFrameDto, AnonymizationSettings } from './types';
 import { colorManager } from './services/ColorManager';
 
@@ -7,12 +7,14 @@ const props = defineProps<{
     frame: AnalyzedFrameDto;
     videoRef: HTMLVideoElement | null;
     anonymizationSettings: AnonymizationSettings;
-    mode: 'move' | 'resize';
+    mode: 'move' | 'resize' | 'add';
+    frames: AnalyzedFrameDto[];
 }>();
 
 const emit = defineEmits<{
     (e: 'done'): void;
-    (e: 'mode-change', mode: 'move' | 'resize'): void;
+    (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
+    (e: 'add-box', x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number): void;
 }>();
 
 
@@ -27,6 +29,33 @@ const dragState = ref<{ id: string; startX: number; startY: number; origX: numbe
 const resizeState = ref<{ id: string; position: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number } | null>(null);
 
 const handlePositions = ['n', 's', 'w', 'e'] as const;
+
+const drawState = ref<{ startX: number; startY: number; curX: number; curY: number } | null>(null);
+const pendingLabel = ref<{ x: number; y: number; w: number; h: number } | null>(null);
+const labelClass = ref('face');
+const labelTrackId = ref<'new' | number>('new');
+const labelInputRef = ref<HTMLInputElement | null>(null);
+const existingTrackIds = computed(() => {
+    const ids = new Set<number>();
+    for (const f of props.frames) {
+        for (const o of f.detectedObjects) {
+            if (o.trackId != null) ids.add(o.trackId);
+        }
+    }
+    return [...ids].sort((a, b) => a - b);
+});
+
+watch(pendingLabel, async (v) => { if (v) { await nextTick(); labelInputRef.value?.focus(); } });
+
+const drawPreviewStyle = computed(() => {
+    if (!drawState.value) return null;
+    const d = drawState.value;
+    const px = Math.min(d.startX, d.curX);
+    const py = Math.min(d.startY, d.curY);
+    const pw = Math.abs(d.curX - d.startX);
+    const ph = Math.abs(d.curY - d.startY);
+    return { left: `${px}%`, top: `${py}%`, width: `${pw}%`, height: `${ph}%` };
+});
 
 onMounted(() => {
     const canvas = canvasRef.value;
@@ -113,9 +142,26 @@ function onResizeHandleDown(event: MouseEvent, obj: DetectedObjectDto, position:
     };
 }
 
+function onOverlayMouseDown(event: MouseEvent) {
+    if (props.mode !== 'add') return;
+    const rect = overlayRef.value?.getBoundingClientRect();
+    if (!rect) return;
+    const px = ((event.clientX - rect.left) / rect.width) * 100;
+    const py = ((event.clientY - rect.top) / rect.height) * 100;
+    drawState.value = { startX: px, startY: py, curX: px, curY: py };
+}
+
 function onOverlayMouseMove(event: MouseEvent) {
     const rect = overlayRef.value?.getBoundingClientRect();
     if (!rect) return;
+
+    if (drawState.value) {
+        const px = ((event.clientX - rect.left) / rect.width) * 100;
+        const py = ((event.clientY - rect.top) / rect.height) * 100;
+        drawState.value.curX = px;
+        drawState.value.curY = py;
+        return;
+    }
 
     if (resizeState.value) {
         const s = resizeState.value;
@@ -148,13 +194,41 @@ function onOverlayMouseMove(event: MouseEvent) {
 }
 
 function onOverlayMouseUp() {
+    if (drawState.value) {
+        const d = drawState.value;
+        const x = Math.min(d.startX, d.curX);
+        const y = Math.min(d.startY, d.curY);
+        const w = Math.abs(d.curX - d.startX);
+        const h = Math.abs(d.curY - d.startY);
+        drawState.value = null;
+        if (w > 0.5 && h > 0.5) {
+            pendingLabel.value = {
+                x: (x / 100) * videoWidth.value,
+                y: (y / 100) * videoHeight.value,
+                w: (w / 100) * videoWidth.value,
+                h: (h / 100) * videoHeight.value,
+            };
+        }
+        return;
+    }
     dragState.value = null;
     resizeState.value = null;
+}
+
+function confirmAdd(label: string) {
+    if (!pendingLabel.value) return;
+    const p = pendingLabel.value;
+    emit('add-box', Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.h), label || '', labelTrackId.value);
+    pendingLabel.value = null;
+}
+
+function cancelAdd() {
+    pendingLabel.value = null;
 }
 </script>
 
 <template>
-    <div class="move-overlay" @mousemove="onOverlayMouseMove" @mouseup="onOverlayMouseUp" @mouseleave="onOverlayMouseUp">
+        <div class="move-overlay" @mousedown="onOverlayMouseDown" @mousemove="onOverlayMouseMove" @mouseup="onOverlayMouseUp" @mouseleave="onOverlayMouseUp">
         <div class="move-modal">
             <div class="move-header">
                 <span class="move-title">Detailed View</span>
@@ -169,6 +243,11 @@ function onOverlayMouseUp() {
                       :class="{ active: mode === 'resize' }"
                       @click="emit('mode-change', 'resize')"
                     >Resize</button>
+                    <button
+                      class="mode-switch-btn"
+                      :class="{ active: mode === 'add' }"
+                      @click="emit('mode-change', 'add')"
+                    >Add</button>
                 </div>
                 <div class="move-actions">
                     <button class="close-btn" @click="close" title="Close">✕</button>
@@ -176,8 +255,8 @@ function onOverlayMouseUp() {
             </div>
             <div class="move-stage">
                 <div class="move-stage-inner" :style="{ aspectRatio: `${videoWidth} / ${videoHeight}` }">
-                <canvas ref="canvasRef" class="move-canvas" />
-                <div ref="overlayRef" class="move-boxes">
+                <canvas ref="canvasRef" class="move-canvas" :class="{ 'move-canvas--add': mode === 'add' }" />
+                <div ref="overlayRef" class="move-boxes" :class="{ 'move-boxes--add': mode === 'add' }">
                     <div
                       v-for="obj in frame.detectedObjects"
                       :key="obj.id"
@@ -207,7 +286,27 @@ function onOverlayMouseUp() {
                         />
                       </template>
                     </div>
+                    <div v-if="drawPreviewStyle" class="draw-preview" :style="drawPreviewStyle" />
                 </div>
+                </div>
+            </div>
+        </div>
+        <div v-if="pendingLabel" class="label-overlay" @mousedown.self="cancelAdd">
+            <div class="label-popup">
+                <select v-model="labelClass" class="label-input-field">
+                    <option value="face">Face</option>
+                    <option value="other">Other</option>
+                </select>
+                <div class="label-field-row">
+                    <span class="label-field-label">Track ID</span>
+                    <select v-model="labelTrackId" class="label-input-field">
+                        <option :value="'new'">New</option>
+                        <option v-for="id in existingTrackIds" :key="id" :value="id">Track {{ id }}</option>
+                    </select>
+                </div>
+                <div class="label-popup-actions">
+                    <button class="popup-btn" @click="cancelAdd">Cancel</button>
+                    <button class="popup-btn primary" @click="confirmAdd(labelClass)">Add</button>
                 </div>
             </div>
         </div>
@@ -382,5 +481,99 @@ function onOverlayMouseUp() {
 .resize-handle--n { cursor: ns-resize; }
 .resize-handle--s { cursor: ns-resize; }
 .resize-handle--w { cursor: ew-resize; }
+
+.draw-preview {
+    position: absolute;
+    border: 2px dashed var(--mud-palette-primary);
+    background: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
+    pointer-events: none;
+    z-index: 20;
+}
+
+.label-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.label-popup {
+    background: var(--mud-palette-surface);
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 220px;
+}
+
+.label-input-field {
+    background: var(--mud-palette-background);
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: var(--mud-palette-text-primary);
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.label-input-field:focus {
+    border-color: var(--mud-palette-primary);
+}
+
+.label-field-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.label-field-label {
+    font-size: 0.85rem;
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+}
+
+.label-field-row .label-input-field {
+    flex: 1;
+}
+
+.label-popup-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.popup-btn {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    background: transparent;
+    color: var(--mud-palette-text-primary);
+}
+
+.popup-btn.primary {
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-contrast-text);
+}
+
+.move-canvas--add {
+    cursor: crosshair;
+}
+
+.move-boxes--add .move-box {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+.move-boxes--add .move-blur {
+    opacity: 0.3;
+}
 .resize-handle--e { cursor: ew-resize; }
 </style>

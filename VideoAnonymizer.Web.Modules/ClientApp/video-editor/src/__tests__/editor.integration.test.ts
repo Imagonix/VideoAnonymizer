@@ -249,21 +249,13 @@ describe('VideoEditorApp integration', () => {
     describe('move', () => {
         it('opens overlay when Move is clicked', async () => {
             await clickButton(wrapper, 'Move');
-            expect(wrapper.text()).toContain('Adjust object positions');
-            expect(wrapper.text()).toContain('Done');
-            expect(wrapper.text()).toContain('Cancel');
+            expect(wrapper.text()).toContain('Detailed View');
         });
 
-        it('closes overlay on Cancel', async () => {
+        it('closes overlay on close button', async () => {
             await clickButton(wrapper, 'Move');
-            await clickButton(wrapper, 'Cancel');
-            expect(wrapper.text()).not.toContain('Adjust object positions');
-        });
-
-        it('closes overlay on Done', async () => {
-            await clickButton(wrapper, 'Move');
-            await clickButton(wrapper, 'Done');
-            expect(wrapper.text()).not.toContain('Adjust object positions');
+            await clickButton(wrapper, '✕');
+            expect(wrapper.text()).not.toContain('Detailed View');
         });
 
         it('returns updated coordinates via getFrames after moving in overlay', async () => {
