@@ -57,6 +57,28 @@ const drawPreviewStyle = computed(() => {
     return { left: `${px}%`, top: `${py}%`, width: `${pw}%`, height: `${ph}%` };
 });
 
+const drawBlurPreviewStyle = computed(() => {
+    if (!drawState.value) return null;
+    const d = drawState.value;
+    const px = Math.min(d.startX, d.curX);
+    const py = Math.min(d.startY, d.curY);
+    const pw = Math.abs(d.curX - d.startX);
+    const ph = Math.abs(d.curY - d.startY);
+    const scale = props.anonymizationSettings.blurSizePercent / 100;
+    const cx = px + pw / 2;
+    const cy = py + ph / 2;
+    const ew = pw * scale;
+    const eh = ph * scale;
+    return {
+        left: `${cx - ew / 2}%`,
+        top: `${cy - eh / 2}%`,
+        width: `${ew}%`,
+        height: `${eh}%`,
+        backgroundColor: 'color-mix(in srgb, var(--mud-palette-primary) 20%, transparent)',
+        borderRadius: '50%',
+    };
+});
+
 onMounted(() => {
     const canvas = canvasRef.value;
     const video = props.videoRef;
@@ -286,6 +308,7 @@ function cancelAdd() {
                         />
                       </template>
                     </div>
+                    <div v-if="drawBlurPreviewStyle" class="draw-blur-preview" :style="drawBlurPreviewStyle" />
                     <div v-if="drawPreviewStyle" class="draw-preview" :style="drawPreviewStyle" />
                 </div>
                 </div>
@@ -301,7 +324,7 @@ function cancelAdd() {
                     <span class="label-field-label">Track ID</span>
                     <select v-model="labelTrackId" class="label-input-field">
                         <option :value="'new'">New</option>
-                        <option v-for="id in existingTrackIds" :key="id" :value="id">Track {{ id }}</option>
+                        <option v-for="id in existingTrackIds" :key="id" :value="id">{{ id }}</option>
                     </select>
                 </div>
                 <div class="label-popup-actions">
@@ -488,6 +511,13 @@ function cancelAdd() {
     background: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
     pointer-events: none;
     z-index: 20;
+}
+
+.draw-blur-preview {
+    position: absolute;
+    border: none;
+    pointer-events: none;
+    z-index: 19;
 }
 
 .label-overlay {
