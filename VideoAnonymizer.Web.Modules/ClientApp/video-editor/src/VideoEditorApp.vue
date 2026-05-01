@@ -220,12 +220,18 @@ function mergeSelected() {
     const allTrackIdsToMerge = new Set([targetTrackId, ...selectedTrackIds]);
 
     for (const frame of props.state.frames) {
+        let frameHasTarget = frame.detectedObjects.some(o => o.trackId === targetTrackId);
+
         for (const obj of frame.detectedObjects) {
-            if (selectedObjIds.has(obj.id)) {
-                obj.trackId = targetTrackId;
-            } else if (obj.trackId != null && allTrackIdsToMerge.has(obj.trackId)) {
-                obj.trackId = targetTrackId;
-            }
+            const shouldMerge = selectedObjIds.has(obj.id) ||
+                (obj.trackId != null && allTrackIdsToMerge.has(obj.trackId));
+
+            if (!shouldMerge) continue;
+            if (obj.trackId === targetTrackId) continue;
+            if (frameHasTarget) continue;
+
+            obj.trackId = targetTrackId;
+            frameHasTarget = true;
         }
     }
 

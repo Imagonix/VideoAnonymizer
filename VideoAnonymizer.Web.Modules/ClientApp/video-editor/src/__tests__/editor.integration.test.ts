@@ -141,7 +141,7 @@ describe('VideoEditorApp integration', () => {
             await mergeBtn!.trigger('click');
 
             const trackIds = getTrackIds(wrapper);
-            expect(trackIds).toEqual([1]);
+            expect(trackIds).toEqual([1, 2]);
         });
 
         it('disables timeline row checkboxes in merge mode', async () => {
@@ -150,6 +150,20 @@ describe('VideoEditorApp integration', () => {
             for (const cb of labelCheckboxes) {
                 expect((cb.element as HTMLInputElement).disabled).toBe(true);
             }
+        });
+
+        it('does not create duplicate trackIds on the same frame', async () => {
+            expect(getTrackIds(wrapper)).toEqual([1, 2]);
+
+            await clickButton(wrapper, 'Merge');
+            const labels = wrapper.findAll('.label-container');
+            await labels[0].trigger('click');
+            await labels[1].trigger('click');
+            await getButton(wrapper, 'Merge 2')!.trigger('click');
+
+            const tracks = getObjTrackIds(wrapper, 'o1', 'o2');
+            expect(tracks[0]).toBe(1);
+            expect(tracks[1]).toBe(2);
         });
 
         it('exits merge mode after merging', async () => {
@@ -252,13 +266,9 @@ describe('VideoEditorApp integration', () => {
 
             const vm = wrapper.vm as any;
             const frames = vm.getFrames();
-            const trackIds = new Set<number>();
-            for (const f of frames) {
-                for (const o of f.detectedObjects) {
-                    if (o.trackId != null) trackIds.add(o.trackId);
-                }
-            }
-            expect(trackIds.size).toBe(1);
+
+            const tracksOnF1 = frames[0].detectedObjects.map((o: any) => o.trackId).sort();
+            expect(tracksOnF1).toEqual([1, 2]);
         });
     });
 });
