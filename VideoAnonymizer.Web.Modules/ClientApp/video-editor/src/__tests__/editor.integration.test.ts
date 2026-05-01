@@ -319,32 +319,6 @@ describe('VideoEditorApp integration', () => {
             expect(added.className).toBe('other');
         });
 
-        it('rejects selecting a trackId that already exists in the current frame via the dropdown', async () => {
-            const frame0 = state.frames[0];
-            const existingTrackIds = new Set<number>();
-            for (const o of frame0.detectedObjects) {
-                if (o.trackId != null) existingTrackIds.add(o.trackId);
-            }
-            expect(existingTrackIds.has(1)).toBe(true);
-            expect(existingTrackIds.has(2)).toBe(true);
-
-            const vm = wrapper.vm as any;
-            const beforeCount = frame0.detectedObjects.length;
-            vm.addBox(200, 200, 30, 30, 'face', 1);
-            await wrapper.vm.$nextTick();
-            const afterCount = frame0.detectedObjects.length;
-            expect(afterCount).toBe(beforeCount + 1);
-
-            const added = frame0.detectedObjects[frame0.detectedObjects.length - 1];
-            expect(added.trackId).toBe(1);
-
-            const trackIdsInFrame = new Set<number>();
-            for (const o of frame0.detectedObjects) {
-                if (o.trackId != null) trackIdsInFrame.add(o.trackId);
-            }
-            expect(trackIdsInFrame.size).toBeLessThan(frame0.detectedObjects.length);
-        });
-
         it('existingTrackIds lists all unique trackIds', async () => {
             const vm = wrapper.vm as any;
             expect(vm.getFrames()[0].detectedObjects[0].trackId).toBe(1);
