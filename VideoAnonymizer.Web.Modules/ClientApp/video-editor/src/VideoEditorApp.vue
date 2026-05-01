@@ -424,7 +424,12 @@ function setVideoVolume(volume: number) {
                           title="Select timeline rows to merge"
                         >
                             <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14">
-                                <path d="M17 7h2v2h-2V7zm0 4h2v2h-2v2h-2v2h-2v-2h-2v-2H7v-2H5v-2h2V7h2V5h2v2h2v2h2v2zm0 6h2v2h-2v-2zM3 3h2v2H3V3zm0 16h2v2H3v-2z" fill="currentColor"/>
+                                <circle cx="18" cy="12" r="2.5" fill="currentColor"/>
+                                <circle cx="8" cy="6" r="2.5" fill="currentColor"/>
+                                <circle cx="8" cy="18" r="2.5" fill="currentColor"/>
+                                <path d="M10.5 12h5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <path d="M8 8.5v-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                                <path d="M8 15.5v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
                             </svg>
                             <span>{{ mergeMode ? 'Exit Merge' : 'Merge' }}</span>
                         </button>
