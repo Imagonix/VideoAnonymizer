@@ -5,7 +5,6 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
-import EditorToolbar from './EditorToolbar.vue';
 import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
@@ -404,17 +403,6 @@ function setVideoVolume(volume: number) {
 
 <template>
     <div class="video-editor" data-testid="video-editor">
-        <EditorToolbar
-          :merge-mode="mergeMode"
-          :merge-count="mergeSelectedTimelineKeys.size"
-          :split-mode="splitMode"
-          :selected-occurrence-count="selectedOccurrenceCount()"
-          :can-split="hasSelectedOnlyTracked() && hasSelectedOccurrences()"
-          @toggle-merge-mode="toggleMergeMode"
-          @merge="mergeSelected"
-          @toggle-split-mode="toggleSplitMode"
-          @split-out="splitOut"
-        />
         <div class="top-layout">
             <div class="video-stage">
                 <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
@@ -424,7 +412,52 @@ function setVideoVolume(volume: number) {
                     :objects="visibleBlurPreviewObjects" :anonymization-settings="state.anonymizationSettings" />
             </div>
 
-            <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
+            <div class="right-panel">
+                <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
+                <div class="right-divider"></div>
+                <div class="editor-controls">
+                    <div class="control-row">
+                        <button
+                          class="control-btn"
+                          :class="{ active: mergeMode }"
+                          @click="toggleMergeMode"
+                          title="Select timeline rows to merge"
+                        >
+                            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14">
+                                <path d="M17 7h2v2h-2V7zm0 4h2v2h-2v2h-2v2h-2v-2h-2v-2H7v-2H5v-2h2V7h2V5h2v2h2v2h2v2zm0 6h2v2h-2v-2zM3 3h2v2H3V3zm0 16h2v2H3v-2z" fill="currentColor"/>
+                            </svg>
+                            <span>{{ mergeMode ? 'Exit Merge' : 'Merge' }}</span>
+                        </button>
+                        <button
+                          v-if="mergeMode && mergeSelectedTimelineKeys.size >= 2"
+                          class="action-btn"
+                          @click="mergeSelected"
+                        >
+                            Merge {{ mergeSelectedTimelineKeys.size }}
+                        </button>
+                    </div>
+                    <div class="control-row">
+                        <button
+                          class="control-btn"
+                          :class="{ active: splitMode }"
+                          @click="toggleSplitMode"
+                          title="Click dots to split out of their tracked row"
+                        >
+                            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14">
+                                <path d="M10 4h4v4h-4V4zM4 16h4v4H4v-4zm0-8h4v4H4V8zm16 8h4v4h-4v-4zm-8 0h4v4h-4v-4z" fill="currentColor"/>
+                            </svg>
+                            <span>{{ splitMode ? 'Exit Split' : 'Split' }}</span>
+                        </button>
+                        <button
+                          v-if="splitMode && hasSelectedOnlyTracked() && hasSelectedOccurrences() && selectedOccurrenceCount() >= 1"
+                          class="action-btn"
+                          @click="splitOut"
+                        >
+                            Split out {{ selectedOccurrenceCount() }}
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="timeline-wrapper">
@@ -472,11 +505,91 @@ function setVideoVolume(volume: number) {
 
 .top-layout {
     display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    grid-template-columns: max-content auto;
     gap: 16px;
     align-items: start;
     flex: 0 0 auto;
     padding: 16px;
+}
+
+.right-panel {
+    display: flex;
+    flex-direction: row;
+    gap: 0;
+    align-items: flex-start;
+}
+
+.object-list {
+    width: 120px;
+    flex-shrink: 0;
+}
+
+.right-divider {
+    width: 1px;
+    align-self: stretch;
+    background: var(--mud-palette-lines-default);
+    margin: 0 12px;
+}
+
+.editor-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 140px;
+}
+
+.control-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.control-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--mud-palette-text-secondary);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background 0.15s, color 0.15s;
+}
+
+.control-btn:hover {
+    background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
+    color: var(--mud-palette-text-primary);
+}
+
+.control-btn.active {
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-contrast-text);
+    border-color: var(--mud-palette-primary);
+}
+
+.btn-icon {
+    display: block;
+}
+
+.action-btn {
+    padding: 5px 12px;
+    border: none;
+    border-radius: 6px;
+    background: var(--mud-palette-secondary);
+    color: var(--mud-palette-secondary-contrast-text);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+
+.action-btn:hover {
+    opacity: 0.85;
 }
 
 .video-stage {
