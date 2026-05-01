@@ -35,6 +35,14 @@ const pendingLabel = ref<{ x: number; y: number; w: number; h: number } | null>(
 const labelClass = ref('face');
 const labelTrackId = ref<'new' | number>('new');
 const labelInputRef = ref<HTMLInputElement | null>(null);
+const trackIdsInCurrentFrame = computed(() => {
+    const ids = new Set<number>();
+    for (const o of props.frame.detectedObjects) {
+        if (o.trackId != null) ids.add(o.trackId);
+    }
+    return ids;
+});
+
 const existingTrackIds = computed(() => {
     const ids = new Set<number>();
     for (const f of props.frames) {
@@ -324,7 +332,9 @@ function cancelAdd() {
                     <span class="label-field-label">Track ID</span>
                     <select v-model="labelTrackId" class="label-input-field">
                         <option :value="'new'">New</option>
-                        <option v-for="id in existingTrackIds" :key="id" :value="id">{{ id }}</option>
+                        <option v-for="id in existingTrackIds" :key="id" :value="id"
+                          :disabled="trackIdsInCurrentFrame.has(id)"
+                        >{{ id }}{{ trackIdsInCurrentFrame.has(id) ? ' (already in this frame)' : '' }}</option>
                     </select>
                 </div>
                 <div class="label-popup-actions">
