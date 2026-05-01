@@ -5,6 +5,7 @@ import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
+import EditorControls from './EditorControls.vue';
 import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
@@ -414,54 +415,17 @@ function setVideoVolume(volume: number) {
 
             <div class="right-panel">
                 <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
-                <div class="right-divider"></div>
-                <div class="editor-controls">
-                    <div class="control-row">
-                        <button
-                          class="control-btn"
-                          :class="{ active: mergeMode }"
-                          @click="toggleMergeMode"
-                          title="Select timeline rows to merge"
-                        >
-                            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14">
-                                <circle cx="18" cy="12" r="2.5" fill="currentColor"/>
-                                <circle cx="8" cy="6" r="2.5" fill="currentColor"/>
-                                <circle cx="8" cy="18" r="2.5" fill="currentColor"/>
-                                <path d="M10.5 12h5.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                <path d="M8 8.5v-2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                                <path d="M8 15.5v2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                            </svg>
-                            <span>{{ mergeMode ? 'Exit Merge' : 'Merge' }}</span>
-                        </button>
-                        <button
-                          v-if="mergeMode && mergeSelectedTimelineKeys.size >= 2"
-                          class="action-btn"
-                          @click="mergeSelected"
-                        >
-                            Merge {{ mergeSelectedTimelineKeys.size }}
-                        </button>
-                    </div>
-                    <div class="control-row">
-                        <button
-                          class="control-btn"
-                          :class="{ active: splitMode }"
-                          @click="toggleSplitMode"
-                          title="Click dots to split out of their tracked row"
-                        >
-                            <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14">
-                                <path d="M10 4h4v4h-4V4zM4 16h4v4H4v-4zm0-8h4v4H4V8zm16 8h4v4h-4v-4zm-8 0h4v4h-4v-4z" fill="currentColor"/>
-                            </svg>
-                            <span>{{ splitMode ? 'Exit Split' : 'Split' }}</span>
-                        </button>
-                        <button
-                          v-if="splitMode && hasSelectedOnlyTracked() && hasSelectedOccurrences() && selectedOccurrenceCount() >= 1"
-                          class="action-btn"
-                          @click="splitOut"
-                        >
-                            Split out {{ selectedOccurrenceCount() }}
-                        </button>
-                    </div>
-                </div>
+                <EditorControls
+                  :merge-mode="mergeMode"
+                  :merge-count="mergeSelectedTimelineKeys.size"
+                  :split-mode="splitMode"
+                  :can-split="hasSelectedOnlyTracked() && hasSelectedOccurrences()"
+                  :split-count="selectedOccurrenceCount()"
+                  @toggle-merge-mode="toggleMergeMode"
+                  @merge="mergeSelected"
+                  @toggle-split-mode="toggleSplitMode"
+                  @split-out="splitOut"
+                />
             </div>
         </div>
 
@@ -527,74 +491,6 @@ function setVideoVolume(volume: number) {
 .object-list {
     width: 120px;
     flex-shrink: 0;
-}
-
-.right-divider {
-    width: 1px;
-    align-self: stretch;
-    background: var(--mud-palette-lines-default);
-    margin: 0 12px;
-}
-
-.editor-controls {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 140px;
-}
-
-.control-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.control-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 12px;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 8px;
-    background: transparent;
-    color: var(--mud-palette-text-secondary);
-    cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 500;
-    white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
-}
-
-.control-btn:hover {
-    background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
-    color: var(--mud-palette-text-primary);
-}
-
-.control-btn.active {
-    background: var(--mud-palette-primary);
-    color: var(--mud-palette-primary-contrast-text);
-    border-color: var(--mud-palette-primary);
-}
-
-.btn-icon {
-    display: block;
-}
-
-.action-btn {
-    padding: 5px 12px;
-    border: none;
-    border-radius: 6px;
-    background: var(--mud-palette-secondary);
-    color: var(--mud-palette-secondary-contrast-text);
-    cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 500;
-    white-space: nowrap;
-    transition: opacity 0.15s;
-}
-
-.action-btn:hover {
-    opacity: 0.85;
 }
 
 .video-stage {
