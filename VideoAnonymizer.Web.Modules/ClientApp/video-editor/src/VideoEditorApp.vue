@@ -133,27 +133,32 @@ const visibleBlurPreviewObjects = computed(() => {
         seen.add(key);
         result.push({ detectedObject: obj, activation: 'detected' });
     }
-    if (!moveMode.value) for (const frame of frames.value) {
-        const delta = current.timeSeconds - frame.timeSeconds;
+    if (!moveMode.value) {
+        const orderedFrames =  [...frames.value].sort((a, b) =>
+            Math.abs(a.timeSeconds - current.timeSeconds) - Math.abs(b.timeSeconds - current.timeSeconds)
+        );
+        for (const frame of orderedFrames) {
+            const delta = current.timeSeconds - frame.timeSeconds;
 
-        if (Math.abs(delta) > bufferSeconds) continue;
+            if (Math.abs(delta) > bufferSeconds) continue;
 
-        for (const obj of frame.detectedObjects) {
-            if (!obj.selected) continue;
+            for (const obj of frame.detectedObjects) {
+                if (!obj.selected) continue;
 
-            const key = buildObjectKey(obj);
-            if (seen.has(key)) continue;
+                const key = buildObjectKey(obj);
+                if (seen.has(key)) continue;
 
-            seen.add(key);
+                seen.add(key);
 
-            let activation: PreviewObject['activation'];
-            if (delta < 0) {
-                activation = 'pre';
-            } else {
-                activation = 'post';
+                let activation: PreviewObject['activation'];
+                if (delta < 0) {
+                    activation = 'pre';
+                } else {
+                    activation = 'post';
+                }
+
+                result.push({ detectedObject: obj, activation });
             }
-
-            result.push({ detectedObject: obj, activation });
         }
     }
 
