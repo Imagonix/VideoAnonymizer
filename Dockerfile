@@ -4,6 +4,7 @@ COPY VideoAnonymizer.Web.Modules/ClientApp/video-editor/package.json \
      VideoAnonymizer.Web.Modules/ClientApp/video-editor/package-lock.json ./
 RUN npm ci
 COPY VideoAnonymizer.Web.Modules/ClientApp/video-editor/ ./
+RUN npm test
 RUN npm run build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS opencvsharp-bridge

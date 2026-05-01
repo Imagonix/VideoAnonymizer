@@ -64,6 +64,7 @@ jobs:
         working-directory: VideoAnonymizer.Web.Modules/ClientApp/video-editor
         run: |
           npm ci
+          npm test
           npm run build
 
       - name: Restore .NET solution
