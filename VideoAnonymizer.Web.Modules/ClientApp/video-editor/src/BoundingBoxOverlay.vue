@@ -9,6 +9,8 @@ const props = defineProps<{
   mode: EditorMode;
   videoDimensions: VideoDimensions | null;
   highlightedRowKey: string | null;
+  splitSourceKey: string | null;
+  alwaysShowKeys: Set<string>;
 }>();
 
 const emit = defineEmits<{
@@ -44,6 +46,16 @@ function getBlurEllipseStyle(obj: PreviewObject) {
     borderColor: color,
     backgroundColor: color.replace('hsl(', 'hsla(').replace(')', `, ${fillAlpha})`)
   };
+}
+
+function shouldDim(key: string): boolean {
+  const hl = props.highlightedRowKey;
+  const alwaysShow = props.alwaysShowKeys;
+  if (hl == null && alwaysShow.size === 0) return false;
+  if (alwaysShow.has(key)) return false;
+  if (key === hl) return false;
+  if (key === props.splitSourceKey) return false;
+  return true;
 }
 
 function getObjTimelineKey(obj: PreviewObject): string {
@@ -105,7 +117,9 @@ function onOverlayMouseLeave() {
     <template v-for="obj in objects" :key="obj.detectedObject.id">
       <div
         class="obj-group"
-        :class="{ 'obj-group--dimmed': highlightedRowKey != null && getObjTimelineKey(obj) !== highlightedRowKey }"
+        :class="{
+          'obj-group--dimmed': shouldDim(getObjTimelineKey(obj))
+        }"
       >
         <div
           data-testid="blur-area-outline"

@@ -38,6 +38,7 @@ const moveMode = ref(false);
 const hoveredTimelineKey = ref<string | null>(null);
 const selectedOccurrences = ref(new Map<string, Set<number>>());
 const lastClickedTimes = ref(new Map<string, number>());
+const splitSourceKey = ref<string | null>(null);
 
 const frames = computed(() => props.state.frames ?? []);
 
@@ -279,6 +280,7 @@ function toggleSplitMode() {
     if (!splitMode.value) {
         selectedOccurrences.value = new Map();
         lastClickedTimes.value = new Map();
+        splitSourceKey.value = null;
     }
     if (splitMode.value) {
         mergeMode.value = false;
@@ -295,6 +297,7 @@ function toggleMoveMode() {
         mergeSelectedTimelineKeys.value = new Set();
         selectedOccurrences.value = new Map();
         lastClickedTimes.value = new Map();
+        splitSourceKey.value = null;
     }
 }
 
@@ -345,6 +348,7 @@ function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
         map.clear();
         map.set(rowKey, new Set([time]));
         times = map.get(rowKey)!;
+        splitSourceKey.value = rowKey;
     }
 
     if (!times.has(time)) {
@@ -451,7 +455,9 @@ function setVideoVolume(volume: number) {
                     :anonymization-settings="state.anonymizationSettings"
                     :mode="moveMode ? 'move' : 'select'"
                     :video-dimensions="videoDimensions"
-                    :highlighted-row-key="mergeMode ? hoveredTimelineKey : null"
+                    :highlighted-row-key="mergeMode ? hoveredTimelineKey : splitMode && splitSourceKey ? (hoveredTimelineKey ?? splitSourceKey) : splitMode ? hoveredTimelineKey : null"
+                    :split-source-key="splitMode ? splitSourceKey : null"
+                    :always-show-keys="mergeMode && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
                     @move-box="moveBox" />
             </div>
 

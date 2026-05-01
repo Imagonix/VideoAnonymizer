@@ -67,7 +67,7 @@ function mountEditor() {
                 },
                 BoundingBoxOverlay: {
                     template: '<div class="mock-overlay" />',
-                    props: ['objects', 'anonymizationSettings', 'mode', 'videoDimensions', 'highlightedRowKey'],
+                    props: ['objects', 'anonymizationSettings', 'mode', 'videoDimensions', 'highlightedRowKey', 'splitSourceKey', 'alwaysShowKeys'],
                 },
             },
         },
