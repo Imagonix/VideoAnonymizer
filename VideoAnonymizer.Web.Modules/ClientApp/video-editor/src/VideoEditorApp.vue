@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import type { VideoDimensions } from './types';
 import VideoPlayer from './VideoPlayer.vue';
 import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
@@ -23,12 +24,17 @@ const videoVolume = ref(1);
 const videoPlayerRef = ref<{
     setVolume: (volume: number) => void;
     togglePlayback: () => Promise<void>;
+    videoRef: HTMLVideoElement | null;
+    videoDimensions: VideoDimensions | null;
 } | null>(null);
+
+const videoDimensions = computed(() => videoPlayerRef.value?.videoDimensions ?? null);
 
 const mergeMode = ref(false);
 const mergeSelectedTimelineKeys = ref(new Set<string>());
 
 const splitMode = ref(false);
+const moveMode = ref(false);
 const selectedOccurrences = ref(new Map<string, Set<number>>());
 const lastClickedTimes = ref(new Map<string, number>());
 
@@ -262,6 +268,7 @@ function toggleMergeMode() {
     }
     if (mergeMode.value) {
         splitMode.value = false;
+        moveMode.value = false;
         selectedOccurrences.value = new Map();
     }
 }
@@ -274,7 +281,30 @@ function toggleSplitMode() {
     }
     if (splitMode.value) {
         mergeMode.value = false;
+        moveMode.value = false;
         mergeSelectedTimelineKeys.value = new Set();
+    }
+}
+
+function toggleMoveMode() {
+    moveMode.value = !moveMode.value;
+    if (moveMode.value) {
+        mergeMode.value = false;
+        splitMode.value = false;
+        mergeSelectedTimelineKeys.value = new Set();
+        selectedOccurrences.value = new Map();
+        lastClickedTimes.value = new Map();
+    }
+}
+
+function moveBox(id: string, x: number, y: number) {
+    for (const frame of props.state.frames) {
+        for (const obj of frame.detectedObjects) {
+            if (obj.id === id) {
+                obj.x = x;
+                obj.y = y;
+            }
+        }
     }
 }
 
@@ -416,17 +446,23 @@ function setVideoVolume(volume: number) {
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded"
                     @play-state-change="onVideoPlayStateChange" @volume-change="onVideoVolumeChange" />
                 <BoundingBoxOverlay v-if="currentFrame && visibleBlurPreviewObjects.length > 0"
-                    :objects="visibleBlurPreviewObjects" :anonymization-settings="state.anonymizationSettings" />
+                    :objects="visibleBlurPreviewObjects"
+                    :anonymization-settings="state.anonymizationSettings"
+                    :mode="moveMode ? 'move' : 'select'"
+                    :video-dimensions="videoDimensions"
+                    @move-box="moveBox" />
             </div>
 
             <div class="right-panel">
                 <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects" @toggle="toggleObject" />
                 <EditorControls
+                  :move-mode="moveMode"
                   :merge-mode="mergeMode"
                   :merge-count="mergeSelectedTimelineKeys.size"
                   :split-mode="splitMode"
                   :can-split="hasSelectedOnlyTracked() && hasSelectedOccurrences()"
                   :split-count="selectedOccurrenceCount()"
+                  @toggle-move-mode="toggleMoveMode"
                   @toggle-merge-mode="toggleMergeMode"
                   @merge="mergeSelected"
                   @toggle-split-mode="toggleSplitMode"

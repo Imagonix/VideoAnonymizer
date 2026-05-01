@@ -1,5 +1,6 @@
 <script setup lang="ts">
 defineProps<{
+    moveMode: boolean;
     mergeMode: boolean;
     mergeCount: number;
     splitMode: boolean;
@@ -7,6 +8,7 @@ defineProps<{
     splitCount: number;
 }>();
 const emit = defineEmits<{
+    (e: 'toggle-move-mode'): void;
     (e: 'toggle-merge-mode'): void;
     (e: 'merge'): void;
     (e: 'toggle-split-mode'): void;
@@ -17,6 +19,19 @@ const emit = defineEmits<{
 <template>
     <div class="right-divider"></div>
     <div class="editor-controls">
+        <div class="control-row">
+            <button
+              class="control-btn"
+              :class="{ active: moveMode }"
+              @click="emit('toggle-move-mode')"
+              title="Drag bounding boxes to reposition them"
+            >
+                <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14">
+                    <path d="M12 2l-4 4h3v3h-3v-3l-4 4 4 4v-3h3v3h-3l4 4 4-4h-3v-3h3v3l4-4-4-4v3h-3v-3h3l-4-4z" fill="currentColor"/>
+                </svg>
+                <span>{{ moveMode ? 'Exit Move' : 'Move' }}</span>
+            </button>
+        </div>
         <div class="control-row">
             <button
               class="control-btn"

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
 
 const props = defineProps<{
   videoSourceUrl: string;
@@ -32,6 +32,17 @@ const emit = defineEmits<{
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const isPlaying = ref(false);
+
+const videoDimensions = computed(() => {
+  const el = videoRef.value;
+  if (!el || !el.videoWidth) return null;
+  return {
+    videoWidth: el.videoWidth,
+    videoHeight: el.videoHeight,
+    displayWidth: el.offsetWidth,
+    displayHeight: el.offsetHeight
+  };
+});
 
 function onLoaded() {
   if (videoRef.value) emit('loaded', videoRef.value.duration);
@@ -84,7 +95,9 @@ watch(() => props.currentTime, (t) => {
 
 defineExpose({
   setVolume,
-  togglePlayback
+  togglePlayback,
+  videoRef,
+  videoDimensions
 });
 </script>
 
