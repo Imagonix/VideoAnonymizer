@@ -489,6 +489,7 @@ function setVideoVolume(volume: number) {
                   :timeline-object="obj"
                   :mode="mergeMode ? 'merge' : 'select'"
                   :merge-selected-keys="mergeSelectedTimelineKeys"
+                  :hovered-timeline-key="hoveredTimelineKey"
                   @toggle="toggleTrackedObject"
                   @set-track-id="setTrackId"
                   @merge-toggle="mergeToggle"
@@ -504,7 +505,9 @@ function setVideoVolume(volume: number) {
                         :mode="mergeMode ? 'merge' : splitMode ? 'split' : 'select'"
                         :merge-selected-keys="mergeSelectedTimelineKeys"
                         :selected-occurrences="selectedOccurrences"
+                        :hovered-timeline-key="hoveredTimelineKey"
                         @toggle-occurrence="toggleOccurrence"
+                        @merge-toggle="mergeToggle"
                         @hover-row="hoveredTimelineKey = $event" />
                 </Timeline>
             </div>
