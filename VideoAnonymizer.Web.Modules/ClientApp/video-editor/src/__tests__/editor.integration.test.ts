@@ -246,6 +246,49 @@ describe('VideoEditorApp integration', () => {
         });
     });
 
+    describe('move', () => {
+        it('toggles move mode on and off', async () => {
+            expect(getButton(wrapper, 'Move')).toBeTruthy();
+            await clickButton(wrapper, 'Move');
+            expect(wrapper.text()).toContain('Exit Move');
+            await clickButton(wrapper, 'Exit Move');
+            expect(wrapper.text()).toContain('Move');
+        });
+
+        it('deactivates merge mode when move is activated', async () => {
+            await clickButton(wrapper, 'Merge');
+            expect(wrapper.text()).toContain('Exit Merge');
+            await clickButton(wrapper, 'Move');
+            expect(wrapper.text()).not.toContain('Exit Merge');
+            expect(wrapper.text()).toContain('Exit Move');
+        });
+
+        it('deactivates move mode when merge is activated', async () => {
+            await clickButton(wrapper, 'Move');
+            expect(wrapper.text()).toContain('Exit Move');
+            await clickButton(wrapper, 'Merge');
+            expect(wrapper.text()).not.toContain('Exit Move');
+            expect(wrapper.text()).toContain('Exit Merge');
+        });
+
+        it('returns updated coordinates via getFrames after moving', async () => {
+            await clickButton(wrapper, 'Move');
+            const frames = state.frames;
+            const obj = frames[0].detectedObjects[0];
+            const origX = obj.x;
+            const origY = obj.y;
+
+            obj.x = origX + 50;
+            obj.y = 200;
+
+            const vm = wrapper.vm as any;
+            const result = vm.getFrames();
+            const moved = result[0].detectedObjects[0];
+            expect(moved.x).toBe(origX + 50);
+            expect(moved.y).toBe(200);
+        });
+    });
+
     describe('getFrames', () => {
         it('returns deep-cloned state with mutations applied', () => {
             const vm = wrapper.vm as any;

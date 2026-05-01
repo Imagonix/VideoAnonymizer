@@ -129,7 +129,7 @@ const visibleBlurPreviewObjects = computed(() => {
         seen.add(key);
         result.push({ detectedObject: obj, activation: 'detected' });
     }
-    for (const frame of frames.value) {
+    if (!moveMode.value) for (const frame of frames.value) {
         const delta = current.timeSeconds - frame.timeSeconds;
 
         if (Math.abs(delta) > bufferSeconds) continue;
