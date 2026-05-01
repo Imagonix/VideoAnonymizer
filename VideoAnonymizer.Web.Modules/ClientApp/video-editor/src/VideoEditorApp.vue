@@ -513,6 +513,7 @@ function setVideoVolume(volume: number) {
       v-if="moveMode && currentFrame"
       :frame="currentFrame"
       :video-ref="videoPlayerRef?.videoRef ?? null"
+      :anonymization-settings="state.anonymizationSettings"
       @done="onMoveOverlayDone"
       @cancel="onMoveOverlayCancel"
     />

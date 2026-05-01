@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import type { DetectedObjectDto, AnalyzedFrameDto } from './types';
+import type { DetectedObjectDto, AnalyzedFrameDto, AnonymizationSettings } from './types';
 import { colorManager } from './services/ColorManager';
 
 const props = defineProps<{
     frame: AnalyzedFrameDto;
     videoRef: HTMLVideoElement | null;
+    anonymizationSettings: AnonymizationSettings;
 }>();
 
 const emit = defineEmits<{
@@ -55,6 +56,23 @@ function cancel() {
 
 function done() {
     emit('done');
+}
+
+function getBlurPct(obj: DetectedObjectDto) {
+    const scale = props.anonymizationSettings.blurSizePercent / 100;
+    const cx = (obj.x + obj.width / 2) / videoWidth.value * 100;
+    const cy = (obj.y + obj.height / 2) / videoHeight.value * 100;
+    const ew = (obj.width * scale) / videoWidth.value * 100;
+    const eh = (obj.height * scale) / videoHeight.value * 100;
+    const color = colorManager.getColor(obj);
+    const fill = color.replace('hsl(', 'hsla(').replace(')', ', 0.3)');
+    return {
+        left: `${cx - ew / 2}%`,
+        top: `${cy - eh / 2}%`,
+        width: `${ew}%`,
+        height: `${eh}%`,
+        backgroundColor: fill,
+    };
 }
 
 function getBoxPct(obj: DetectedObjectDto) {
@@ -115,6 +133,12 @@ function onOverlayMouseUp() {
                     <div
                       v-for="obj in frame.detectedObjects"
                       :key="obj.id"
+                      class="move-blur"
+                      :style="getBlurPct(obj)"
+                    />
+                    <div
+                      v-for="obj in frame.detectedObjects"
+                      :key="obj.id + '-box'"
                       class="move-box"
                       :class="{ 'move-box--dragging': dragState?.id === obj.id }"
                       :style="getBoxPct(obj)"
@@ -219,6 +243,14 @@ function onOverlayMouseUp() {
 .move-boxes {
     position: absolute;
     inset: 0;
+    pointer-events: none;
+}
+
+.move-blur {
+    position: absolute;
+    border: none;
+    border-radius: 50%;
+    box-sizing: border-box;
     pointer-events: none;
 }
 
