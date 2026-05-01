@@ -1,34 +1,30 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
-import type { AnonymizationSettings, PreviewObject, EditorMode, VideoDimensions } from './types';
+import type { AnonymizationSettings, PreviewObject, VideoDimensions } from './types';
 import { colorManager } from './services/ColorManager';
 
 const props = defineProps<{
   objects: PreviewObject[];
   anonymizationSettings: AnonymizationSettings;
-  mode: EditorMode;
   videoDimensions: VideoDimensions | null;
   highlightedRowKey: string | null;
   splitSourceKey: string | null;
   alwaysShowKeys: Set<string>;
 }>();
 
-const emit = defineEmits<{
-  (e: 'move-box', id: string, x: number, y: number): void;
-}>();
+function getObjTimelineKey(obj: PreviewObject): string {
+  const d = obj.detectedObject;
+  return d.trackId != null ? `track-${d.trackId}` : `obj-${d.id}`;
+}
 
-const overlayRef = ref<HTMLDivElement | null>(null);
-const dragState = ref<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
-
-const scaleX = computed(() => {
-  if (!props.videoDimensions) return 1;
-  return props.videoDimensions.videoWidth / props.videoDimensions.displayWidth;
-});
-
-const scaleY = computed(() => {
-  if (!props.videoDimensions) return 1;
-  return props.videoDimensions.videoHeight / props.videoDimensions.displayHeight;
-});
+function shouldDim(key: string): boolean {
+  const hl = props.highlightedRowKey;
+  const alwaysShow = props.alwaysShowKeys;
+  if (hl == null && alwaysShow.size === 0) return false;
+  if (alwaysShow.has(key)) return false;
+  if (key === hl) return false;
+  if (key === props.splitSourceKey) return false;
+  return true;
+}
 
 function getBlurEllipseStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
@@ -48,21 +44,6 @@ function getBlurEllipseStyle(obj: PreviewObject) {
   };
 }
 
-function shouldDim(key: string): boolean {
-  const hl = props.highlightedRowKey;
-  const alwaysShow = props.alwaysShowKeys;
-  if (hl == null && alwaysShow.size === 0) return false;
-  if (alwaysShow.has(key)) return false;
-  if (key === hl) return false;
-  if (key === props.splitSourceKey) return false;
-  return true;
-}
-
-function getObjTimelineKey(obj: PreviewObject): string {
-  const d = obj.detectedObject;
-  return d.trackId != null ? `track-${d.trackId}` : `obj-${d.id}`;
-}
-
 function getBoxStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
   return {
@@ -74,52 +55,14 @@ function getBoxStyle(obj: PreviewObject) {
     opacity: obj.activation === 'detected' ? 1 : 0.4
   };
 }
-
-function onBoxMouseDown(event: MouseEvent, obj: PreviewObject) {
-  if (props.mode !== 'move' || obj.activation !== 'detected') return;
-  const rect = overlayRef.value?.getBoundingClientRect();
-  if (!rect) return;
-  dragState.value = {
-    id: obj.detectedObject.id,
-    startX: event.clientX,
-    startY: event.clientY,
-    origX: obj.detectedObject.x,
-    origY: obj.detectedObject.y
-  };
-}
-
-function onOverlayMouseMove(event: MouseEvent) {
-  if (!dragState.value) return;
-  const d = dragState.value;
-  const dx = (event.clientX - d.startX) * scaleX.value;
-  const dy = (event.clientY - d.startY) * scaleY.value;
-  emit('move-box', d.id, Math.max(0, Math.round(d.origX + dx)), Math.max(0, Math.round(d.origY + dy)));
-}
-
-function onOverlayMouseUp() {
-  dragState.value = null;
-}
-
-function onOverlayMouseLeave() {
-  dragState.value = null;
-}
 </script>
 
 <template>
-  <div
-    ref="overlayRef"
-    class="overlay"
-    :class="{ 'overlay--move': mode === 'move' }"
-    @mousemove="onOverlayMouseMove"
-    @mouseup="onOverlayMouseUp"
-    @mouseleave="onOverlayMouseLeave"
-  >
+  <div class="overlay">
     <template v-for="obj in objects" :key="obj.detectedObject.id">
       <div
         class="obj-group"
-        :class="{
-          'obj-group--dimmed': shouldDim(getObjTimelineKey(obj))
-        }"
+        :class="{ 'obj-group--dimmed': shouldDim(getObjTimelineKey(obj)) }"
       >
         <div
           data-testid="blur-area-outline"
@@ -129,12 +72,7 @@ function onOverlayMouseLeave() {
         <div
           data-testid="bounding-box"
           class="bbox"
-          :class="{
-            'bbox--draggable': mode === 'move' && obj.activation === 'detected',
-            'bbox--dragging': dragState?.id === obj.detectedObject.id
-          }"
           :style="getBoxStyle(obj)"
-          @mousedown.prevent="onBoxMouseDown($event, obj)"
         />
       </div>
     </template>
@@ -148,43 +86,18 @@ function onOverlayMouseLeave() {
   pointer-events: none;
 }
 
-.overlay--move {
-  pointer-events: auto;
-  cursor: grab;
+.obj-group {
+  transition: opacity 0.15s;
 }
 
-.overlay--move:active {
-  cursor: grabbing;
+.obj-group--dimmed {
+  opacity: 0.4;
 }
 
 .bbox {
   position: absolute;
   border: 2px dashed;
   box-sizing: border-box;
-  transition: box-shadow 0.1s;
-}
-
-.bbox--draggable {
-  cursor: move;
-  pointer-events: auto;
-}
-
-.bbox--draggable:hover {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
-}
-
-.bbox--dragging {
-  border-style: solid;
-  border-color: var(--mud-palette-primary) !important;
-  box-shadow: 0 0 0 2px var(--mud-palette-primary);
-}
-
-.obj-group {
-  transition: opacity 0.15s;
-}
-
-.obj-group--dimmed {
-  opacity: 0.6;
 }
 
 .blur-area-outline {

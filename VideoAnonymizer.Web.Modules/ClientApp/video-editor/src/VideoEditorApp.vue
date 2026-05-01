@@ -7,6 +7,7 @@ import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
 import EditorControls from './EditorControls.vue';
+import MoveFrameOverlay from './MoveFrameOverlay.vue';
 import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
@@ -301,15 +302,12 @@ function toggleMoveMode() {
     }
 }
 
-function moveBox(id: string, x: number, y: number) {
-    for (const frame of props.state.frames) {
-        for (const obj of frame.detectedObjects) {
-            if (obj.id === id) {
-                obj.x = x;
-                obj.y = y;
-            }
-        }
-    }
+function onMoveOverlayDone() {
+    moveMode.value = false;
+}
+
+function onMoveOverlayCancel() {
+    moveMode.value = false;
 }
 
 function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
@@ -453,12 +451,10 @@ function setVideoVolume(volume: number) {
                 <BoundingBoxOverlay v-if="currentFrame && visibleBlurPreviewObjects.length > 0"
                     :objects="visibleBlurPreviewObjects"
                     :anonymization-settings="state.anonymizationSettings"
-                    :mode="moveMode ? 'move' : 'select'"
                     :video-dimensions="videoDimensions"
                     :highlighted-row-key="splitMode && splitSourceKey ? (hoveredTimelineKey ?? splitSourceKey) : hoveredTimelineKey"
                     :split-source-key="splitMode ? splitSourceKey : null"
-                    :always-show-keys="mergeMode && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
-                    @move-box="moveBox" />
+                    :always-show-keys="mergeMode && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()" />
             </div>
 
             <div class="right-panel">
@@ -513,6 +509,13 @@ function setVideoVolume(volume: number) {
             </div>
         </div>
     </div>
+    <MoveFrameOverlay
+      v-if="moveMode && currentFrame"
+      :frame="currentFrame"
+      :video-ref="videoPlayerRef?.videoRef ?? null"
+      @done="onMoveOverlayDone"
+      @cancel="onMoveOverlayCancel"
+    />
 </template>
 
 <style scoped>

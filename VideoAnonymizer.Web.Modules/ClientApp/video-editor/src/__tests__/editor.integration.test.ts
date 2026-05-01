@@ -67,7 +67,7 @@ function mountEditor() {
                 },
                 BoundingBoxOverlay: {
                     template: '<div class="mock-overlay" />',
-                    props: ['objects', 'anonymizationSettings', 'mode', 'videoDimensions', 'highlightedRowKey', 'splitSourceKey', 'alwaysShowKeys'],
+                    props: ['objects', 'anonymizationSettings', 'videoDimensions', 'highlightedRowKey', 'splitSourceKey', 'alwaysShowKeys'],
                 },
             },
         },
@@ -247,31 +247,26 @@ describe('VideoEditorApp integration', () => {
     });
 
     describe('move', () => {
-        it('toggles move mode on and off', async () => {
-            expect(getButton(wrapper, 'Move')).toBeTruthy();
+        it('opens overlay when Move is clicked', async () => {
             await clickButton(wrapper, 'Move');
-            expect(wrapper.text()).toContain('Exit Move');
-            await clickButton(wrapper, 'Exit Move');
-            expect(wrapper.text()).toContain('Move');
+            expect(wrapper.text()).toContain('Adjust object positions');
+            expect(wrapper.text()).toContain('Done');
+            expect(wrapper.text()).toContain('Cancel');
         });
 
-        it('deactivates merge mode when move is activated', async () => {
-            await clickButton(wrapper, 'Merge');
-            expect(wrapper.text()).toContain('Exit Merge');
+        it('closes overlay on Cancel', async () => {
             await clickButton(wrapper, 'Move');
-            expect(wrapper.text()).not.toContain('Exit Merge');
-            expect(wrapper.text()).toContain('Exit Move');
+            await clickButton(wrapper, 'Cancel');
+            expect(wrapper.text()).not.toContain('Adjust object positions');
         });
 
-        it('deactivates move mode when merge is activated', async () => {
+        it('closes overlay on Done', async () => {
             await clickButton(wrapper, 'Move');
-            expect(wrapper.text()).toContain('Exit Move');
-            await clickButton(wrapper, 'Merge');
-            expect(wrapper.text()).not.toContain('Exit Move');
-            expect(wrapper.text()).toContain('Exit Merge');
+            await clickButton(wrapper, 'Done');
+            expect(wrapper.text()).not.toContain('Adjust object positions');
         });
 
-        it('returns updated coordinates via getFrames after moving', async () => {
+        it('returns updated coordinates via getFrames after moving in overlay', async () => {
             await clickButton(wrapper, 'Move');
             const frames = state.frames;
             const obj = frames[0].detectedObjects[0];
