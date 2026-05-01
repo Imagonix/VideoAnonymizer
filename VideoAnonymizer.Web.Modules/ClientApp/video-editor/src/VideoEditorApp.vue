@@ -451,6 +451,7 @@ function splitOut() {
     if (anySplit) {
         selectedOccurrences.value = new Map();
         lastClickedTimes.value = new Map();
+        splitMode.value = false;
     }
 }
 
