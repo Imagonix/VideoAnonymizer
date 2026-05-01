@@ -7,12 +7,16 @@ const props = defineProps<{
     frame: AnalyzedFrameDto;
     videoRef: HTMLVideoElement | null;
     anonymizationSettings: AnonymizationSettings;
+    mode: 'move' | 'resize';
 }>();
 
 const emit = defineEmits<{
     (e: 'done'): void;
     (e: 'cancel'): void;
+    (e: 'mode-change', mode: 'move' | 'resize'): void;
 }>();
+
+
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const overlayRef = ref<HTMLDivElement | null>(null);
@@ -20,12 +24,15 @@ const overlayRef = ref<HTMLDivElement | null>(null);
 const videoWidth = computed(() => props.videoRef?.videoWidth ?? 640);
 const videoHeight = computed(() => props.videoRef?.videoHeight ?? 480);
 
-const originalPositions = new Map<string, { x: number; y: number }>();
+const originalPositions = new Map<string, { x: number; y: number; width: number; height: number }>();
 for (const obj of props.frame.detectedObjects) {
-    originalPositions.set(obj.id, { x: obj.x, y: obj.y });
+    originalPositions.set(obj.id, { x: obj.x, y: obj.y, width: obj.width, height: obj.height });
 }
 
 const dragState = ref<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+const resizeState = ref<{ id: string; position: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number } | null>(null);
+
+const handlePositions = ['n', 's', 'w', 'e'] as const;
 
 onMounted(() => {
     const canvas = canvasRef.value;
@@ -49,7 +56,7 @@ onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
 function cancel() {
     for (const obj of props.frame.detectedObjects) {
         const orig = originalPositions.get(obj.id);
-        if (orig) { obj.x = orig.x; obj.y = orig.y; }
+        if (orig) { obj.x = orig.x; obj.y = orig.y; obj.width = orig.width; obj.height = orig.height; }
     }
     emit('cancel');
 }
@@ -85,6 +92,20 @@ function getBoxPct(obj: DetectedObjectDto) {
     };
 }
 
+function getEdgeHandleStyle(obj: DetectedObjectDto, position: string) {
+    const px = (obj.x / videoWidth.value) * 100;
+    const py = (obj.y / videoHeight.value) * 100;
+    const pw = (obj.width / videoWidth.value) * 100;
+    const ph = (obj.height / videoHeight.value) * 100;
+    if (position === 'n') return { left: `${px}%`, top: `calc(${py}% - 3px)`, width: `${pw}%`, height: '6px' };
+    if (position === 's') return { left: `${px}%`, top: `calc(${py + ph}% - 3px)`, width: `${pw}%`, height: '6px' };
+    if (position === 'w') return { left: `calc(${px}% - 3px)`, top: `${py}%`, width: '6px', height: `${ph}%` };
+    if (position === 'e') return { left: `calc(${px + pw}% - 3px)`, top: `${py}%`, width: '6px', height: `${ph}%` };
+    return {};
+}
+
+const activeBoxId = ref<string | null>(null);
+
 function onBoxMouseDown(event: MouseEvent, obj: DetectedObjectDto) {
     const rect = overlayRef.value?.getBoundingClientRect();
     if (!rect) return;
@@ -97,10 +118,41 @@ function onBoxMouseDown(event: MouseEvent, obj: DetectedObjectDto) {
     };
 }
 
-function onOverlayMouseMove(event: MouseEvent) {
-    if (!dragState.value) return;
+function onResizeHandleDown(event: MouseEvent, obj: DetectedObjectDto, position: string) {
+    event.stopPropagation();
     const rect = overlayRef.value?.getBoundingClientRect();
     if (!rect) return;
+    resizeState.value = {
+        id: obj.id, position,
+        startX: event.clientX, startY: event.clientY,
+        origX: obj.x, origY: obj.y, origW: obj.width, origH: obj.height,
+    };
+}
+
+function onOverlayMouseMove(event: MouseEvent) {
+    const rect = overlayRef.value?.getBoundingClientRect();
+    if (!rect) return;
+
+    if (resizeState.value) {
+        const s = resizeState.value;
+        const dx = ((event.clientX - s.startX) / rect.width) * videoWidth.value;
+        const dy = ((event.clientY - s.startY) / rect.height) * videoHeight.value;
+        const obj = props.frame.detectedObjects.find(o => o.id === s.id);
+        if (!obj) return;
+        let { origX, origY, origW, origH } = s;
+        const pos = s.position;
+        if (pos.includes('e')) origW = Math.max(10, s.origW + dx);
+        if (pos.includes('w')) { origX = s.origX + dx; origW = Math.max(10, s.origW - dx); }
+        if (pos.includes('s')) origH = Math.max(10, s.origH + dy);
+        if (pos.includes('n')) { origY = s.origY + dy; origH = Math.max(10, s.origH - dy); }
+        obj.x = Math.max(0, Math.round(origX));
+        obj.y = Math.max(0, Math.round(origY));
+        obj.width = Math.round(origW);
+        obj.height = Math.round(origH);
+        return;
+    }
+
+    if (!dragState.value) return;
     const d = dragState.value;
     const dx = ((event.clientX - d.startX) / rect.width) * videoWidth.value;
     const dy = ((event.clientY - d.startY) / rect.height) * videoHeight.value;
@@ -113,6 +165,7 @@ function onOverlayMouseMove(event: MouseEvent) {
 
 function onOverlayMouseUp() {
     dragState.value = null;
+    resizeState.value = null;
 }
 </script>
 
@@ -120,7 +173,19 @@ function onOverlayMouseUp() {
     <div class="move-overlay" @mousemove="onOverlayMouseMove" @mouseup="onOverlayMouseUp" @mouseleave="onOverlayMouseUp">
         <div class="move-modal">
             <div class="move-header">
-                <span class="move-title">Adjust object positions</span>
+                <span class="move-title">Detailed View</span>
+                <div class="move-mode-switch">
+                    <button
+                      class="mode-switch-btn"
+                      :class="{ active: mode === 'move' }"
+                      @click="emit('mode-change', 'move')"
+                    >Move</button>
+                    <button
+                      class="mode-switch-btn"
+                      :class="{ active: mode === 'resize' }"
+                      @click="emit('mode-change', 'resize')"
+                    >Resize</button>
+                </div>
                 <div class="move-actions">
                     <button class="move-btn cancel-btn" @click="cancel">Cancel</button>
                     <button class="move-btn done-btn" @click="done">Done</button>
@@ -133,17 +198,32 @@ function onOverlayMouseUp() {
                     <div
                       v-for="obj in frame.detectedObjects"
                       :key="obj.id"
-                      class="move-blur"
-                      :style="getBlurPct(obj)"
-                    />
-                    <div
-                      v-for="obj in frame.detectedObjects"
-                      :key="obj.id + '-box'"
-                      class="move-box"
-                      :class="{ 'move-box--dragging': dragState?.id === obj.id }"
-                      :style="getBoxPct(obj)"
-                      @mousedown.prevent="onBoxMouseDown($event, obj)"
-                    />
+                      class="move-obj-group"
+                    >
+                      <div class="move-blur" :style="getBlurPct(obj)" />
+                      <div
+                        class="move-box"
+                        :class="{
+                          'move-box--dragging': dragState?.id === obj.id,
+                          'move-box--active': activeBoxId === obj.id,
+                          'move-box--no-move': mode !== 'move'
+                        }"
+                        :style="getBoxPct(obj)"
+                        @mouseenter="activeBoxId = obj.id"
+                        @mouseleave="activeBoxId = null"
+                        @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
+                      />
+                      <template v-if="mode === 'resize'">
+                        <div
+                          v-for="pos in handlePositions"
+                          :key="pos"
+                          class="resize-handle"
+                          :class="`resize-handle--${pos}`"
+                          :style="getEdgeHandleStyle(obj, pos)"
+                          @mousedown.prevent="onResizeHandleDown($event, obj, pos)"
+                        />
+                      </template>
+                    </div>
                 </div>
                 </div>
             </div>
@@ -173,10 +253,42 @@ function onOverlayMouseUp() {
 .move-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 12px;
     padding: 12px 16px;
     border-bottom: 1px solid var(--mud-palette-lines-default);
     flex-shrink: 0;
+}
+
+.move-mode-switch {
+    display: inline-flex;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--mud-palette-lines-default);
+}
+
+.mode-switch-btn {
+    padding: 4px 14px;
+    border: none;
+    background: transparent;
+    color: var(--mud-palette-text-secondary);
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 500;
+    transition: background 0.15s, color 0.15s;
+}
+
+.mode-switch-btn:not(:last-child) {
+    border-right: 1px solid var(--mud-palette-lines-default);
+}
+
+.mode-switch-btn.active {
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-contrast-text);
+}
+
+.mode-switch-btn:hover:not(.active) {
+    background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
+    color: var(--mud-palette-text-primary);
 }
 
 .move-title {
@@ -246,6 +358,12 @@ function onOverlayMouseUp() {
     pointer-events: none;
 }
 
+.move-obj-group {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
 .move-blur {
     position: absolute;
     border: none;
@@ -263,7 +381,7 @@ function onOverlayMouseUp() {
     transition: box-shadow 0.1s;
 }
 
-.move-box:hover {
+.move-box--active {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--mud-palette-primary) 30%, transparent);
 }
 
@@ -272,4 +390,24 @@ function onOverlayMouseUp() {
     border-color: var(--mud-palette-primary) !important;
     box-shadow: 0 0 0 2px var(--mud-palette-primary);
 }
+
+.move-box--no-move {
+    cursor: default;
+}
+
+.resize-handle {
+    position: absolute;
+    z-index: 5;
+    pointer-events: auto;
+    background: color-mix(in srgb, var(--mud-palette-primary) 15%, transparent);
+    transition: background 0.15s;
+}
+
+.resize-handle:hover {
+    background: color-mix(in srgb, var(--mud-palette-primary) 35%, transparent);
+}
+.resize-handle--n { cursor: ns-resize; }
+.resize-handle--s { cursor: ns-resize; }
+.resize-handle--w { cursor: ew-resize; }
+.resize-handle--e { cursor: ew-resize; }
 </style>

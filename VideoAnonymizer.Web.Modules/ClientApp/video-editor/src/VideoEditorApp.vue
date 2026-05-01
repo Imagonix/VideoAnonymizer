@@ -7,7 +7,7 @@ import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
 import EditorControls from './EditorControls.vue';
-import MoveFrameOverlay from './MoveFrameOverlay.vue';
+import DetailedView from './DetailedView.vue';
 import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
@@ -36,6 +36,7 @@ const mergeSelectedTimelineKeys = ref(new Set<string>());
 
 const splitMode = ref(false);
 const moveMode = ref(false);
+const resizeMode = ref(false);
 const hoveredTimelineKey = ref<string | null>(null);
 const selectedOccurrences = ref(new Map<string, Set<number>>());
 const lastClickedTimes = ref(new Map<string, number>());
@@ -293,6 +294,20 @@ function toggleSplitMode() {
 function toggleMoveMode() {
     moveMode.value = !moveMode.value;
     if (moveMode.value) {
+        resizeMode.value = false;
+        mergeMode.value = false;
+        splitMode.value = false;
+        mergeSelectedTimelineKeys.value = new Set();
+        selectedOccurrences.value = new Map();
+        lastClickedTimes.value = new Map();
+        splitSourceKey.value = null;
+    }
+}
+
+function toggleResizeMode() {
+    resizeMode.value = !resizeMode.value;
+    if (resizeMode.value) {
+        moveMode.value = false;
         mergeMode.value = false;
         splitMode.value = false;
         mergeSelectedTimelineKeys.value = new Set();
@@ -304,10 +319,12 @@ function toggleMoveMode() {
 
 function onMoveOverlayDone() {
     moveMode.value = false;
+    resizeMode.value = false;
 }
 
 function onMoveOverlayCancel() {
     moveMode.value = false;
+    resizeMode.value = false;
 }
 
 function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
@@ -466,7 +483,9 @@ function setVideoVolume(volume: number) {
                   :split-mode="splitMode"
                   :can-split="hasSelectedOnlyTracked() && hasSelectedOccurrences()"
                   :split-count="selectedOccurrenceCount()"
+                  :resize-mode="resizeMode"
                   @toggle-move-mode="toggleMoveMode"
+                  @toggle-resize-mode="toggleResizeMode"
                   @toggle-merge-mode="toggleMergeMode"
                   @merge="mergeSelected"
                   @toggle-split-mode="toggleSplitMode"
@@ -509,13 +528,15 @@ function setVideoVolume(volume: number) {
             </div>
         </div>
     </div>
-    <MoveFrameOverlay
-      v-if="moveMode && currentFrame"
+    <DetailedView
+      v-if="(moveMode || resizeMode) && currentFrame"
       :frame="currentFrame"
       :video-ref="videoPlayerRef?.videoRef ?? null"
       :anonymization-settings="state.anonymizationSettings"
+      :mode="resizeMode ? 'resize' : 'move'"
       @done="onMoveOverlayDone"
       @cancel="onMoveOverlayCancel"
+      @mode-change="(m) => { moveMode = m === 'move'; resizeMode = m === 'resize'; }"
     />
 </template>
 
