@@ -12,7 +12,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     (e: 'done'): void;
-    (e: 'cancel'): void;
     (e: 'mode-change', mode: 'move' | 'resize'): void;
 }>();
 
@@ -23,11 +22,6 @@ const overlayRef = ref<HTMLDivElement | null>(null);
 
 const videoWidth = computed(() => props.videoRef?.videoWidth ?? 640);
 const videoHeight = computed(() => props.videoRef?.videoHeight ?? 480);
-
-const originalPositions = new Map<string, { x: number; y: number; width: number; height: number }>();
-for (const obj of props.frame.detectedObjects) {
-    originalPositions.set(obj.id, { x: obj.x, y: obj.y, width: obj.width, height: obj.height });
-}
 
 const dragState = ref<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
 const resizeState = ref<{ id: string; position: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number } | null>(null);
@@ -47,23 +41,13 @@ onMounted(() => {
     try { ctx.drawImage(video, 0, 0, videoWidth.value, videoHeight.value); } catch {}
 });
 
-function handleKeyDown(e: KeyboardEvent) {
-    if (e.key === 'Escape') cancel();
-}
-onMounted(() => window.addEventListener('keydown', handleKeyDown));
-onUnmounted(() => window.removeEventListener('keydown', handleKeyDown));
+onMounted(() => {});
+onUnmounted(() => {});
 
-function cancel() {
-    for (const obj of props.frame.detectedObjects) {
-        const orig = originalPositions.get(obj.id);
-        if (orig) { obj.x = orig.x; obj.y = orig.y; obj.width = orig.width; obj.height = orig.height; }
-    }
-    emit('cancel');
-}
-
-function done() {
+function close() {
     emit('done');
 }
+
 
 function getBlurPct(obj: DetectedObjectDto) {
     const scale = props.anonymizationSettings.blurSizePercent / 100;
@@ -187,8 +171,7 @@ function onOverlayMouseUp() {
                     >Resize</button>
                 </div>
                 <div class="move-actions">
-                    <button class="move-btn cancel-btn" @click="cancel">Cancel</button>
-                    <button class="move-btn done-btn" @click="done">Done</button>
+                    <button class="close-btn" @click="close" title="Close">✕</button>
                 </div>
             </div>
             <div class="move-stage">
@@ -298,35 +281,25 @@ function onOverlayMouseUp() {
 }
 
 .move-actions {
-    display: flex;
-    gap: 8px;
+    margin-left: auto;
 }
 
-.move-btn {
-    padding: 6px 16px;
+.close-btn {
+    width: 28px;
+    height: 28px;
     border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-}
-
-.cancel-btn {
+    border-radius: 4px;
     background: transparent;
     color: var(--mud-palette-text-secondary);
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.cancel-btn:hover {
-    background: color-mix(in srgb, var(--mud-palette-action-default) 10%, transparent);
-}
-
-.done-btn {
-    background: var(--mud-palette-primary);
-    color: var(--mud-palette-primary-contrast-text);
-}
-
-.done-btn:hover {
-    opacity: 0.9;
+.close-btn:hover {
+    background: color-mix(in srgb, var(--mud-palette-action-default) 15%, transparent);
 }
 
 .move-stage {

@@ -322,11 +322,6 @@ function onMoveOverlayDone() {
     resizeMode.value = false;
 }
 
-function onMoveOverlayCancel() {
-    moveMode.value = false;
-    resizeMode.value = false;
-}
-
 function toggleOccurrence(rowKey: string, time: number, event: MouseEvent) {
     const map = selectedOccurrences.value;
     if (!map.has(rowKey)) {
@@ -535,7 +530,6 @@ function setVideoVolume(volume: number) {
       :anonymization-settings="state.anonymizationSettings"
       :mode="resizeMode ? 'resize' : 'move'"
       @done="onMoveOverlayDone"
-      @cancel="onMoveOverlayCancel"
       @mode-change="(m) => { moveMode = m === 'move'; resizeMode = m === 'resize'; }"
     />
 </template>
