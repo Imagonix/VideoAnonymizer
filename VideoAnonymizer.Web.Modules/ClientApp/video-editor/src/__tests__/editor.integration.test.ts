@@ -310,12 +310,12 @@ describe('VideoEditorApp integration', () => {
             expect(added.trackId).toBe(3);
         });
 
-        it('adds a new object with existing trackId', async () => {
+        it('falls back to a new trackId when adding with a track already used in the frame', async () => {
             const vm = wrapper.vm as any;
             vm.addBox(100, 100, 50, 50, 'other', 1);
             await wrapper.vm.$nextTick();
             const added = state.frames[0].detectedObjects[state.frames[0].detectedObjects.length - 1];
-            expect(added.trackId).toBe(1);
+            expect(added.trackId).toBe(3);
             expect(added.className).toBe('other');
         });
 

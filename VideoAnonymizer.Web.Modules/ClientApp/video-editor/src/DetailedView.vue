@@ -24,6 +24,7 @@ const overlayRef = ref<HTMLDivElement | null>(null);
 
 const videoWidth = computed(() => props.videoRef?.videoWidth ?? 640);
 const videoHeight = computed(() => props.videoRef?.videoHeight ?? 480);
+const minBoxSize = 10;
 
 const dragState = ref<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
 const resizeState = ref<{ id: string; position: string; startX: number; startY: number; origX: number; origY: number; origW: number; origH: number } | null>(null);
@@ -107,6 +108,37 @@ function close() {
     emit('done');
 }
 
+function clamp(value: number, min: number, max: number) {
+    return Math.min(Math.max(value, min), max);
+}
+
+function clampPct(value: number) {
+    return clamp(value, 0, 100);
+}
+
+function clampBox(x: number, y: number, width: number, height: number) {
+    const maxWidth = Math.max(1, videoWidth.value);
+    const maxHeight = Math.max(1, videoHeight.value);
+    const minWidth = Math.min(minBoxSize, maxWidth);
+    const minHeight = Math.min(minBoxSize, maxHeight);
+    const nextWidth = clamp(Math.round(width), minWidth, maxWidth);
+    const nextHeight = clamp(Math.round(height), minHeight, maxHeight);
+
+    return {
+        x: clamp(Math.round(x), 0, maxWidth - nextWidth),
+        y: clamp(Math.round(y), 0, maxHeight - nextHeight),
+        width: nextWidth,
+        height: nextHeight,
+    };
+}
+
+function applyClampedBox(obj: DetectedObjectDto, x: number, y: number, width: number, height: number) {
+    const box = clampBox(x, y, width, height);
+    obj.x = box.x;
+    obj.y = box.y;
+    obj.width = box.width;
+    obj.height = box.height;
+}
 
 function getBlurPct(obj: DetectedObjectDto) {
     const scale = props.anonymizationSettings.blurSizePercent / 100;
@@ -176,8 +208,8 @@ function onOverlayMouseDown(event: MouseEvent) {
     if (props.mode !== 'add') return;
     const rect = overlayRef.value?.getBoundingClientRect();
     if (!rect) return;
-    const px = ((event.clientX - rect.left) / rect.width) * 100;
-    const py = ((event.clientY - rect.top) / rect.height) * 100;
+    const px = clampPct(((event.clientX - rect.left) / rect.width) * 100);
+    const py = clampPct(((event.clientY - rect.top) / rect.height) * 100);
     drawState.value = { startX: px, startY: py, curX: px, curY: py };
 }
 
@@ -186,8 +218,8 @@ function onOverlayMouseMove(event: MouseEvent) {
     if (!rect) return;
 
     if (drawState.value) {
-        const px = ((event.clientX - rect.left) / rect.width) * 100;
-        const py = ((event.clientY - rect.top) / rect.height) * 100;
+        const px = clampPct(((event.clientX - rect.left) / rect.width) * 100);
+        const py = clampPct(((event.clientY - rect.top) / rect.height) * 100);
         drawState.value.curX = px;
         drawState.value.curY = py;
         return;
@@ -201,14 +233,11 @@ function onOverlayMouseMove(event: MouseEvent) {
         if (!obj) return;
         let { origX, origY, origW, origH } = s;
         const pos = s.position;
-        if (pos.includes('e')) origW = Math.max(10, s.origW + dx);
-        if (pos.includes('w')) { origX = s.origX + dx; origW = Math.max(10, s.origW - dx); }
-        if (pos.includes('s')) origH = Math.max(10, s.origH + dy);
-        if (pos.includes('n')) { origY = s.origY + dy; origH = Math.max(10, s.origH - dy); }
-        obj.x = Math.max(0, Math.round(origX));
-        obj.y = Math.max(0, Math.round(origY));
-        obj.width = Math.round(origW);
-        obj.height = Math.round(origH);
+        if (pos.includes('e')) origW = Math.max(minBoxSize, s.origW + dx);
+        if (pos.includes('w')) { origX = s.origX + dx; origW = Math.max(minBoxSize, s.origW - dx); }
+        if (pos.includes('s')) origH = Math.max(minBoxSize, s.origH + dy);
+        if (pos.includes('n')) { origY = s.origY + dy; origH = Math.max(minBoxSize, s.origH - dy); }
+        applyClampedBox(obj, origX, origY, origW, origH);
         return;
     }
 
@@ -218,8 +247,7 @@ function onOverlayMouseMove(event: MouseEvent) {
     const dy = ((event.clientY - d.startY) / rect.height) * videoHeight.value;
     const obj = props.frame.detectedObjects.find(o => o.id === d.id);
     if (obj) {
-        obj.x = Math.max(0, Math.round(d.origX + dx));
-        obj.y = Math.max(0, Math.round(d.origY + dy));
+        applyClampedBox(obj, d.origX + dx, d.origY + dy, obj.width, obj.height);
     }
 }
 
@@ -232,11 +260,17 @@ function onOverlayMouseUp() {
         const h = Math.abs(d.curY - d.startY);
         drawState.value = null;
         if (w > 0.5 && h > 0.5) {
+            const box = clampBox(
+                (x / 100) * videoWidth.value,
+                (y / 100) * videoHeight.value,
+                (w / 100) * videoWidth.value,
+                (h / 100) * videoHeight.value
+            );
             pendingLabel.value = {
-                x: (x / 100) * videoWidth.value,
-                y: (y / 100) * videoHeight.value,
-                w: (w / 100) * videoWidth.value,
-                h: (h / 100) * videoHeight.value,
+                x: box.x,
+                y: box.y,
+                w: box.width,
+                h: box.height,
             };
         }
         return;
@@ -248,8 +282,12 @@ function onOverlayMouseUp() {
 function confirmAdd(label: string) {
     if (!pendingLabel.value) return;
     const p = pendingLabel.value;
-    emit('add-box', Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.h), label || '', labelTrackId.value);
+    const trackId = labelTrackId.value !== 'new' && trackIdsInCurrentFrame.value.has(labelTrackId.value)
+        ? 'new'
+        : labelTrackId.value;
+    emit('add-box', Math.round(p.x), Math.round(p.y), Math.round(p.w), Math.round(p.h), label || '', trackId);
     pendingLabel.value = null;
+    labelTrackId.value = 'new';
 }
 
 function cancelAdd() {

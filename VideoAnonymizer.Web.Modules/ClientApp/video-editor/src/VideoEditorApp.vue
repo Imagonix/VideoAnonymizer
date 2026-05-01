@@ -177,8 +177,10 @@ function setVideoVolume(volume: number) {
 function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
     if (!currentFrame.value) return;
     const frame = currentFrame.value;
-    const resolvedTrackId = trackId === 'new'
-        ? frames.value.flatMap(f => f.detectedObjects).reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1
+    const nextTrackId = frames.value.flatMap(f => f.detectedObjects).reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1;
+    const frameTrackIds = new Set(frame.detectedObjects.flatMap(o => o.trackId == null ? [] : [o.trackId]));
+    const resolvedTrackId = trackId === 'new' || frameTrackIds.has(trackId)
+        ? nextTrackId
         : trackId;
     frame.detectedObjects.push({
         id: crypto.randomUUID(), confidence: 1, className: className || null, selected: true,
