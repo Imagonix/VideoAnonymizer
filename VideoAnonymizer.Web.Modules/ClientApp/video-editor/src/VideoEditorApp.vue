@@ -455,7 +455,7 @@ function setVideoVolume(volume: number) {
                     :anonymization-settings="state.anonymizationSettings"
                     :mode="moveMode ? 'move' : 'select'"
                     :video-dimensions="videoDimensions"
-                    :highlighted-row-key="mergeMode ? hoveredTimelineKey : splitMode && splitSourceKey ? (hoveredTimelineKey ?? splitSourceKey) : splitMode ? hoveredTimelineKey : null"
+                    :highlighted-row-key="splitMode && splitSourceKey ? (hoveredTimelineKey ?? splitSourceKey) : hoveredTimelineKey"
                     :split-source-key="splitMode ? splitSourceKey : null"
                     :always-show-keys="mergeMode && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
                     @move-box="moveBox" />

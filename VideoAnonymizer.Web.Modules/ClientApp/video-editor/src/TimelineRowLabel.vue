@@ -138,7 +138,6 @@ function onRowClick() {
     display: flex;
     align-items: center;
     height: 34px;
-    margin-bottom: 12px;
     padding: 0 4px 1px 4px;
     border-radius: 4px;
     transition: background 0.1s;
