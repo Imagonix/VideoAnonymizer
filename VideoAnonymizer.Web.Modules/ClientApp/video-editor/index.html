@@ -3,80 +3,245 @@
 <head>
   <meta charset="UTF-8" />
   <title>Video Editor Dev</title>
-</head>
 <style>
-  :root {    
-    --mud-palette-background: #121212;
-    --mud-palette-surface: #1e1e1e;
-    --mud-palette-surface-variant: #424242;
+  :root {
+    --mud-default-borderradius: 12px;
 
-    --mud-palette-lines-default: rgba(255, 255, 255, 0.12);
+    --mud-palette-black: #05070A;
+    --mud-palette-background: #0A0F1C;
+    --mud-palette-background-gray: #0F1629;
+    --mud-palette-surface: #12182B;
+    --mud-palette-surface-variant: #1E293B;
+    --mud-palette-drawer-background: #0D1324;
+    --mud-palette-appbar-background: #0A0F1C;
 
+    --mud-palette-primary: #8B5CF6;
+    --mud-palette-primary-rgb: 139, 92, 246;
+    --mud-palette-primary-text: #FFFFFF;
+    --mud-palette-primary-contrast-text: #FFFFFF;
+    --mud-palette-primary-darken: #7C3AED;
+    --mud-palette-primary-lighten: #A78BFA;
+    --mud-palette-primary-hover: rgba(139, 92, 246, 0.06);
 
-    --mud-palette-primary: #594AE2;
-    --mud-palette-primary-darken: #4a3fc4;
-    --mud-palette-primary-lighten: #7b6cf6;
+    --mud-palette-secondary: #22D3EE;
+    --mud-palette-secondary-rgb: 34, 211, 238;
+    --mud-palette-secondary-text: #041014;
+    --mud-palette-secondary-contrast-text: #041014;
+    --mud-palette-secondary-darken: #06B6D4;
+    --mud-palette-secondary-lighten: #67E8F9;
+    --mud-palette-secondary-hover: rgba(34, 211, 238, 0.06);
 
-    --mud-palette-secondary: #FF4081;
-    --mud-palette-secondary-darken: #e73370;
-    --mud-palette-secondary-lighten: #ff79a8;
+    --mud-palette-tertiary: #A3E635;
+    --mud-palette-info: #38BDF8;
+    --mud-palette-success: #22C55E;
+    --mud-palette-warning: #F59E0B;
+    --mud-palette-error: #EF4444;
 
-    --mud-palette-text-primary: #ffffff;
-    --mud-palette-text-secondary: rgba(255,255,255,0.7);
-    --mud-palette-text-disabled: '#9e9e9e';
+    --mud-palette-text-primary: #F1F5F9;
+    --mud-palette-text-primary-rgb: 241, 245, 249;
+    --mud-palette-text-secondary: #94A3B8;
+    --mud-palette-text-disabled: #64748B;
+
+    --mud-palette-action-default: #CBD5E1;
+    --mud-palette-action-default-hover: rgba(203, 213, 225, 0.06);
+    --mud-palette-action-disabled: #475569;
+    --mud-palette-action-disabled-background: #1E293B;
+
+    --mud-palette-divider: #1F2937;
+    --mud-palette-lines-default: #1F2937;
+    --mud-palette-lines-inputs: #334155;
+    --mud-palette-table-lines: #1F2937;
+    --mud-palette-table-striped: #0F172A;
+    --mud-palette-table-hover: #1E293B;
+    --mud-palette-border-opacity: 0.5;
+
+    --mud-ripple-color: currentColor;
+    --mud-ripple-opacity: 0.10;
+    --mud-ripple-opacity-secondary: 0.20;
+
+    --mud-typography-default-family: Inter, "Segoe UI", Roboto, sans-serif;
+    --mud-typography-default-size: 0.95rem;
+    --mud-typography-default-weight: 400;
+    --mud-typography-default-lineheight: 1.6;
+    --mud-typography-default-letterspacing: 0;
+    --mud-typography-default-text-transform: none;
+
+    --mud-typography-button-family: Inter, "Segoe UI", Roboto, sans-serif;
+    --mud-typography-button-size: 0.875rem;
+    --mud-typography-button-weight: 600;
+    --mud-typography-button-lineheight: 1.75;
+    --mud-typography-button-letterspacing: 0;
+    --mud-typography-button-text-transform: none;
+
+    --mud-elevation-0: none;
+    --mud-elevation-1: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
+    --mud-elevation-2: 0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12);
+    --mud-elevation-3: 0px 3px 3px -2px rgba(0,0,0,0.2), 0px 3px 4px 0px rgba(0,0,0,0.14), 0px 1px 8px 0px rgba(0,0,0,0.12);
+    --mud-elevation-4: 0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12);
+    --mud-elevation-5: 0px 3px 5px -1px rgba(0,0,0,0.2), 0px 5px 8px 0px rgba(0,0,0,0.14), 0px 1px 14px 0px rgba(0,0,0,0.12);
+    --mud-elevation-6: 0px 3px 5px -1px rgba(0,0,0,0.2), 0px 6px 10px 0px rgba(0,0,0,0.14), 0px 1px 18px 0px rgba(0,0,0,0.12);
+    --mud-elevation-8: 0px 5px 5px -3px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12);
+    --mud-elevation-12: 0px 7px 8px -4px rgba(0,0,0,0.2), 0px 12px 17px 2px rgba(0,0,0,0.14), 0px 5px 22px 4px rgba(0,0,0,0.12);
+    --mud-elevation-16: 0px 8px 10px -5px rgba(0,0,0,0.2), 0px 16px 24px 2px rgba(0,0,0,0.14), 0px 6px 30px 5px rgba(0,0,0,0.12);
+    --mud-elevation-24: 0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12);
   }
 
-    .mud-elevation-0 {
-        box-shadow: none;
-    }
+  * {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
 
-    .mud-elevation-1 {
-        box-shadow: 0px 2px 1px -1px rgba(0,0,0,0.2), 0px 1px 1px 0px rgba(0,0,0,0.14), 0px 1px 3px 0px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-2 {
-        box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-3 {
-        box-shadow: 0px 3px 3px -2px rgba(0,0,0,0.2), 0px 3px 4px 0px rgba(0,0,0,0.14), 0px 1px 8px 0px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-4 {
-        box-shadow: 0px 2px 4px -1px rgba(0,0,0,0.2), 0px 4px 5px 0px rgba(0,0,0,0.14), 0px 1px 10px 0px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-5 {
-        box-shadow: 0px 3px 5px -1px rgba(0,0,0,0.2), 0px 5px 8px 0px rgba(0,0,0,0.14), 0px 1px 14px 0px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-6 {
-        box-shadow: 0px 3px 5px -1px rgba(0,0,0,0.2), 0px 6px 10px 0px rgba(0,0,0,0.14), 0px 1px 18px 0px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-8 {
-        box-shadow: 0px 5px 5px -3px rgba(0,0,0,0.2), 0px 8px 10px 1px rgba(0,0,0,0.14), 0px 3px 14px 2px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-12 {
-        box-shadow: 0px 7px 8px -4px rgba(0,0,0,0.2), 0px 12px 17px 2px rgba(0,0,0,0.14), 0px 5px 22px 4px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-16 {
-        box-shadow: 0px 8px 10px -5px rgba(0,0,0,0.2), 0px 16px 24px 2px rgba(0,0,0,0.14), 0px 6px 30px 5px rgba(0,0,0,0.12);
-    }
-
-    .mud-elevation-24 {
-        box-shadow: 0px 11px 15px -7px rgba(0,0,0,0.2), 0px 24px 38px 3px rgba(0,0,0,0.14), 0px 9px 46px 8px rgba(0,0,0,0.12);
-    }
-
-    html, body {
+  html, body {
     width: 100%;
     height: 100%;
     margin: 0;
     padding: 0;
     overflow: hidden;
-}
+  }
+
+  body {
+    color: var(--mud-palette-text-primary);
+    font-family: var(--mud-typography-default-family);
+    font-size: var(--mud-typography-default-size);
+    font-weight: var(--mud-typography-default-weight);
+    line-height: var(--mud-typography-default-lineheight);
+    letter-spacing: var(--mud-typography-default-letterspacing);
+    text-transform: var(--mud-typography-default-text-transform);
+    background-color: var(--mud-palette-background);
+  }
+
+  button {
+    color: inherit;
+    border: 0;
+    cursor: pointer;
+    margin: 0;
+    display: inline-flex;
+    outline: 0;
+    padding: 0;
+    position: relative;
+    align-items: center;
+    user-select: none;
+    border-radius: 0;
+    vertical-align: middle;
+    appearance: none;
+    justify-content: center;
+    text-decoration: none;
+    background-color: transparent;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button:focus {
+    outline: none;
+  }
+
+  input,
+  button,
+  select,
+  optgroup,
+  textarea {
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  button,
+  input {
+    overflow: visible;
+  }
+
+  button,
+  select {
+    text-transform: none;
+  }
+
+  button:disabled {
+    cursor: default;
+  }
+
+  .mud-elevation-0 { box-shadow: var(--mud-elevation-0); }
+  .mud-elevation-1 { box-shadow: var(--mud-elevation-1); }
+  .mud-elevation-2 { box-shadow: var(--mud-elevation-2); }
+  .mud-elevation-3 { box-shadow: var(--mud-elevation-3); }
+  .mud-elevation-4 { box-shadow: var(--mud-elevation-4); }
+  .mud-elevation-5 { box-shadow: var(--mud-elevation-5); }
+  .mud-elevation-6 { box-shadow: var(--mud-elevation-6); }
+  .mud-elevation-8 { box-shadow: var(--mud-elevation-8); }
+  .mud-elevation-12 { box-shadow: var(--mud-elevation-12); }
+  .mud-elevation-16 { box-shadow: var(--mud-elevation-16); }
+  .mud-elevation-24 { box-shadow: var(--mud-elevation-24); }
+
+  .mud-button-root {
+    color: var(--mud-palette-text-primary);
+    min-width: 64px;
+    box-sizing: border-box;
+    transition: background-color 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+      box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms,
+      border 250ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+    font-family: var(--mud-typography-button-family);
+    font-size: var(--mud-typography-button-size);
+    font-weight: var(--mud-typography-button-weight);
+    line-height: var(--mud-typography-button-lineheight);
+    letter-spacing: var(--mud-typography-button-letterspacing);
+    text-transform: var(--mud-typography-button-text-transform);
+    border-radius: var(--mud-default-borderradius);
+  }
+
+  .mud-icon-button {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    padding: 12px;
+    overflow: visible;
+    font-size: 1.5rem;
+    text-align: center;
+    transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1) 0ms;
+    border-radius: 50%;
+    color: var(--mud-palette-action-default);
+    background-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .mud-icon-button:hover {
+      background-color: var(--mud-palette-action-default-hover);
+    }
+  }
+
+  .mud-icon-button:focus-visible,
+  .mud-icon-button:active {
+    background-color: var(--mud-palette-action-default-hover);
+  }
+
+  .mud-icon-button:disabled {
+    color: var(--mud-palette-action-disabled);
+    background-color: transparent;
+  }
+
+  .mud-icon-button-label {
+    width: 100%;
+    display: flex;
+    align-items: inherit;
+    justify-content: inherit;
+  }
+
+  .mud-svg-icon,
+  .material-icon {
+    fill: currentColor;
+    width: 1em;
+    height: 1em;
+    display: inline-block;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+    user-select: none;
+  }
+
+  .mud-icon-size-medium {
+    font-size: 1.5rem;
+  }
 
 #app {
     width: 100%;
@@ -86,6 +251,7 @@
     overflow: hidden;
 }
 </style>
+</head>
 <body>
   <div id="app"></div>
   <script type="module" src="/src/dev-main.ts"></script>

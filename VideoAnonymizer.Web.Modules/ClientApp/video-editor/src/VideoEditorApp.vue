@@ -341,14 +341,14 @@ function addBox(x: number, y: number, width: number, height: number, className: 
     top: 0;
     z-index: 20;
     background: var(--mud-palette-surface);
-    height: 32px;
+    height: 48px;
     margin-bottom: 12px;
     isolation: isolate;
 }
 
 .timeline-header-spacer {
     position: sticky;
-    top: 44px;
+    top: 60px;
     z-index: 20;
     background: var(--mud-palette-surface);
     height: 34px;
@@ -357,7 +357,7 @@ function addBox(x: number, y: number, width: number, height: number, className: 
 }
 
 .timeline-overview-spacer {
-    height: 38px;
-    margin-bottom: 9px;
+    height: 36px;
+    margin-bottom: 8px;
 }
 </style>

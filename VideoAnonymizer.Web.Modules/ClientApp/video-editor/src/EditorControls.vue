@@ -23,7 +23,7 @@ const emit = defineEmits<{
 <template>
     <div class="right-divider"></div>
     <div class="editor-controls">
-        <div class="section-label">Frame Actions</div>
+        <div class="section-label">Frame actions</div>
         <div class="control-row">
             <button
               class="control-btn"
@@ -65,7 +65,7 @@ const emit = defineEmits<{
         </div>
 
         <div class="section-divider"></div>
-        <div class="section-label">Tracking Actions</div>
+        <div class="section-label">Tracking actions</div>
         <div class="control-row">
             <button
               class="control-btn"
@@ -125,23 +125,25 @@ const emit = defineEmits<{
 .editor-controls {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    min-width: 140px;
+    gap: 8px;
+    min-width: 152px;
+    font-family: var(--mud-typography-default-family);
 }
 
 .section-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
     color: var(--mud-palette-text-secondary);
-    padding: 4px 0 2px;
+    line-height: 1.43;
+    padding: 4px 0 0;
 }
 
 .section-divider {
     height: 1px;
     background: var(--mud-palette-lines-default);
-    margin: 4px 0;
+    margin: 6px 0 2px;
 }
 
 .control-row {
@@ -153,48 +155,70 @@ const emit = defineEmits<{
 .control-btn {
     display: inline-flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 6px;
-    padding: 5px 12px;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 8px;
-    background: transparent;
-    color: var(--mud-palette-text-secondary);
+    min-width: 84px;
+    height: 36px;
+    padding: 0 14px;
+    border: 1px solid var(--mud-palette-lines-inputs);
+    border-radius: var(--mud-default-borderradius);
+    background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
+    color: var(--mud-palette-text-primary);
     cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 500;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
     white-space: nowrap;
-    transition: background 0.15s, color 0.15s;
+    box-shadow: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, color 0.15s ease;
 }
 
 .control-btn:hover {
-    background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
+    border-color: var(--mud-palette-primary);
+    background: color-mix(in srgb, var(--mud-palette-primary) 14%, var(--mud-palette-surface));
     color: var(--mud-palette-text-primary);
+}
+
+.control-btn:focus-visible,
+.action-btn:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
+    outline-offset: 2px;
 }
 
 .control-btn.active {
     background: var(--mud-palette-primary);
     color: var(--mud-palette-primary-contrast-text);
     border-color: var(--mud-palette-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-primary) 20%, transparent);
 }
 
 .btn-icon {
     display: block;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
 }
 
 .action-btn {
-    padding: 5px 12px;
+    height: 36px;
+    padding: 0 14px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--mud-default-borderradius);
     background: var(--mud-palette-secondary);
     color: var(--mud-palette-secondary-contrast-text);
     cursor: pointer;
-    font-size: 0.82rem;
-    font-weight: 500;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1;
     white-space: nowrap;
-    transition: opacity 0.15s;
+    box-shadow: 0 3px 10px color-mix(in srgb, var(--mud-palette-secondary) 20%, transparent);
+    transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .action-btn:hover {
-    opacity: 0.85;
+    background: color-mix(in srgb, var(--mud-palette-secondary) 88%, white);
+    box-shadow: 0 5px 14px color-mix(in srgb, var(--mud-palette-secondary) 26%, transparent);
 }
 </style>
