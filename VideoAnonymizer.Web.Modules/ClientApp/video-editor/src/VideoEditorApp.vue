@@ -304,6 +304,7 @@ function addBox(x: number, y: number, width: number, height: number, className: 
     align-self: start;
     line-height: 0;
     overflow: hidden;
+    max-width: 1200px;
 }
 
 .right-panel {
