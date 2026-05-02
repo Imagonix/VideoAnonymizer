@@ -20,7 +20,7 @@ Extension method files and classes are named after the type being extended. For 
 - **Processing**: OpenCvSharp (OpenCV .NET bindings) background worker
 - **Detection**: Python FastAPI with ONNX Runtime / RetinaFace model
 - **Messaging**: RabbitMQ (distributed) / Direct messaging abstraction (standalone)
-- **Database**: PostgreSQL via EF Core (distributed) / In-memory (standalone)
+- **Database**: PostgreSQL via EF Core (distributed) / SQLite via EF Core (standalone)
 - **Real-time**: SignalR for job progress/completion notifications
 
 ## Solution Structure
@@ -37,6 +37,8 @@ Key projects under `VideoAnonymizer.slnx`:
 | `VideoAnonymizer.ObjectDetection` | Python FastAPI face detection service |
 | `VideoAnonymizer.ObjectDetectionClient` | .NET HTTP client for the Python detection API |
 | `VideoAnonymizer.Database` | EF Core entities (`Video`, `AnalyzedFrame`, `DetectedObject`) |
+| `VideoAnonymizer.Database.Postgres` | PostgreSQL provider — migrations + `AddPostgresVideoAnonymizerDbContext[Factory]()` |
+| `VideoAnonymizer.Database.SQLite` | SQLite provider — migrations + `AddSqliteVideoAnonymizerDbContext[Factory]()` + design-time factory |
 | `VideoAnonymizer.Contracts` | RabbitMQ message types and constants |
 | `VideoAnonymizer.AppHost` | .NET Aspire orchestrator |
 | `VideoAnonymizer.Web.Tests` | bUnit + SpecFlow web component tests |
@@ -134,6 +136,16 @@ Key projects under `VideoAnonymizer.slnx`:
 - Add route + handler in `VideoAnonymizer.ApiService/VideoAnonymizerApi.cs`
 - Add path constant in `VideoAnonymizer.Web.Contracts/SharedConstants.cs`
 - Add DTO if needed in `VideoAnonymizer.Web.Contracts/DTO/`
+
+### Adding a database migration
+Run from `VideoAnonymizer.Database/`:
+```bash
+# Postgres
+dotnet ef migrations add <Name> --project ../VideoAnonymizer.Database.Postgres/ --startup-project ../VideoAnonymizer.Database.MigrationService/ --output-dir Migrations
+# SQLite
+dotnet ef migrations add <Name> --project ../VideoAnonymizer.Database.SQLite/ --output-dir Migrations
+```
+Or use the repo-root script: `.\add-migrations.ps1 -Name "<Name>"`
 
 ### Adding a background processing step
 - Add a new consumer/handler pair in `VideoAnonymizer.VideoProcessor/`
