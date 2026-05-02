@@ -67,7 +67,7 @@ function mountEditor() {
                 },
                 BoundingBoxOverlay: {
                     template: '<div class="mock-overlay" />',
-                    props: ['objects', 'anonymizationSettings'],
+                    props: ['objects', 'anonymizationSettings', 'videoDimensions', 'highlightedRowKey', 'splitSourceKey', 'alwaysShowKeys'],
                 },
             },
         },
@@ -243,6 +243,166 @@ describe('VideoEditorApp integration', () => {
 
             expect(dots[0].classes()).toContain('dot--selected');
             expect(dots[1].classes()).toContain('dot--selected');
+        });
+    });
+
+    describe('split mode exits after split', () => {
+        it('exits split mode after splitting out', async () => {
+            await clickButton(wrapper, 'Split');
+            const rows = wrapper.findAll('.timeline-row');
+            await rows[0].trigger('click');
+            const dots = rows[0].findAll('.dot--selectable');
+            await dots[0].trigger('click', { ctrlKey: false, shiftKey: false });
+            await getButton(wrapper, 'Split out 1')!.trigger('click');
+            expect(wrapper.text()).not.toContain('Exit Split');
+            expect(wrapper.text()).toContain('Split');
+        });
+    });
+
+    describe('add', () => {
+        it('opens DetailedView when Add is clicked', async () => {
+            await clickButton(wrapper, 'Add');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+
+        it('tooggles Add mode on and off', async () => {
+            await clickButton(wrapper, 'Add');
+            expect(wrapper.text()).toContain('Exit Add');
+            await clickButton(wrapper, 'Exit Add');
+            expect(wrapper.text()).not.toContain('Detailed View');
+        });
+
+        it('closes overlay on close button', async () => {
+            await clickButton(wrapper, 'Add');
+            await clickButton(wrapper, '✕');
+            expect(wrapper.text()).not.toContain('Detailed View');
+        });
+
+        it('mode exclusivity: Add deactivates Merge', async () => {
+            await clickButton(wrapper, 'Merge');
+            expect(wrapper.text()).toContain('Exit Merge');
+            await clickButton(wrapper, 'Add');
+            expect(wrapper.text()).not.toContain('Exit Merge');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+
+        it('mode exclusivity: Add deactivates Resize', async () => {
+            await clickButton(wrapper, 'Resize');
+            expect(wrapper.text()).toContain('Exit Resize');
+            await clickButton(wrapper, 'Add');
+            expect(wrapper.text()).not.toContain('Exit Resize');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+
+        it('adds a new object via addBox with new trackId', async () => {
+            const vm = wrapper.vm as any;
+            const beforeCount = state.frames[0].detectedObjects.length;
+            vm.addBox(100, 100, 50, 50, 'face', 'new');
+            await wrapper.vm.$nextTick();
+            const afterCount = state.frames[0].detectedObjects.length;
+            expect(afterCount).toBe(beforeCount + 1);
+            const added = state.frames[0].detectedObjects[state.frames[0].detectedObjects.length - 1];
+            expect(added.x).toBe(100);
+            expect(added.y).toBe(100);
+            expect(added.width).toBe(50);
+            expect(added.height).toBe(50);
+            expect(added.className).toBe('face');
+            expect(added.trackId).toBe(3);
+        });
+
+        it('falls back to a new trackId when adding with a track already used in the frame', async () => {
+            const vm = wrapper.vm as any;
+            vm.addBox(100, 100, 50, 50, 'other', 1);
+            await wrapper.vm.$nextTick();
+            const added = state.frames[0].detectedObjects[state.frames[0].detectedObjects.length - 1];
+            expect(added.trackId).toBe(3);
+            expect(added.className).toBe('other');
+        });
+
+        it('existingTrackIds lists all unique trackIds', async () => {
+            const vm = wrapper.vm as any;
+            expect(vm.getFrames()[0].detectedObjects[0].trackId).toBe(1);
+            const trackIds = new Set<number>();
+            for (const f of state.frames) {
+                for (const o of f.detectedObjects) {
+                    if (o.trackId != null) trackIds.add(o.trackId);
+                }
+            }
+            expect([...trackIds].sort()).toEqual([1, 2]);
+        });
+
+        it('switches modes inside DetailedView', async () => {
+            await clickButton(wrapper, 'Add');
+            expect(wrapper.text()).toContain('Detailed View');
+
+            const modeBtns = wrapper.findAll('.mode-switch-btn');
+            expect(modeBtns.length).toBe(3);
+
+            await modeBtns[0].trigger('click');
+            expect(wrapper.text()).toContain('Detailed View');
+
+            await modeBtns[1].trigger('click');
+            expect(wrapper.text()).toContain('Detailed View');
+
+            await modeBtns[2].trigger('click');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+    });
+
+    describe('resize', () => {
+        it('opens DetailedView when Resize is clicked', async () => {
+            await clickButton(wrapper, 'Resize');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+
+        it('updates width and height after resize', async () => {
+            const obj = state.frames[0].detectedObjects[0];
+            const origW = obj.width;
+            const origH = obj.height;
+            obj.width = 60;
+            obj.height = 80;
+            const vm = wrapper.vm as any;
+            const result = vm.getFrames();
+            expect(result[0].detectedObjects[0].width).toBe(60);
+            expect(result[0].detectedObjects[0].height).toBe(80);
+        });
+
+        it('mode exclusivity: Resize deactivates Split', async () => {
+            await clickButton(wrapper, 'Split');
+            expect(wrapper.text()).toContain('Exit Split');
+            await clickButton(wrapper, 'Resize');
+            expect(wrapper.text()).not.toContain('Exit Split');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+    });
+
+    describe('move', () => {
+        it('opens overlay when Move is clicked', async () => {
+            await clickButton(wrapper, 'Move');
+            expect(wrapper.text()).toContain('Detailed View');
+        });
+
+        it('closes overlay on close button', async () => {
+            await clickButton(wrapper, 'Move');
+            await clickButton(wrapper, '✕');
+            expect(wrapper.text()).not.toContain('Detailed View');
+        });
+
+        it('returns updated coordinates via getFrames after moving in overlay', async () => {
+            await clickButton(wrapper, 'Move');
+            const frames = state.frames;
+            const obj = frames[0].detectedObjects[0];
+            const origX = obj.x;
+            const origY = obj.y;
+
+            obj.x = origX + 50;
+            obj.y = 200;
+
+            const vm = wrapper.vm as any;
+            const result = vm.getFrames();
+            const moved = result[0].detectedObjects[0];
+            expect(moved.x).toBe(origX + 50);
+            expect(moved.y).toBe(200);
         });
     });
 

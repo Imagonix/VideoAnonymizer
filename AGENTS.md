@@ -85,15 +85,22 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Services/IJobHubClient.cs` / `JobHubClient.cs` - SignalR hub connection
 
 ### Vue Editor (within Web.Modules)
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/EditorControls.vue` - Right-side button panel: Move, Resize, Add, Merge, Split
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/DetailedView.vue` - Fullscreen overlay for Move/Resize/Add operations with canvas frame preview, draggable/resizable boxes, and draw-new-box support
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRow.vue` - Row of occurrence dots; supports split-mode dot clicking with Ctrl/Shift selection
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRowLabel.vue` - Row label with checkbox; merge-mode click selection, double-click trackId editing
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/BoundingBoxOverlay.vue` - Blur preview boxes
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/ObjectList.vue` - Object toggle list
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/BoundingBoxOverlay.vue` - Blur preview boxes with hover-dim support (merge/split/object-list)
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/ObjectList.vue` - Object toggle list with hover-row emit for dimming other boxes
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/Timeline.vue` - Timeline visualization
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/MudLikeCheckbox.vue` - Custom checkbox mimicking MudBlazor style
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/types.ts` - TypeScript types; `EditorMode = 'select' | 'merge' | 'split'`
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/types.ts` - TypeScript types; `EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add'`
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/services/ColorManager.ts` - HSL color assignment per object/track
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useEditorModes.ts` - Mutually-exclusive mode state machine
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useMerge.ts` - Merge selection + execution with duplicate trackId prevention
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useOccurrenceSelection.ts` - Ctrl/Shift dot occurrence selection
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useSplit.ts` - Split execution assigning new trackIds
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/utils/keys.ts` - Timeline key derivation helpers (`buildObjectKey`, `getTimelineKey`, `getObjTimelineKey`)
 - `VideoAnonymizer.Web.Modules/wwwroot/js/videoEditorHost.js` - JS bridge for mounting Vue app
 
 ### Backend

@@ -56,4 +56,11 @@ export type PreviewObject = {
   activation: 'detected' | 'pre' | 'post';
 };
 
-export type EditorMode = 'select' | 'merge' | 'split';
+export type EditorMode = 'select' | 'merge' | 'split' | 'move';
+
+export type VideoDimensions = {
+  videoWidth: number;
+  videoHeight: number;
+  displayWidth: number;
+  displayHeight: number;
+};

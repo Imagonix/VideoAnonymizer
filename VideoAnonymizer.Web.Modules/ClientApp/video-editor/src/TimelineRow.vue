@@ -9,10 +9,13 @@ const props = defineProps<{
     mode: EditorMode;
     mergeSelectedKeys: Set<string>;
     selectedOccurrences: Map<string, Set<number>>;
+    hoveredTimelineKey: string | null;
 }>();
 
 const emit = defineEmits<{
     (e: 'toggle-occurrence', rowKey: string, time: number, event: MouseEvent): void;
+    (e: 'hover-row', key: string | null): void;
+    (e: 'merge-toggle', key: string): void;
 }>();
 
 function toPercent(time: number) {
@@ -28,14 +31,16 @@ function getTimelineKey(obj: TimelineObject): string {
 
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
+const isMergeHovered = computed(() => props.mode === 'merge' && props.hoveredTimelineKey === timelineKey.value);
 
 const mergeHighlightStyle = computed(() => {
-    if (!isMergeSelected.value) return {};
+    if (!isMergeSelected.value && !isMergeHovered.value) return {};
     const obj = props.timelineObject.type === 'single'
         ? props.timelineObject.detectedObj
         : props.timelineObject.occurences[0][1];
     const color = colorManager.getColor(obj);
-    const bg = color.replace('hsl(', 'hsla(').replace(')', ', 0.3)');
+    const alpha = isMergeSelected.value ? '0.3' : '0.15';
+    const bg = color.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`);
     return { backgroundColor: bg };
 });
 
@@ -58,6 +63,12 @@ const otherRowsHaveSelection = computed(() =>
     hasAnySelection.value && !selectedTimesForThisRow.value.size
 );
 
+function onRowClick() {
+    if (props.mode === 'merge') {
+        emit('merge-toggle', timelineKey.value);
+    }
+}
+
 function onDotClick(time: number, event: MouseEvent) {
     if (allowsDotSelection.value) {
         emit('toggle-occurrence', timelineKey.value, time, event);
@@ -65,7 +76,12 @@ function onDotClick(time: number, event: MouseEvent) {
 }
 </script>
 <template>
-    <div class="timeline-row-wrapper">
+    <div
+      class="timeline-row-wrapper"
+      @click="onRowClick"
+      @mouseenter="emit('hover-row', timelineKey)"
+      @mouseleave="emit('hover-row', null)"
+    >
         <div class="timeline-row" :style="mergeHighlightStyle">
             <template v-if="props.timelineObject.type === 'single'">
                 <div class="dot" :style="{

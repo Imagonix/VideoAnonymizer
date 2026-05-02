@@ -10,11 +10,13 @@ const props = defineProps<{
     timelineObject: TimelineObject;
     mode: EditorMode;
     mergeSelectedKeys: Set<string>;
+    hoveredTimelineKey: string | null;
 }>()
 const emit = defineEmits<{
     (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void;
     (e: 'set-track-id', timelineObject: TimelineObject, trackId: number): void;
     (e: 'merge-toggle', key: string): void;
+    (e: 'hover-row', key: string | null): void;
 }>();
 
 const isEditing = ref(false);
@@ -28,11 +30,13 @@ function getTimelineKey(obj: TimelineObject): string {
 
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
+const isMergeHovered = computed(() => props.mode === 'merge' && props.hoveredTimelineKey === timelineKey.value);
 
 const mergeHighlightStyle = computed(() => {
-    if (!isMergeSelected.value) return {};
+    if (!isMergeSelected.value && !isMergeHovered.value) return {};
     const color = colorManager.getColor(sampleDetectedObject.value);
-    const bg = color.replace('hsl(', 'hsla(').replace(')', ', 0.3)');
+    const alpha = isMergeSelected.value ? '0.3' : '0.15';
+    const bg = color.replace('hsl(', 'hsla(').replace(')', `, ${alpha})`);
     return { backgroundColor: bg };
 });
 
@@ -102,6 +106,8 @@ function onRowClick() {
       :class="{ 'label-container--merge-mode': mode === 'merge' }"
       :style="mergeHighlightStyle"
       @click="onRowClick"
+      @mouseenter="emit('hover-row', timelineKey)"
+      @mouseleave="emit('hover-row', null)"
     >
         <MudLikeCheckbox
           :checked="checked"
@@ -132,7 +138,6 @@ function onRowClick() {
     display: flex;
     align-items: center;
     height: 34px;
-    margin-bottom: 12px;
     padding: 0 4px 1px 4px;
     border-radius: 4px;
     transition: background 0.1s;
@@ -142,9 +147,7 @@ function onRowClick() {
     cursor: pointer;
 }
 
-.label-container--merge-mode:hover {
-    filter: brightness(1.3);
-}
+
 
 .label-text {
     cursor: text;

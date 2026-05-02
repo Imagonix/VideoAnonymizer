@@ -232,8 +232,4 @@
         min-width: 100%;
         position: relative;
     }
-
-    .timeline :deep(.timeline-row) {
-        margin-bottom: 12px;
-    }
 </style>

@@ -84,6 +84,7 @@ function onClick(e: MouseEvent) {
 
 <style scoped>
 .timeline-overview {
+  margin-right: 9px;
   position: relative;
   height: 36px;
   margin-bottom: 8px;
