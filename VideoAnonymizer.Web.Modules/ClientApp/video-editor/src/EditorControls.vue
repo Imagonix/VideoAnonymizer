@@ -23,6 +23,7 @@ const emit = defineEmits<{
 <template>
     <div class="right-divider"></div>
     <div class="editor-controls">
+        <div class="section-label">Frame Actions</div>
         <div class="control-row">
             <button
               class="control-btn"
@@ -62,6 +63,9 @@ const emit = defineEmits<{
                 <span>{{ addMode ? 'Exit Add' : 'Add' }}</span>
             </button>
         </div>
+
+        <div class="section-divider"></div>
+        <div class="section-label">Tracking Actions</div>
         <div class="control-row">
             <button
               class="control-btn"
@@ -121,8 +125,23 @@ const emit = defineEmits<{
 .editor-controls {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
     min-width: 140px;
+}
+
+.section-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--mud-palette-text-secondary);
+    padding: 4px 0 2px;
+}
+
+.section-divider {
+    height: 1px;
+    background: var(--mud-palette-lines-default);
+    margin: 4px 0;
 }
 
 .control-row {
