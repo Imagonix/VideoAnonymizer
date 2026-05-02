@@ -33,6 +33,8 @@ builder.Services.AddHostedService<BrowserLauncherHostedService>();
 
 var app = builder.Build();
 
+await app.Services.ApplyDatabaseMigrationsAsync(app.Configuration);
+
 app.UseExceptionHandler();
 
 app.UseBlazorFrameworkFiles();

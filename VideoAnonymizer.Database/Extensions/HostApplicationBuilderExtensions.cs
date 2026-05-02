@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -13,16 +12,6 @@ namespace VideoAnonymizer.Database.Extensions
 
         public static void AddVideoAnonymizerDbContext(this IHostApplicationBuilder builder)
         {
-            if (UsesInMemoryDatabase(builder))
-            {
-                builder.Services.AddSingleton<InMemoryDatabaseRoot>();
-                builder.Services.AddDbContext<VideoAnonymizerDbContext>((sp, options) =>
-                {
-                    ConfigureDbContextOptions(builder, sp, options);
-                });
-                return;
-            }
-
             if (UsesSqliteDatabase(builder))
             {
                 builder.Services.AddDbContext<VideoAnonymizerDbContext>((sp, options) =>
@@ -39,15 +28,23 @@ namespace VideoAnonymizer.Database.Extensions
                     SetDevelopmentOptions(options);
                 }
 
-                options.UseNpgsql(o => o.CommandTimeout(500));
+                options.UseNpgsql(o =>
+                {
+                    o.CommandTimeout(500);
+                    o.MigrationsAssembly("VideoAnonymizer.Database.Postgres");
+                });
             });
         }
 
         public static void AddVideoAnonymizerDbContextFactory(this IHostApplicationBuilder builder)
         {
-            if (UsesInMemoryDatabase(builder))
+            if (UsesSqliteDatabase(builder))
             {
-                builder.Services.AddSingleton<InMemoryDatabaseRoot>();
+                builder.Services.AddDbContextFactory<VideoAnonymizerDbContext>((sp, options) =>
+                {
+                    ConfigureDbContextOptions(builder, sp, options);
+                });
+                return;
             }
 
             builder.Services.AddDbContextFactory<VideoAnonymizerDbContext>((sp, options) =>
@@ -61,15 +58,6 @@ namespace VideoAnonymizer.Database.Extensions
             IServiceProvider serviceProvider,
             DbContextOptionsBuilder options)
         {
-            if (UsesInMemoryDatabase(builder))
-            {
-                var databaseName = builder.Configuration["Database:InMemoryName"]
-                    ?? "VideoAnonymizerStandalone";
-                var databaseRoot = serviceProvider.GetRequiredService<InMemoryDatabaseRoot>();
-                options.UseInMemoryDatabase(databaseName, databaseRoot);
-                return;
-            }
-
             if (UsesSqliteDatabase(builder))
             {
                 var filePath = builder.Configuration["Database:FilePath"]
@@ -79,7 +67,7 @@ namespace VideoAnonymizer.Database.Extensions
                 {
                     Directory.CreateDirectory(directory);
                 }
-                options.UseSqlite($"Data Source={filePath}");
+                options.UseSqlite($"Data Source={filePath}", b => b.MigrationsAssembly("VideoAnonymizer.Database.SQLite"));
                 return;
             }
 
@@ -94,15 +82,11 @@ namespace VideoAnonymizer.Database.Extensions
                 SetDevelopmentOptions(options);
             }
 
-            options.UseNpgsql(csb.ConnectionString, o => o.CommandTimeout(500));
-        }
-
-        private static bool UsesInMemoryDatabase(IHostApplicationBuilder builder)
-        {
-            return string.Equals(
-                builder.Configuration["Database:Provider"],
-                DatabaseProvider.InMemory,
-                StringComparison.OrdinalIgnoreCase);
+            options.UseNpgsql(csb.ConnectionString, o =>
+            {
+                o.CommandTimeout(500);
+                o.MigrationsAssembly("VideoAnonymizer.Database.Postgres");
+            });
         }
 
         private static bool UsesSqliteDatabase(IHostApplicationBuilder builder)
@@ -118,5 +102,15 @@ namespace VideoAnonymizer.Database.Extensions
             options.EnableSensitiveDataLogging();
             options.EnableDetailedErrors();
         }
+
+        public static async Task MigrateDatabaseAsync(this VideoAnonymizerDbContext dbContext, CancellationToken cancellationToken = default)
+        {
+            var strategy = dbContext.Database.CreateExecutionStrategy();
+            await strategy.ExecuteAsync(async () =>
+            {
+                await dbContext.Database.MigrateAsync(cancellationToken);
+            });
+        }
+
     }
 }
