@@ -14,5 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\VideoAnonymizer.Database\VideoAnonymizer.Database.csproj" />
+    <ProjectReference Include="..\VideoAnonymizer.Database.Postgres\VideoAnonymizer.Database.Postgres.csproj" />
   </ItemGroup>
 </Project>

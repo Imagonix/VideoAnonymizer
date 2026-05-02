@@ -5,6 +5,7 @@ using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database.Extensions;
+using VideoAnonymizer.Database.Postgres.Extensions;
 using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.Web.Shared;
 
@@ -34,7 +35,7 @@ builder.Services.AddSingleton<IRabbitMqConnectionFactory, RabbitMqConnectionFact
 builder.Services.AddRabbitMqVideoAnonymizerNotificationConsumers();
 
 
-builder.AddVideoAnonymizerDbContextFactory();
+builder.AddPostgresVideoAnonymizerDbContextFactory();
 
 var app = builder.Build();
 

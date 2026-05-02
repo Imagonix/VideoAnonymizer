@@ -8,6 +8,10 @@ Full-stack video anonymization app: upload a video, detect faces via AI, review 
 
 Do not modify compiled or generated files. Always modify source files and rebuild.
 
+## Naming Conventions
+
+Extension method files and classes are named after the type being extended. For interfaces, drop the `I` prefix (e.g., `IHostApplicationBuilder` → `HostApplicationBuilderExtensions`, `IServiceProvider` → `ServiceProviderExtensions`). For classes, use the class name directly (e.g., `VideoAnonymizerDbContext` → `VideoAnonymizerDbContextExtensions`).
+
 ## Tech Stack
 
 - **Frontend**: Blazor WebAssembly (.NET 10) with MudBlazor UI library
