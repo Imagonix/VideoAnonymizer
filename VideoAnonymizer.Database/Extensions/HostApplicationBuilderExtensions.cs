@@ -23,6 +23,15 @@ namespace VideoAnonymizer.Database.Extensions
                 return;
             }
 
+            if (UsesSqliteDatabase(builder))
+            {
+                builder.Services.AddDbContext<VideoAnonymizerDbContext>((sp, options) =>
+                {
+                    ConfigureDbContextOptions(builder, sp, options);
+                });
+                return;
+            }
+
             builder.AddNpgsqlDbContext<VideoAnonymizerDbContext>(_connectionString, configureDbContextOptions: options =>
             {
                 if (builder.Environment.IsDevelopment())
@@ -61,6 +70,19 @@ namespace VideoAnonymizer.Database.Extensions
                 return;
             }
 
+            if (UsesSqliteDatabase(builder))
+            {
+                var filePath = builder.Configuration["Database:FilePath"]
+                    ?? Path.Combine("App_Data", "videoanonymizer.db");
+                var directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+                options.UseSqlite($"Data Source={filePath}");
+                return;
+            }
+
             var cs = builder.Configuration.GetConnectionString(_connectionString)
                      ?? throw new InvalidOperationException(
                          $"Connection string '{_connectionString}' not found");
@@ -80,6 +102,14 @@ namespace VideoAnonymizer.Database.Extensions
             return string.Equals(
                 builder.Configuration["Database:Provider"],
                 DatabaseProvider.InMemory,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool UsesSqliteDatabase(IHostApplicationBuilder builder)
+        {
+            return string.Equals(
+                builder.Configuration["Database:Provider"],
+                DatabaseProvider.Sqlite,
                 StringComparison.OrdinalIgnoreCase);
         }
 
