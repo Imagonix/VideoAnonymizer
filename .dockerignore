@@ -23,6 +23,8 @@
 !VideoAnonymizer.Contracts/**
 !VideoAnonymizer.Web.Contracts/**
 !VideoAnonymizer.Database/**
+!VideoAnonymizer.Database.Postgres/**
+!VideoAnonymizer.Database.SQLite/**
 !VideoAnonymizer.ObjectDetectionClient/**
 !VideoAnonymizer.Web.Modules/**
 !VideoAnonymizer.Web/**
