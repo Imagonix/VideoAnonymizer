@@ -23,6 +23,8 @@
             <MudTabPanel Text="Upload">
                 <UploadTab SelectedFileChanged="OnFileSelected"
                            DetectObjects="DetectObjectsAsync"
+                           OnExistingVideoSelected="OnExistingVideoSelected"
+                           ExistingVideos="@_existingVideos"
                            SelectedFileName="@SelectedFileName"
                            @bind-DetectionIntervalMs="@DetectionIntervalMs"
                            IsBusy="@IsBusy" />

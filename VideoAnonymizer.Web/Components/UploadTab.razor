@@ -1,8 +1,10 @@
 ﻿@using Microsoft.AspNetCore.Components.Forms
+@using VideoAnonymizer.Web.Shared.DTO
 
 <MudPaper Class="pa-6">
     <MudStack Spacing="4">
-        <MudText Typo="Typo.h6">Upload a video to detect objects</MudText>
+
+        <MudText Typo="Typo.h6">Upload a new video</MudText>
 
         <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             <MudFileUpload T="IBrowserFile"
@@ -71,6 +73,30 @@
                 Detect Objects
             </MudButton>
         </MudStack>
+
+        @if (ExistingVideos?.Count > 0)
+        {
+            <MudDivider />
+            <MudText Typo="Typo.h6">Existing Videos</MudText>
+
+            <MudPaper Outlined="true" Class="pa-0">
+                <MudTable Items="@ExistingVideos" Hover="true" Dense="true" Elevation="0">
+                    <HeaderContent>
+                        <MudTh><MudText Typo="Typo.body2">File Name</MudText></MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd DataLabel="File Name">
+                            <div @onclick="@(() => OnExistingVideoSelected.InvokeAsync(context.Id))"
+                                 @onclick:preventDefault="false"
+                                 Style="cursor: pointer; padding: 4px 0;"
+                                 class="@(IsBusy ? "disabled" : "")">
+                                <MudText Typo="Typo.body1">@context.OriginalFileName</MudText>
+                            </div>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+            </MudPaper>
+        }
     </MudStack>
 </MudPaper>
 
@@ -80,6 +106,12 @@
 
     [Parameter, EditorRequired]
     public EventCallback DetectObjects { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnExistingVideoSelected { get; set; }
+
+    [Parameter]
+    public List<VideoDto>? ExistingVideos { get; set; }
 
     [Parameter]
     public string? SelectedFileName { get; set; }

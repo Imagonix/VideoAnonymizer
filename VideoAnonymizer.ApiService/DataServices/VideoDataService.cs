@@ -63,9 +63,18 @@ namespace VideoAnonymizer.ApiService.DataServices
             return video.SourcePath;
         }
 
-        public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile uploadedVideo, string extension, string contentRootPath, CancellationToken cancellationToken)
+        public async Task<List<VideoDto>> GetVideos()
         {
-            var video = new Video();
+            using var db = await dbFactory.CreateDbContextAsync();
+            return await db.Videos
+                .OrderByDescending(v => v.Id)
+                .Select(v => new VideoDto { Id = v.Id, OriginalFileName = v.OriginalFileName ?? "Unknown" })
+                .ToListAsync();
+        }
+
+        public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile uploadedVideo, string originalFileName, string extension, string contentRootPath, CancellationToken cancellationToken)
+        {
+            var video = new Video { OriginalFileName = originalFileName };
 
             var uploadsRoot = Path.Combine(contentRootPath, "App_Data", "Uploads");
             Directory.CreateDirectory(uploadsRoot);

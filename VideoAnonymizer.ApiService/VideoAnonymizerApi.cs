@@ -44,7 +44,7 @@ namespace VideoAnonymizer.ApiService
                 return BadRequest("Unsupported file type.");
             }
 
-            (Guid videoId, string fullPath) = await videoDataService.SaveVideoFileAndCreateDbEntry(video, extension, environment.ContentRootPath, cancellationToken);
+            (Guid videoId, string fullPath) = await videoDataService.SaveVideoFileAndCreateDbEntry(video, video.FileName, extension, environment.ContentRootPath, cancellationToken);
 
             await messagePublisher.PublishAsync(
                 RabbitMQConstants.RoutingKeys.Analyze,
@@ -76,6 +76,13 @@ namespace VideoAnonymizer.ApiService
             {
                 return NotFound();
             }
+        }
+
+        [HttpGet($"{SharedConstants.Paths.Videos}")]
+        public async Task<IActionResult> GetVideos()
+        {
+            var videos = await videoDataService.GetVideos();
+            return Ok(new ApiResponse<List<VideoDto>> { IsSuccess = true, Payload = videos });
         }
 
         [HttpGet($"{SharedConstants.Paths.Video}/{{videoId:guid}}")]

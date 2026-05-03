@@ -17,6 +17,7 @@ namespace VideoAnonymizer.Web.Shared
             public const string DetectedObject = "detectedObject";
             public const string Health = "health";
             public const string Video = "video";
+            public const string Videos = "videos";
         }
 
         public static class SignalR

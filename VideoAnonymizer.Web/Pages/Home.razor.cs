@@ -34,6 +34,7 @@ namespace VideoAnonymizer.Web.Pages
         private List<AnalyzedFrameDto> _analyzedFrames = [];
         private bool _showEditor;
         private string? _videoSourceUrl;
+        private List<VideoDto>? _existingVideos;
 
         private int DetectionIntervalMs { get; set; } = 100;
 
@@ -42,6 +43,8 @@ namespace VideoAnonymizer.Web.Pages
 
         protected override async Task OnInitializedAsync()
         {
+            await LoadExistingVideosAsync();
+
             _videoAnalyzedSubscription = JobHubClient.OnVideoAnalyzed(async message =>
             {
                 if (_currentVideoId.IsNullOrEmpty())
@@ -52,6 +55,7 @@ namespace VideoAnonymizer.Web.Pages
 
                 StatusText = "Video analyzed. Loading editor...";
                 await LoadAnalyzedFramesAsync(_currentVideoId);
+                await LoadExistingVideosAsync();
                 _showEditor = true;
                 _activeTabIndex = 1;
                 _selectedFile = null;
@@ -157,6 +161,55 @@ namespace VideoAnonymizer.Web.Pages
                 Snackbar.Add($"Upload failed: {ex.Message}", Severity.Error);
             }
 
+            await InvokeAsync(StateHasChanged);
+        }
+
+        private async Task LoadExistingVideosAsync()
+        {
+            try
+            {
+                using var httpClient = HttpClientFactory.CreateClient("ApiService");
+                var response = await httpClient.GetAsync($"/{SharedConstants.Paths.Videos}");
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<VideoDto>>>();
+                _existingVideos = result?.Payload;
+            }
+            catch
+            {
+                _existingVideos = null;
+            }
+        }
+
+        private async Task OnExistingVideoSelected(Guid videoId)
+        {
+            _currentVideoId = videoId;
+            _selectedFile = null;
+            SelectedFileName = _existingVideos?.FirstOrDefault(v => v.Id == videoId)?.OriginalFileName;
+            IsAnonymized = false;
+            _anonymizeVideoJobId = null;
+            _showEditor = false;
+            _videoSourceUrl = null;
+            _analyzedFrames = [];
+
+            StatusText = "Opening Video...";
+            IsBusy = true;
+            await InvokeAsync(StateHasChanged);
+
+            await LoadAnalyzedFramesAsync(videoId);
+
+            if (_analyzedFrames.Count > 0)
+            {
+                _showEditor = true;
+                _activeTabIndex = 1;
+                StatusText = "Video loaded. You can review detected objects.";
+            }
+            else
+            {
+                StatusText = "No analysis found for this video. Upload and detect objects to analyze it.";
+            }
+
+            IsBusy = false;
             await InvokeAsync(StateHasChanged);
         }
 
