@@ -1,19 +1,25 @@
+using System.Net.Http.Json;
+using System.Threading.Channels;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.Web.Modules.Components;
 
 public partial class VideoEditor : ComponentBase, IAsyncDisposable
 {
-    [Inject] 
+    [Inject]
     private IJSRuntime JS { get; set; } = default!;
 
-    [Parameter, EditorRequired] 
+    [Inject]
+    private IHttpClientFactory HttpClientFactory { get; set; } = default!;
+
+    [Parameter, EditorRequired]
     public Guid VideoId { get; set; }
-    [Parameter] 
+    [Parameter]
     public string VideoSourceUrl { get; set; } = string.Empty;
-    [Parameter] 
+    [Parameter]
     public IReadOnlyList<AnalyzedFrameDto> Frames { get; set; } = Array.Empty<AnalyzedFrameDto>();
     [Parameter]
     public int BlurSizePercent { get; set; } = 120;
@@ -27,6 +33,80 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private bool _loadFailed;
     private int _lastBlurSizePercent;
     private int _lastTimeBufferMs;
+    private DotNetObjectReference<VideoEditor>? _dotNetRef;
+
+    private readonly Channel<Func<Task>> _operationChannel = Channel.CreateUnbounded<Func<Task>>(new UnboundedChannelOptions { SingleReader = true });
+    private readonly CancellationTokenSource _queueCts = new();
+    private Task _processingTask = Task.CompletedTask;
+
+    protected override void OnInitialized()
+    {
+        _processingTask = ProcessQueueAsync();
+    }
+
+    private async Task ProcessQueueAsync()
+    {
+        var reader = _operationChannel.Reader;
+        try
+        {
+            while (await reader.WaitToReadAsync(_queueCts.Token))
+            {
+                while (reader.TryRead(out var operation))
+                {
+                    try
+                    {
+                        await operation();
+                    }
+                    catch
+                    {
+                        // Swallow per-operation failures so queue keeps moving
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        await _operationChannel.Writer.WriteAsync(async () =>
+        {
+            using var client = HttpClientFactory.CreateClient("ApiService");
+            var response = await client.PostAsJsonAsync(
+                $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", dto);
+            response.EnsureSuccessStatusCode();
+        });
+    }
+
+    [JSInvokable]
+    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        await _operationChannel.Writer.WriteAsync(async () =>
+        {
+            using var client = HttpClientFactory.CreateClient("ApiService");
+            var response = await client.PutAsJsonAsync(
+                $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto);
+            response.EnsureSuccessStatusCode();
+        });
+    }
+
+    [JSInvokable]
+    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos)
+    {
+        await _operationChannel.Writer.WriteAsync(async () =>
+        {
+            using var client = HttpClientFactory.CreateClient("ApiService");
+            foreach (var chunk in dtos.Chunk(8))
+            {
+                await Task.WhenAll(chunk.Select(dto =>
+                    client.PutAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
+            }
+        });
+    }
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
     {
@@ -50,10 +130,13 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                     "import",
                     "/_content/VideoAnonymizer.Web.Modules/js/videoEditorHost.js");
 
+                _dotNetRef = DotNetObjectReference.Create(this);
+
                 await _hostModule.InvokeVoidAsync(
                     "mountVideoEditor",
                     _hostElement,
-                    BuildProps());
+                    BuildProps(),
+                    _dotNetRef);
 
                 _lastBlurSizePercent = BlurSizePercent;
                 _lastTimeBufferMs = TimeBufferMs;
@@ -87,7 +170,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     {
         return new
         {
-            videoId = VideoId,
+            videoId = VideoId.ToString(),
             videoSourceUrl = VideoSourceUrl,
             frames = Frames,
             anonymizationSettings = new
@@ -100,6 +183,11 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _queueCts.Cancel();
+        try { await _processingTask; } catch { }
+
+        _dotNetRef?.Dispose();
+
         try
         {
             if (_hostModule is not null)

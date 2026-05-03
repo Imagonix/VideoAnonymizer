@@ -7,6 +7,38 @@ namespace VideoAnonymizer.ApiService.DataServices
 {
     public class VideoDataService(IDbContextFactory<VideoAnonymizerDbContext> dbFactory)
     {
+        public async Task<DetectedObjectDto> AddDetectedObject(Guid videoId, DetectedObjectDto dto)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+
+            var frame = await db.AnalyzedFrames
+                .FirstOrDefaultAsync(f => f.Id == dto.AnalyzedFrameId && f.VideoId == videoId);
+            if (frame == null)
+                throw new NotFoundException();
+
+            var entity = Mapper.ToEntity(dto);
+            db.DetectedObjects.Add(entity);
+            await db.SaveChangesAsync();
+
+            return Mapper.ToDto(entity);
+        }
+
+        public async Task<DetectedObjectDto> UpdateDetectedObject(Guid videoId, DetectedObjectDto dto)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+
+            var entity = await db.DetectedObjects
+                .Include(o => o.AnalyzedFrame)
+                .FirstOrDefaultAsync(o => o.Id == dto.Id && o.AnalyzedFrame.VideoId == videoId);
+            if (entity == null)
+                throw new NotFoundException();
+
+            Mapper.UpdateEntity(dto, entity);
+            await db.SaveChangesAsync();
+
+            return Mapper.ToDto(entity);
+        }
+
         public async Task<List<AnalyzedFrameDto>> GetAnalyzedVideo(Guid videoId)
         {
             using var db = await dbFactory.CreateDbContextAsync();

@@ -12,9 +12,9 @@ export function useMerge() {
         mergeSelectedKeys.value = new Set(set);
     }
 
-    function execute(timelineObjects: TimelineObject[], frames: AnalyzedFrameDto[]) {
+    function execute(timelineObjects: TimelineObject[], frames: AnalyzedFrameDto[]): DetectedObjectDto[] {
         const keys = [...mergeSelectedKeys.value];
-        if (keys.length < 2) return;
+        if (keys.length < 2) return [];
 
         const selectedTrackIds = new Set<number>();
         const selectedObjIds = new Set<string>();
@@ -40,6 +40,8 @@ export function useMerge() {
 
         const allTrackIdsToMerge = new Set([targetTrackId, ...selectedTrackIds]);
 
+        const changed: DetectedObjectDto[] = [];
+
         for (const frame of frames) {
             let frameHasTarget = frame.detectedObjects.some(o => o.trackId === targetTrackId);
             for (const obj of frame.detectedObjects) {
@@ -49,11 +51,13 @@ export function useMerge() {
                 if (obj.trackId === targetTrackId) continue;
                 if (frameHasTarget) continue;
                 obj.trackId = targetTrackId;
+                changed.push(obj);
                 frameHasTarget = true;
             }
         }
 
         mergeSelectedKeys.value = new Set();
+        return changed;
     }
 
     return { mergeSelectedKeys, toggle, execute };

@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import type { AnalyzedFrameDto } from '../types';
+import type { AnalyzedFrameDto, DetectedObjectDto } from '../types';
 
 export function useSplit() {
     const splitSourceKey = ref<string | null>(null);
@@ -7,8 +7,8 @@ export function useSplit() {
     function execute(
         selectedOccurrences: Map<string, Set<number>>,
         frames: AnalyzedFrameDto[]
-    ): boolean {
-        let anySplit = false;
+    ): DetectedObjectDto[] {
+        const changed: DetectedObjectDto[] = [];
 
         const maxTrackId = frames.flatMap(f => f.detectedObjects)
             .reduce((max, o) => Math.max(max, o.trackId ?? 0), 0);
@@ -24,16 +24,16 @@ export function useSplit() {
                 for (const obj of frame.detectedObjects) {
                     if (obj.trackId === sourceTrackId) {
                         obj.trackId = newTrackId;
-                        anySplit = true;
+                        changed.push(obj);
                     }
                 }
             }
         }
 
-        if (anySplit) {
+        if (changed.length > 0) {
             splitSourceKey.value = null;
         }
-        return anySplit;
+        return changed;
     }
 
     return { splitSourceKey, execute };

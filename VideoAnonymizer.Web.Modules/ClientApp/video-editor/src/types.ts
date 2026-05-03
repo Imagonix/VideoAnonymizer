@@ -23,6 +23,9 @@ export type VideoEditorProps = {
   videoSourceUrl: string;
   frames: AnalyzedFrameDto[];
   anonymizationSettings: AnonymizationSettings;
+  onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
+  onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
+  onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[]) => void;
 };
 
 export type AnonymizationSettings = {

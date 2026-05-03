@@ -116,38 +116,57 @@ const currentFrame = computed(() => {
 });
 
 function toggleObject(id: string, checked: boolean) {
-    frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id)).forEach(obj => { obj.selected = checked });
+    const matched = frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id));
+    matched.forEach(obj => { obj.selected = checked });
+    if (matched.length === 1) {
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, matched[0].analyzedFrameId, matched[0]);
+    } else if (matched.length > 1) {
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, matched);
+    }
 }
 
 function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
-    if (obj.type === 'single') { obj.detectedObj.selected = checked; return; }
-    obj.occurences.forEach(([_, o]) => { o.selected = checked; });
+    if (obj.type === 'single') {
+        obj.detectedObj.selected = checked;
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.detectedObj.analyzedFrameId, obj.detectedObj);
+        return;
+    }
+    const changed: DetectedObjectDto[] = [];
+    obj.occurences.forEach(([_, o]) => { o.selected = checked; changed.push(o); });
+    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed);
 }
 
 function setTrackId(timelineObject: TimelineObject, trackId: number) {
     if (timelineObject.type === 'single') {
         timelineObject.detectedObj.trackId = trackId;
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj);
         return;
     }
     const oldTrackId = timelineObject.occurences[0]?.[1].trackId;
     if (oldTrackId == null) return;
+    const changed: DetectedObjectDto[] = [];
     for (const frame of props.state.frames) {
         for (const obj of frame.detectedObjects) {
-            if (obj.trackId === oldTrackId) { obj.trackId = trackId; }
+            if (obj.trackId === oldTrackId) { obj.trackId = trackId; changed.push(obj); }
         }
     }
+    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed);
 }
 
 function mergeAction() {
-    mergeExecute(timelineObjects.value, props.state.frames);
+    const changed = mergeExecute(timelineObjects.value, props.state.frames);
     deactivate();
+    if (changed.length > 0) {
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed);
+    }
 }
 
 function splitAction() {
-    const didSplit = splitExecute(selectedOccurrences.value, props.state.frames);
-    if (didSplit) {
+    const changed = splitExecute(selectedOccurrences.value, props.state.frames);
+    if (changed.length > 0) {
         clearOccurrences();
         deactivate();
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed);
     }
 }
 
@@ -182,10 +201,16 @@ function addBox(x: number, y: number, width: number, height: number, className: 
     const resolvedTrackId = trackId === 'new' || frameTrackIds.has(trackId)
         ? nextTrackId
         : trackId;
-    frame.detectedObjects.push({
+    const newObj: DetectedObjectDto = {
         id: crypto.randomUUID(), confidence: 1, className: className || null, selected: true,
         trackId: resolvedTrackId, x, y, width, height, analyzedFrameId: frame.id,
-    });
+    };
+    frame.detectedObjects.push(newObj);
+    props.state.onDetectedObjectAdded?.(props.state.videoId, frame.id, newObj);
+}
+
+function onBoxUpdated(obj: DetectedObjectDto) {
+    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj);
 }
 </script>
 
@@ -273,6 +298,7 @@ function addBox(x: number, y: number, width: number, height: number, className: 
       @done="deactivate"
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"
+      @box-updated="onBoxUpdated"
     />
 </template>
 

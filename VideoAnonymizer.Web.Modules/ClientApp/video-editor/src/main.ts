@@ -21,12 +21,26 @@ declare global {
     }
 }
 
+const callbackKeys: (keyof VideoEditorProps)[] = [
+    'onDetectedObjectAdded',
+    'onDetectedObjectUpdated',
+    'onDetectedObjectsBulkUpdated',
+];
+
 window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps): AppHandle => {
+    const callbacks: Partial<VideoEditorProps> = {};
+    for (const key of callbackKeys) {
+        if (props[key] !== undefined) {
+            callbacks[key] = props[key] as any;
+        }
+    }
+
     const state = reactive<VideoEditorProps>({
         videoId: props.videoId,
         videoSourceUrl: props.videoSourceUrl,
         frames: props.frames ?? [],
-        anonymizationSettings: props.anonymizationSettings
+        anonymizationSettings: props.anonymizationSettings,
+        ...callbacks,
     });
 
     const app = createApp(VideoEditorApp, { state });

@@ -131,6 +131,41 @@ namespace VideoAnonymizer.ApiService
             }
         }
 
+        [HttpPost($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.AnalyzedFrame}/{{analyzedFrameId:guid}}/{SharedConstants.Paths.DetectedObject}/{{objectId:guid}}")]
+        public async Task<IActionResult> AddDetectedObject([FromRoute] Guid videoId, [FromRoute] Guid analyzedFrameId, [FromBody] DetectedObjectDto dto)
+        {
+            try
+            {
+                if (analyzedFrameId != dto.AnalyzedFrameId)
+                    return BadRequest("analyzedFrameId in URL does not match request body");
+
+                var created = await videoDataService.AddDetectedObject(videoId, dto);
+                return CreatedAtAction(nameof(AddDetectedObject), new { videoId, analyzedFrameId, objectId = created.Id },
+                    new ApiResponse<DetectedObjectDto> { IsSuccess = true, Payload = created });
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
+        [HttpPut($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.AnalyzedFrame}/{{analyzedFrameId:guid}}/{SharedConstants.Paths.DetectedObject}/{{objectId:guid}}")]
+        public async Task<IActionResult> UpdateDetectedObject([FromRoute] Guid videoId, [FromRoute] Guid analyzedFrameId, [FromRoute] Guid objectId, [FromBody] DetectedObjectDto dto)
+        {
+            try
+            {
+                if (analyzedFrameId != dto.AnalyzedFrameId || objectId != dto.Id)
+                    return BadRequest("URL parameters do not match request body");
+
+                var updated = await videoDataService.UpdateDetectedObject(videoId, dto);
+                return Ok(new ApiResponse<DetectedObjectDto> { IsSuccess = true, Payload = updated });
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
         [HttpGet($"{SharedConstants.Paths.Anonymized}/{{videoId:guid}}")]
         public async Task<IActionResult> GetAnonymizedVideo([FromRoute] Guid videoId)
         {

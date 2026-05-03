@@ -32,9 +32,19 @@ async function ensureAssetsLoaded() {
     }
 }
 
-export async function mountVideoEditor(element, props) {
+export async function mountVideoEditor(element, props, dotNetRef) {
     await ensureAssetsLoaded();
-    const appHandle = window.mountVideoEditorVueApp(element, props);
+
+    const callbacks = {
+        onDetectedObjectAdded: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto),
+        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto),
+        onDetectedObjectsBulkUpdated: (videoId, dtos) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos),
+    };
+
+    const appHandle = window.mountVideoEditorVueApp(element, { ...props, ...callbacks });
     mountedApps.set(element, appHandle);
 }
 

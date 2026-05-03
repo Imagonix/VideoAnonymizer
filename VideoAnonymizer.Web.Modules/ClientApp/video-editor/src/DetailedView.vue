@@ -15,6 +15,7 @@ const emit = defineEmits<{
     (e: 'done'): void;
     (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
     (e: 'add-box', x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number): void;
+    (e: 'box-updated', obj: DetectedObjectDto): void;
 }>();
 
 
@@ -275,8 +276,19 @@ function onOverlayMouseUp() {
         }
         return;
     }
-    dragState.value = null;
-    resizeState.value = null;
+
+    let updatedObj: DetectedObjectDto | null = null;
+    if (dragState.value) {
+        updatedObj = props.frame.detectedObjects.find(o => o.id === dragState.value.id) ?? null;
+        dragState.value = null;
+    } else if (resizeState.value) {
+        updatedObj = props.frame.detectedObjects.find(o => o.id === resizeState.value.id) ?? null;
+        resizeState.value = null;
+    }
+
+    if (updatedObj) {
+        emit('box-updated', updatedObj);
+    }
 }
 
 function confirmAdd(label: string) {
