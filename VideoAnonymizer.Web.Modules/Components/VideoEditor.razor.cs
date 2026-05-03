@@ -117,23 +117,25 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectUpdatedAction
         {
             VideoId = videoId,
             AnalyzedFrameId = analyzedFrameId,
-            Object = dto
+            Object = dto,
+            OperationType = operationType
         }));
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos)
+    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectsBulkUpdatedAction
         {
             VideoId = videoId,
-            Objects = dtos
+            Objects = dtos,
+            OperationType = operationType
         }));
     }
 

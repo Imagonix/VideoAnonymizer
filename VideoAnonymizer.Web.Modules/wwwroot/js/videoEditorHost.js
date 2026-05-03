@@ -38,10 +38,10 @@ export async function mountVideoEditor(element, props, dotNetRef) {
     const callbacks = {
         onDetectedObjectAdded: (videoId, analyzedFrameId, dto) =>
             dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto),
-        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto),
-        onDetectedObjectsBulkUpdated: (videoId, dtos) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos),
+        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto, operationType) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto, operationType ?? ''),
+        onDetectedObjectsBulkUpdated: (videoId, dtos, operationType) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? ''),
     };
 
     const appHandle = window.mountVideoEditorVueApp(element, { ...props, ...callbacks });

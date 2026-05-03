@@ -92,7 +92,7 @@
                             }
                             else
                             {
-                                @foreach (var item in _actionHistory)
+                                @foreach (var item in _actionHistory.AsEnumerable().Reverse())
                                 {
                                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="my-1">
                                         @if (item.Status == ActionStatus.Success)
@@ -194,9 +194,23 @@
 
     private static string GetActionDescription(VideoEditorAction action) => action switch
     {
-        ObjectAddedAction => "Add object",
-        ObjectUpdatedAction => "Update object",
-        ObjectsBulkUpdatedAction a => $"Bulk update ({a.Objects.Count} objects)",
+        ObjectAddedAction => "Added new bounding box",
+        ObjectUpdatedAction a => a.OperationType switch
+        {
+            "toggle" => "Toggled object selection",
+            "reassign" => "Reassigned track ID",
+            "move" => "Moved bounding box",
+            "resize" => "Resized bounding box",
+            _ => "Updated bounding box"
+        },
+        ObjectsBulkUpdatedAction a => a.OperationType switch
+        {
+            "merge" => $"Merged {a.Objects.Count} objects",
+            "split" => $"Split {a.Objects.Count} objects",
+            "toggle" => $"Toggled {a.Objects.Count} objects",
+            "reassign" => $"Reassigned track ({a.Objects.Count} objects)",
+            _ => $"Updated {a.Objects.Count} objects"
+        },
         _ => "Unknown action"
     };
 
