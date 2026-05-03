@@ -1,4 +1,5 @@
 ﻿@using VideoAnonymizer.Web.Modules.Components
+@using VideoAnonymizer.Web.Modules.Actions
 @using VideoAnonymizer.Web.Shared.DTO
 @using VideoAnonymizer.Web.Shared
 @inject IHttpClientFactory HttpClientFactory
@@ -80,9 +81,7 @@
                          BlurSizePercent="@BlurSizePercent"
                          TimeBufferMs="@TimeBufferMs"
                          IsProcessingChanged="OnVideoEditorProcessingChanged"
-                         OnObjectAdded="OnObjectAddedHandler"
-                         OnObjectUpdated="OnObjectUpdatedHandler"
-                         OnObjectsBulkUpdated="OnObjectsBulkUpdatedHandler" />
+                         OnAction="OnVideoEditorAction" />
         }
 
         <MudButton Variant="Variant.Filled"
@@ -129,28 +128,30 @@
         StateHasChanged();
     }
 
-    private async Task OnObjectAddedHandler(DetectedObjectOperation op)
+    private async Task OnVideoEditorAction(VideoEditorAction action)
     {
         using var client = HttpClientFactory.CreateClient("ApiService");
-        await client.PostAsJsonAsync(
-            $"/{SharedConstants.Paths.Video}/{op.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{op.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", op.Dto);
-    }
 
-    private async Task OnObjectUpdatedHandler(DetectedObjectOperation op)
-    {
-        using var client = HttpClientFactory.CreateClient("ApiService");
-        await client.PutAsJsonAsync(
-            $"/{SharedConstants.Paths.Video}/{op.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{op.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{op.Dto.Id}", op.Dto);
-    }
-
-    private async Task OnObjectsBulkUpdatedHandler(DetectedObjectsBulkOperation op)
-    {
-        using var client = HttpClientFactory.CreateClient("ApiService");
-        foreach (var chunk in op.Dtos.Chunk(8))
+        switch (action)
         {
-            await Task.WhenAll(chunk.Select(dto =>
-                client.PutAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{op.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
+            case ObjectAddedAction a:
+                await client.PostAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                break;
+
+            case ObjectUpdatedAction a:
+                await client.PutAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object);
+                break;
+
+            case ObjectsBulkUpdatedAction a:
+                foreach (var chunk in a.Objects.Chunk(8))
+                {
+                    await Task.WhenAll(chunk.Select(dto =>
+                        client.PutAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
+                }
+                break;
         }
     }
 

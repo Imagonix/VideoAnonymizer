@@ -31,7 +31,7 @@ Key projects under `VideoAnonymizer.slnx`:
 |---|---|
 | `VideoAnonymizer.Web` | Blazor WASM frontend, SignalR client, download service |
 | `VideoAnonymizer.Web.Contracts` | Shared DTOs (`AnalyzedFrameDto`, `DetectedObjectDto`, etc.) and API route constants |
-| `VideoAnonymizer.Web.Modules` | Razor Class Library hosting the Vue video editor component |
+| `VideoAnonymizer.Web.Modules` | Razor Class Library hosting the Vue video editor component + action classes (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`) |
 | `VideoAnonymizer.ApiService` | ASP.NET Core API (analyze, anonymize, video serving endpoints + SignalR hub) |
 | `VideoAnonymizer.VideoProcessor` | Background worker: frame extraction, blur processing, export |
 | `VideoAnonymizer.ObjectDetection` | Python FastAPI face detection service |
@@ -82,8 +82,8 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Pages/Home.razor.js` - `triggerFileDownload()` JS function
 
 ### Frontend - Components
-- `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Settings (blur size, time buffer), editor, anonymize button
-- `VideoAnonymizer.Web/Components/UploadTab.razor` - File upload + detect button
+- `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Settings (blur size, time buffer), editor, anonymize button, sync status indicator (save icon / spinner tied to channel state), action handler (switch on `VideoEditorAction`)
+- `VideoAnonymizer.Web/Components/UploadTab.razor` - File upload + detect button + existing videos list with click-to-open
 - `VideoAnonymizer.Web/Components/StatusIndicator.razor` - Progress overlay
 
 ### Frontend - Services
@@ -91,6 +91,8 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Services/IJobHubClient.cs` / `JobHubClient.cs` - SignalR hub connection
 
 ### Vue Editor (within Web.Modules)
+- `VideoAnonymizer.Web.Modules/Actions/VideoEditorAction.cs` - Action class hierarchy (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`); single `OnAction` callback dispatched via switch in `ReviewExportTab`
+- `VideoAnonymizer.Web.Modules/Components/VideoEditor.razor.cs` - Operation channel queue, `EnqueueOperation()` public method, `IsProcessingChanged` callback for sync indicator, JS-invokable methods enqueue actions via `OnAction`
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/EditorControls.vue` - Right-side button panel: Move, Resize, Add, Merge, Split
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/DetailedView.vue` - Fullscreen overlay for Move/Resize/Add operations with canvas frame preview, draggable/resizable boxes, and draw-new-box support
@@ -145,7 +147,8 @@ dotnet ef migrations add <Name> --project ../VideoAnonymizer.Database.Postgres/ 
 # SQLite
 dotnet ef migrations add <Name> --project ../VideoAnonymizer.Database.SQLite/ --output-dir Migrations
 ```
-Or use the repo-root script: `.\add-migrations.ps1 -Name "<Name>"`
+Or use the script: `.\add-migrations.ps1 -Name "<Name>"` from `VideoAnonymizer.Database/`
+Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Database.SQLite/`) before running `dotnet ef migrations add` against it, since it acts as its own design-time factory host without a separate startup project.
 
 ### Adding a background processing step
 - Add a new consumer/handler pair in `VideoAnonymizer.VideoProcessor/`
@@ -227,3 +230,7 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - `SelectedFileName` is preserved from the initial file selection (not nullified after analysis) to ensure correct download filename
 - Video files are stored on disk; the API serves them via `PhysicalFile()` with range processing support
 - The Vue editor communicates with Blazor via JS interop (`GetFramesAsync()` / property updates on the mounted Vue app)
+- Settings (blur size, time buffer) are persisted on change via `PUT /video/{videoId}/settings` and go through the `VideoEditor` operation channel
+- VideoEditor operations (add/update/bulk update detected objects) use a command pattern: `VideoEditorAction` records dispatched through a single `OnAction` callback with a switch in `ReviewExportTab`; designed to support undo in the future
+- HTTP execution logic lives in `ReviewExportTab` (not `VideoEditor`) — `VideoEditor` only provides the queue mechanism and notifies processing state via `IsProcessingChanged`
+- The upload tab shows a list of existing videos loaded from `GET /videos`; clicking a row opens the video directly (no separate button)

@@ -1,6 +1,7 @@
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using VideoAnonymizer.Web.Modules.Actions;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.Web.Modules.Components;
@@ -26,13 +27,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     public EventCallback<bool> IsProcessingChanged { get; set; }
 
     [Parameter]
-    public EventCallback<DetectedObjectOperation> OnObjectAdded { get; set; }
-
-    [Parameter]
-    public EventCallback<DetectedObjectOperation> OnObjectUpdated { get; set; }
-
-    [Parameter]
-    public EventCallback<DetectedObjectsBulkOperation> OnObjectsBulkUpdated { get; set; }
+    public EventCallback<VideoEditorAction> OnAction { get; set; }
 
     private ElementReference _hostElement;
     private IJSObjectReference? _hostModule;
@@ -113,19 +108,33 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     [JSInvokable]
     public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
     {
-        EnqueueOperation(() => OnObjectAdded.InvokeAsync(new DetectedObjectOperation(videoId, analyzedFrameId, dto)));
+        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectAddedAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto
+        }));
     }
 
     [JSInvokable]
     public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto)
     {
-        EnqueueOperation(() => OnObjectUpdated.InvokeAsync(new DetectedObjectOperation(videoId, analyzedFrameId, dto)));
+        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectUpdatedAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto
+        }));
     }
 
     [JSInvokable]
     public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos)
     {
-        EnqueueOperation(() => OnObjectsBulkUpdated.InvokeAsync(new DetectedObjectsBulkOperation(videoId, dtos)));
+        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectsBulkUpdatedAction
+        {
+            VideoId = videoId,
+            Objects = dtos
+        }));
     }
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
@@ -221,6 +230,3 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         }
     }
 }
-
-public record DetectedObjectOperation(string VideoId, string AnalyzedFrameId, DetectedObjectDto Dto);
-public record DetectedObjectsBulkOperation(string VideoId, DetectedObjectDto[] Dtos);
