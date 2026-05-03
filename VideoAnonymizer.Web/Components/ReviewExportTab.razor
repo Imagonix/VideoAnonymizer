@@ -145,12 +145,8 @@
                 break;
 
             case ObjectsBulkUpdatedAction a:
-                foreach (var chunk in a.Objects.Chunk(8))
-                {
-                    await Task.WhenAll(chunk.Select(dto =>
-                        client.PutAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
-                }
+                await client.PatchAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
                 break;
         }
     }

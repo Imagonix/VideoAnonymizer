@@ -15,6 +15,7 @@ namespace VideoAnonymizer.Web.Shared
             public const string Anonymize = "anonymize";
             public const string AppState = "state";
             public const string DetectedObject = "detectedObject";
+            public const string DetectedObjects = "detectedObjects";
             public const string Health = "health";
             public const string Video = "video";
             public const string Videos = "videos";

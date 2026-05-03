@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.Web.Shared.DTO;
@@ -37,6 +38,31 @@ namespace VideoAnonymizer.ApiService.DataServices
             await db.SaveChangesAsync();
 
             return Mapper.ToDto(entity);
+        }
+
+        public async Task BulkUpdateDetectedObjects(Guid videoId, IReadOnlyList<DetectedObjectDto> dtos)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
+            var objectIds = dtos.Select(d => d.Id).ToHashSet();
+
+            var existing = await db.DetectedObjects
+                .Include(o => o.AnalyzedFrame)
+                .Where(o => objectIds.Contains(o.Id) && o.AnalyzedFrame.VideoId == videoId)
+                .ToListAsync();
+
+            if (existing.Count != dtos.Count)
+                throw new NotFoundException();
+
+            var dtoMap = dtos.ToDictionary(d => d.Id);
+            foreach (var entity in existing)
+            {
+                Mapper.UpdateEntity(dtoMap[entity.Id], entity);
+            }
+
+            await db.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
 
         public async Task<List<AnalyzedFrameDto>> GetAnalyzedVideo(Guid videoId)
