@@ -131,7 +131,7 @@ namespace VideoAnonymizer.ApiService
             }
         }
 
-        [HttpPost($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.AnalyzedFrame}/{{analyzedFrameId:guid}}/{SharedConstants.Paths.DetectedObject}/{{objectId:guid}}")]
+        [HttpPost($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.AnalyzedFrame}/{{analyzedFrameId:guid}}/{SharedConstants.Paths.DetectedObject}")]
         public async Task<IActionResult> AddDetectedObject([FromRoute] Guid videoId, [FromRoute] Guid analyzedFrameId, [FromBody] DetectedObjectDto dto)
         {
             try
@@ -140,7 +140,7 @@ namespace VideoAnonymizer.ApiService
                     return BadRequest("analyzedFrameId in URL does not match request body");
 
                 var created = await videoDataService.AddDetectedObject(videoId, dto);
-                return CreatedAtAction(nameof(AddDetectedObject), new { videoId, analyzedFrameId, objectId = created.Id },
+                return CreatedAtAction(nameof(AddDetectedObject), new { videoId, analyzedFrameId },
                     new ApiResponse<DetectedObjectDto> { IsSuccess = true, Payload = created });
             }
             catch (NotFoundException)
