@@ -6,48 +6,64 @@
 <MudPaper Class="pa-6">
     <MudStack Spacing="2">
         <MudPaper Class="pa-3 mb-3">
-            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
-                <MudStack Spacing="1" Style="width: 220px;">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudText Typo="Typo.subtitle2">Blur size</MudText>
-                        <MudTooltip Text="Controls how large the anonymized area is compared to the detected face box. Example: 120% means the blur area is 20% larger than the detected box.">
-                            <MudIcon Icon="@Icons.Material.Filled.Info"
-                                     Size="Size.Small"
-                                     Color="Color.Info" />
-                        </MudTooltip>
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+                    <MudStack Spacing="1" Style="width: 220px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.subtitle2">Blur size</MudText>
+                            <MudTooltip Text="Controls how large the anonymized area is compared to the detected face box. Example: 120% means the blur area is 20% larger than the detected box.">
+                                <MudIcon Icon="@Icons.Material.Filled.Info"
+                                         Size="Size.Small"
+                                         Color="Color.Info" />
+                            </MudTooltip>
+                        </MudStack>
+
+                        <MudNumericField T="int"
+                                         Value="BlurSizePercent"
+                                         ValueChanged="OnBlurSizeChanged"
+                                         Min="100"
+                                         Max="300"
+                                         Step="10"
+                                         Adornment="Adornment.End"
+                                         AdornmentText="%"
+                                         Immediate="false" />
                     </MudStack>
 
-                    <MudNumericField T="int"
-                                     Value="BlurSizePercent"
-                                     ValueChanged="OnBlurSizeChanged"
-                                     Min="100"
-                                     Max="300"
-                                     Step="10"
-                                     Adornment="Adornment.End"
-                                     AdornmentText="%"
-                                     Immediate="false" />
-                </MudStack>
+                    <MudStack Spacing="1" Style="width: 220px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.subtitle2">Time buffer</MudText>
+                            <MudTooltip Text="Adds blur time before and after a detection, reducing flicker when detections appear or disappear. Example: 300 ms blurs 0.3 seconds before and after detection.">
+                                <MudIcon Icon="@Icons.Material.Filled.Info"
+                                         Size="Size.Small"
+                                         Color="Color.Info" />
+                            </MudTooltip>
+                        </MudStack>
 
-                <MudStack Spacing="1" Style="width: 220px;">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudText Typo="Typo.subtitle2">Time buffer</MudText>
-                        <MudTooltip Text="Adds blur time before and after a detection, reducing flicker when detections appear or disappear. Example: 300 ms blurs 0.3 seconds before and after detection.">
-                            <MudIcon Icon="@Icons.Material.Filled.Info"
-                                     Size="Size.Small"
-                                     Color="Color.Info" />
-                        </MudTooltip>
+                        <MudNumericField T="int"
+                                         Value="TimeBufferMs"
+                                         ValueChanged="OnTimeBufferChanged"
+                                         Min="0"
+                                         Max="1000"
+                                         Step="50"
+                                         Adornment="Adornment.End"
+                                         AdornmentText="ms"
+                                         Immediate="false" />
                     </MudStack>
-
-                    <MudNumericField T="int"
-                                     Value="TimeBufferMs"
-                                     ValueChanged="OnTimeBufferChanged"
-                                     Min="0"
-                                     Max="1000"
-                                     Step="50"
-                                     Adornment="Adornment.End"
-                                     AdornmentText="ms"
-                                     Immediate="false" />
                 </MudStack>
+
+                @if (_videoEditorProcessing)
+                {
+                    <MudProgressCircular Indeterminate="true"
+                                         Size="Size.Small"
+                                         Style="align-self: start; margin-top: 4px;" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Save"
+                             Size="Size.Small"
+                             Color="Color.Success"
+                             Style="align-self: start; margin-top: 4px;" />
+                }
             </MudStack>
 
             <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
@@ -62,7 +78,8 @@
                          VideoSourceUrl="@VideoSourceUrl"
                          Frames="@Frames"
                          BlurSizePercent="@BlurSizePercent"
-                         TimeBufferMs="@TimeBufferMs" />
+                         TimeBufferMs="@TimeBufferMs"
+                         IsProcessingChanged="OnVideoEditorProcessingChanged" />
         }
 
         <MudButton Variant="Variant.Filled"
@@ -78,6 +95,7 @@
 @code {
     private VideoEditor? _videoEditor;
     private List<AnalyzedFrameDto> _capturedFrames = [];
+    private bool _videoEditorProcessing;
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -101,6 +119,12 @@
     public int TimeBufferMs { get; set; } = 300;
 
     public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
+
+    private void OnVideoEditorProcessingChanged(bool isIdle)
+    {
+        _videoEditorProcessing = !isIdle;
+        StateHasChanged();
+    }
 
     private async Task OnStartAnonymizationClicked()
     {

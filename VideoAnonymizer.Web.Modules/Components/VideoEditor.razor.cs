@@ -27,6 +27,9 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     [Parameter]
     public int TimeBufferMs { get; set; } = 0;
 
+    [Parameter]
+    public EventCallback<bool> IsProcessingChanged { get; set; }
+
     private ElementReference _hostElement;
     private IJSObjectReference? _hostModule;
     private bool _mounted;
@@ -38,6 +41,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private readonly Channel<Func<Task>> _operationChannel = Channel.CreateUnbounded<Func<Task>>(new UnboundedChannelOptions { SingleReader = true });
     private readonly CancellationTokenSource _queueCts = new();
     private Task _processingTask = Task.CompletedTask;
+    private int _pendingOperationCount;
 
     protected override void OnInitialized()
     {
@@ -72,31 +76,37 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     [JSInvokable]
     public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
     {
-        await _operationChannel.Writer.WriteAsync(async () =>
+        Interlocked.Increment(ref _pendingOperationCount);
+        await NotifyProcessingStateAsync();
+        await _operationChannel.Writer.WriteAsync(WrapOperation(async () =>
         {
             using var client = HttpClientFactory.CreateClient("ApiService");
             var response = await client.PostAsJsonAsync(
                 $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", dto);
             response.EnsureSuccessStatusCode();
-        });
+        }));
     }
 
     [JSInvokable]
     public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto)
     {
-        await _operationChannel.Writer.WriteAsync(async () =>
+        Interlocked.Increment(ref _pendingOperationCount);
+        await NotifyProcessingStateAsync();
+        await _operationChannel.Writer.WriteAsync(WrapOperation(async () =>
         {
             using var client = HttpClientFactory.CreateClient("ApiService");
             var response = await client.PutAsJsonAsync(
                 $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto);
             response.EnsureSuccessStatusCode();
-        });
+        }));
     }
 
     [JSInvokable]
     public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos)
     {
-        await _operationChannel.Writer.WriteAsync(async () =>
+        Interlocked.Increment(ref _pendingOperationCount);
+        await NotifyProcessingStateAsync();
+        await _operationChannel.Writer.WriteAsync(WrapOperation(async () =>
         {
             using var client = HttpClientFactory.CreateClient("ApiService");
             foreach (var chunk in dtos.Chunk(8))
@@ -105,7 +115,34 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                     client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
             }
-        });
+        }));
+    }
+
+    private Func<Task> WrapOperation(Func<Task> operation)
+    {
+        return async () =>
+        {
+            try
+            {
+                await operation();
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _pendingOperationCount);
+                await NotifyProcessingStateAsync();
+            }
+        };
+    }
+
+    private async Task NotifyProcessingStateAsync()
+    {
+        try
+        {
+            await InvokeAsync(() => IsProcessingChanged.InvokeAsync(_pendingOperationCount == 0));
+        }
+        catch
+        {
+        }
     }
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
