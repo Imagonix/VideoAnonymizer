@@ -68,13 +68,31 @@ namespace VideoAnonymizer.ApiService.DataServices
             using var db = await dbFactory.CreateDbContextAsync();
             return await db.Videos
                 .OrderByDescending(v => v.Id)
-                .Select(v => new VideoDto { Id = v.Id, OriginalFileName = v.OriginalFileName ?? "Unknown" })
+                .Select(v => new VideoDto
+                {
+                    Id = v.Id,
+                    OriginalFileName = v.OriginalFileName ?? "Unknown",
+                    BlurSizePercent = v.BlurSizePercent,
+                    TimeBufferMs = v.TimeBufferMs
+                })
                 .ToListAsync();
+        }
+
+        public async Task UpdateVideoSettings(Guid videoId, int blurSizePercent, int timeBufferMs)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+            var video = await db.Videos.FirstOrDefaultAsync(v => v.Id == videoId);
+            if (video == null)
+                throw new NotFoundException();
+
+            video.BlurSizePercent = blurSizePercent;
+            video.TimeBufferMs = timeBufferMs;
+            await db.SaveChangesAsync();
         }
 
         public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile uploadedVideo, string originalFileName, string extension, string contentRootPath, CancellationToken cancellationToken)
         {
-            var video = new Video { OriginalFileName = originalFileName };
+            var video = new Video { OriginalFileName = originalFileName, BlurSizePercent = 120, TimeBufferMs = 300 };
 
             var uploadsRoot = Path.Combine(contentRootPath, "App_Data", "Uploads");
             Directory.CreateDirectory(uploadsRoot);

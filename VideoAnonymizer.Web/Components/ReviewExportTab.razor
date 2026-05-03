@@ -1,5 +1,7 @@
 ﻿@using VideoAnonymizer.Web.Modules.Components
 @using VideoAnonymizer.Web.Shared.DTO
+@using VideoAnonymizer.Web.Shared
+@inject IHttpClientFactory HttpClientFactory
 
 <MudPaper Class="pa-6">
     <MudStack Spacing="2">
@@ -16,7 +18,8 @@
                     </MudStack>
 
                     <MudNumericField T="int"
-                                     @bind-Value="BlurSizePercent"
+                                     Value="BlurSizePercent"
+                                     ValueChanged="OnBlurSizeChanged"
                                      Min="100"
                                      Max="300"
                                      Step="10"
@@ -36,7 +39,8 @@
                     </MudStack>
 
                     <MudNumericField T="int"
-                                     @bind-Value="TimeBufferMs"
+                                     Value="TimeBufferMs"
+                                     ValueChanged="OnTimeBufferChanged"
                                      Min="0"
                                      Max="1000"
                                      Step="50"
@@ -105,5 +109,33 @@
 
         _capturedFrames = (await _videoEditor.GetFramesAsync()).ToList();
         await StartAnonymization.InvokeAsync();
+    }
+
+    private async Task OnBlurSizeChanged(int value)
+    {
+        BlurSizePercent = value;
+        await SaveSettingsAsync();
+    }
+
+    private async Task OnTimeBufferChanged(int value)
+    {
+        TimeBufferMs = value;
+        await SaveSettingsAsync();
+    }
+
+    private async Task SaveSettingsAsync()
+    {
+        if (VideoId is null) return;
+
+        try
+        {
+            using var client = HttpClientFactory.CreateClient("ApiService");
+            await client.PutAsJsonAsync(
+                $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
+                new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+        }
+        catch
+        {
+        }
     }
 }

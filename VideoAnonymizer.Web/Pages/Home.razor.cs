@@ -36,6 +36,9 @@ namespace VideoAnonymizer.Web.Pages
         private string? _videoSourceUrl;
         private List<VideoDto>? _existingVideos;
 
+        private int _blurSizePercent = 120;
+        private int _timeBufferMs = 300;
+
         private int DetectionIntervalMs { get; set; } = 100;
 
         [Parameter]
@@ -183,9 +186,13 @@ namespace VideoAnonymizer.Web.Pages
 
         private async Task OnExistingVideoSelected(Guid videoId)
         {
+            await LoadExistingVideosAsync();
             _currentVideoId = videoId;
             _selectedFile = null;
-            SelectedFileName = _existingVideos?.FirstOrDefault(v => v.Id == videoId)?.OriginalFileName;
+            var videoDto = _existingVideos?.FirstOrDefault(v => v.Id == videoId);
+            SelectedFileName = videoDto?.OriginalFileName;
+            _blurSizePercent = videoDto?.BlurSizePercent ?? 120;
+            _timeBufferMs = videoDto?.TimeBufferMs ?? 300;
             IsAnonymized = false;
             _anonymizeVideoJobId = null;
             _showEditor = false;

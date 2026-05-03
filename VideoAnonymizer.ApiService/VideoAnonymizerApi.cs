@@ -85,6 +85,20 @@ namespace VideoAnonymizer.ApiService
             return Ok(new ApiResponse<List<VideoDto>> { IsSuccess = true, Payload = videos });
         }
 
+        [HttpPut($"{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.VideoSettings}")]
+        public async Task<IActionResult> UpdateVideoSettings([FromRoute] Guid videoId, [FromBody] AnonymizationSettingsDto settings)
+        {
+            try
+            {
+                await videoDataService.UpdateVideoSettings(videoId, settings.BlurSizePercent, settings.TimeBufferMs);
+                return Ok(new ApiResponse<object> { IsSuccess = true });
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
         [HttpGet($"{SharedConstants.Paths.Video}/{{videoId:guid}}")]
         public async Task<IActionResult> GetOriginalVideo([FromRoute] Guid videoId)
         {
