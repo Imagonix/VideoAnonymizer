@@ -3,6 +3,7 @@
 @using VideoAnonymizer.Web.Shared.DTO
 @using VideoAnonymizer.Web.Shared
 @inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
 
 <MudPaper Class="pa-6">
     <MudStack Spacing="2">
@@ -52,19 +53,70 @@
                     </MudStack>
                 </MudStack>
 
-                @if (_videoEditorProcessing)
-                {
-                    <MudProgressCircular Indeterminate="true"
-                                         Size="Size.Small"
-                                         Style="align-self: start; margin-top: 4px;" />
-                }
-                else
-                {
-                    <MudIcon Icon="@Icons.Material.Filled.Save"
-                             Size="Size.Small"
-                             Color="Color.Success"
-                             Style="align-self: start; margin-top: 4px;" />
-                }
+                <div style="position: relative; display: inline-flex; align-items: center;"
+                     @onmouseenter="() => _showActionHistory = true"
+                     @onmouseleave="() => _showActionHistory = false">
+
+                    @if (_videoEditorProcessing)
+                    {
+                        <MudProgressCircular Indeterminate="true"
+                                             Size="Size.Small"
+                                             Color="Color.Secondary"
+                                             Style="align-self: start; margin-top: 4px;" />
+                    }
+                    else if (_hasErrors)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Save"
+                                 Size="Size.Small"
+                                 Color="Color.Error"
+                                 Style="align-self: start; margin-top: 4px;" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Save"
+                                 Size="Size.Small"
+                                 Color="Color.Primary"
+                                 Style="align-self: start; margin-top: 4px;" />
+                    }
+
+                    @if (_showActionHistory)
+                    {
+                        <MudPaper Class="pa-2"
+                                  Style="position: absolute; top: 100%; right: 0; z-index: 1000; min-width: 300px; max-height: 400px; overflow-y: auto; margin-top: 4px;">
+                            <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary">
+                                @(_videoEditorProcessing ? "Saving..." : "Saved")
+                            </MudText>
+                            @if (_actionHistory.Count == 0)
+                            {
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">No recent actions</MudText>
+                            }
+                            else
+                            {
+                                @foreach (var item in _actionHistory)
+                                {
+                                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="my-1">
+                                        @if (item.Status == ActionStatus.Success)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" />
+                                        }
+                                        else if (item.Status == ActionStatus.Failed)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" />
+                                        }
+                                        else
+                                        {
+                                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                                        }
+                                        <MudText Typo="Typo.caption">@item.Description</MudText>
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                            @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                        </MudText>
+                                    </MudStack>
+                                }
+                            }
+                        </MudPaper>
+                    }
+                </div>
             </MudStack>
 
             <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
@@ -95,9 +147,21 @@
 </MudPaper>
 
 @code {
+    private class ActionHistoryItem(string description, DateTime timestamp)
+    {
+        public string Description { get; } = description;
+        public ActionStatus Status { get; set; } = ActionStatus.Pending;
+        public DateTime Timestamp { get; } = timestamp;
+    }
+
+    private enum ActionStatus { Pending, Success, Failed }
+
     private VideoEditor? _videoEditor;
     private List<AnalyzedFrameDto> _capturedFrames = [];
     private bool _videoEditorProcessing;
+    private readonly List<ActionHistoryItem> _actionHistory = [];
+    private bool _showActionHistory;
+    private bool _hasErrors;
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -128,26 +192,61 @@
         StateHasChanged();
     }
 
+    private static string GetActionDescription(VideoEditorAction action) => action switch
+    {
+        ObjectAddedAction => "Add object",
+        ObjectUpdatedAction => "Update object",
+        ObjectsBulkUpdatedAction a => $"Bulk update ({a.Objects.Count} objects)",
+        _ => "Unknown action"
+    };
+
+    private ActionHistoryItem AddAction(string description)
+    {
+        var item = new ActionHistoryItem(description, DateTime.UtcNow);
+        _actionHistory.Add(item);
+        if (_actionHistory.Count > 20)
+            _actionHistory.RemoveAt(0);
+        return item;
+    }
+
+    private void MarkActionFailed(ActionHistoryItem item)
+    {
+        item.Status = ActionStatus.Failed;
+        _hasErrors = true;
+        InvokeAsync(StateHasChanged);
+        Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
+    }
+
     private async Task OnVideoEditorAction(VideoEditorAction action)
     {
         using var client = HttpClientFactory.CreateClient("ApiService");
+        var item = AddAction(GetActionDescription(action));
 
-        switch (action)
+        try
         {
-            case ObjectAddedAction a:
-                await client.PostAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
-                break;
+            switch (action)
+            {
+                case ObjectAddedAction a:
+                    await client.PostAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                    break;
 
-            case ObjectUpdatedAction a:
-                await client.PutAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object);
-                break;
+                case ObjectUpdatedAction a:
+                    await client.PutAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object);
+                    break;
 
-            case ObjectsBulkUpdatedAction a:
-                await client.PatchAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
-                break;
+                case ObjectsBulkUpdatedAction a:
+                    await client.PatchAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
+                    break;
+            }
+
+            item.Status = ActionStatus.Success;
+        }
+        catch
+        {
+            MarkActionFailed(item);
         }
     }
 
@@ -178,25 +277,37 @@
 
         if (_videoEditor is not null)
         {
+            var item = AddAction("Save settings");
             _videoEditor.EnqueueOperation(async () =>
             {
-                using var client = HttpClientFactory.CreateClient("ApiService");
-                await client.PutAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
-                    new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+                try
+                {
+                    using var client = HttpClientFactory.CreateClient("ApiService");
+                    await client.PutAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
+                        new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+                    item.Status = ActionStatus.Success;
+                }
+                catch
+                {
+                    MarkActionFailed(item);
+                }
             });
         }
         else
         {
+            var item = AddAction("Save settings");
             try
             {
                 using var client = HttpClientFactory.CreateClient("ApiService");
                 await client.PutAsJsonAsync(
                     $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
                     new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+                item.Status = ActionStatus.Success;
             }
             catch
             {
+                MarkActionFailed(item);
             }
         }
     }
