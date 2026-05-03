@@ -79,7 +79,10 @@
                          Frames="@Frames"
                          BlurSizePercent="@BlurSizePercent"
                          TimeBufferMs="@TimeBufferMs"
-                         IsProcessingChanged="OnVideoEditorProcessingChanged" />
+                         IsProcessingChanged="OnVideoEditorProcessingChanged"
+                         OnObjectAdded="OnObjectAddedHandler"
+                         OnObjectUpdated="OnObjectUpdatedHandler"
+                         OnObjectsBulkUpdated="OnObjectsBulkUpdatedHandler" />
         }
 
         <MudButton Variant="Variant.Filled"
@@ -126,6 +129,31 @@
         StateHasChanged();
     }
 
+    private async Task OnObjectAddedHandler(DetectedObjectOperation op)
+    {
+        using var client = HttpClientFactory.CreateClient("ApiService");
+        await client.PostAsJsonAsync(
+            $"/{SharedConstants.Paths.Video}/{op.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{op.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", op.Dto);
+    }
+
+    private async Task OnObjectUpdatedHandler(DetectedObjectOperation op)
+    {
+        using var client = HttpClientFactory.CreateClient("ApiService");
+        await client.PutAsJsonAsync(
+            $"/{SharedConstants.Paths.Video}/{op.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{op.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{op.Dto.Id}", op.Dto);
+    }
+
+    private async Task OnObjectsBulkUpdatedHandler(DetectedObjectsBulkOperation op)
+    {
+        using var client = HttpClientFactory.CreateClient("ApiService");
+        foreach (var chunk in op.Dtos.Chunk(8))
+        {
+            await Task.WhenAll(chunk.Select(dto =>
+                client.PutAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{op.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
+        }
+    }
+
     private async Task OnStartAnonymizationClicked()
     {
         if (_videoEditor is null)
@@ -151,15 +179,28 @@
     {
         if (VideoId is null) return;
 
-        try
+        if (_videoEditor is not null)
         {
-            using var client = HttpClientFactory.CreateClient("ApiService");
-            await client.PutAsJsonAsync(
-                $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
-                new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+            _videoEditor.EnqueueOperation(async () =>
+            {
+                using var client = HttpClientFactory.CreateClient("ApiService");
+                await client.PutAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
+                    new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+            });
         }
-        catch
+        else
         {
+            try
+            {
+                using var client = HttpClientFactory.CreateClient("ApiService");
+                await client.PutAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
+                    new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+            }
+            catch
+            {
+            }
         }
     }
 }

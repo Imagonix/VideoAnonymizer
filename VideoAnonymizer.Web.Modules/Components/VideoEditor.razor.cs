@@ -1,8 +1,6 @@
-using System.Net.Http.Json;
 using System.Threading.Channels;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
-using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.Web.Modules.Components;
@@ -11,9 +9,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 {
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
-
-    [Inject]
-    private IHttpClientFactory HttpClientFactory { get; set; } = default!;
 
     [Parameter, EditorRequired]
     public Guid VideoId { get; set; }
@@ -29,6 +24,15 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 
     [Parameter]
     public EventCallback<bool> IsProcessingChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<DetectedObjectOperation> OnObjectAdded { get; set; }
+
+    [Parameter]
+    public EventCallback<DetectedObjectOperation> OnObjectUpdated { get; set; }
+
+    [Parameter]
+    public EventCallback<DetectedObjectsBulkOperation> OnObjectsBulkUpdated { get; set; }
 
     private ElementReference _hostElement;
     private IJSObjectReference? _hostModule;
@@ -63,7 +67,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                     }
                     catch
                     {
-                        // Swallow per-operation failures so queue keeps moving
                     }
                 }
             }
@@ -73,49 +76,11 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         }
     }
 
-    [JSInvokable]
-    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    public void EnqueueOperation(Func<Task> operation)
     {
         Interlocked.Increment(ref _pendingOperationCount);
-        await NotifyProcessingStateAsync();
-        await _operationChannel.Writer.WriteAsync(WrapOperation(async () =>
-        {
-            using var client = HttpClientFactory.CreateClient("ApiService");
-            var response = await client.PostAsJsonAsync(
-                $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", dto);
-            response.EnsureSuccessStatusCode();
-        }));
-    }
-
-    [JSInvokable]
-    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto)
-    {
-        Interlocked.Increment(ref _pendingOperationCount);
-        await NotifyProcessingStateAsync();
-        await _operationChannel.Writer.WriteAsync(WrapOperation(async () =>
-        {
-            using var client = HttpClientFactory.CreateClient("ApiService");
-            var response = await client.PutAsJsonAsync(
-                $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto);
-            response.EnsureSuccessStatusCode();
-        }));
-    }
-
-    [JSInvokable]
-    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos)
-    {
-        Interlocked.Increment(ref _pendingOperationCount);
-        await NotifyProcessingStateAsync();
-        await _operationChannel.Writer.WriteAsync(WrapOperation(async () =>
-        {
-            using var client = HttpClientFactory.CreateClient("ApiService");
-            foreach (var chunk in dtos.Chunk(8))
-            {
-                await Task.WhenAll(chunk.Select(dto =>
-                    client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.AnalyzedFrame}/{dto.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{dto.Id}", dto)));
-            }
-        }));
+        _ = NotifyProcessingStateAsync();
+        _operationChannel.Writer.TryWrite(WrapOperation(operation));
     }
 
     private Func<Task> WrapOperation(Func<Task> operation)
@@ -143,6 +108,24 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         catch
         {
         }
+    }
+
+    [JSInvokable]
+    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        EnqueueOperation(() => OnObjectAdded.InvokeAsync(new DetectedObjectOperation(videoId, analyzedFrameId, dto)));
+    }
+
+    [JSInvokable]
+    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        EnqueueOperation(() => OnObjectUpdated.InvokeAsync(new DetectedObjectOperation(videoId, analyzedFrameId, dto)));
+    }
+
+    [JSInvokable]
+    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos)
+    {
+        EnqueueOperation(() => OnObjectsBulkUpdated.InvokeAsync(new DetectedObjectsBulkOperation(videoId, dtos)));
     }
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
@@ -238,3 +221,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         }
     }
 }
+
+public record DetectedObjectOperation(string VideoId, string AnalyzedFrameId, DetectedObjectDto Dto);
+public record DetectedObjectsBulkOperation(string VideoId, DetectedObjectDto[] Dtos);
