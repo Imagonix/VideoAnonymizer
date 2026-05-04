@@ -214,6 +214,7 @@
             "reassign" => $"Reassigned track ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
         },
+        SettingsUpdatedAction a => $"Settings: blur {a.BeforeState.BlurSizePercent}%→{a.AfterState.BlurSizePercent}%, buffer {a.BeforeState.TimeBufferMs}ms→{a.AfterState.TimeBufferMs}ms",
         UndoAction => "Undo",
         RedoAction => "Redo",
         _ => "Unknown action"
@@ -260,6 +261,13 @@
                 case ObjectsBulkUpdatedAction a:
                     await client.PatchAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
+                    AddToUndoHistory(a);
+                    break;
+
+                case SettingsUpdatedAction a:
+                    await client.PutAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
+                        a.AfterState);
                     AddToUndoHistory(a);
                     break;
 
@@ -356,6 +364,16 @@
                         });
                 }
                 break;
+
+            case SettingsUpdatedAction a:
+                var settingsState = isRedo ? a.AfterState : a.BeforeState;
+                BlurSizePercent = settingsState.BlurSizePercent;
+                TimeBufferMs = settingsState.TimeBufferMs;
+                await client.PutAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
+                    settingsState);
+                await InvokeAsync(StateHasChanged);
+                break;
         }
 
         if (!isRedo)
@@ -375,38 +393,33 @@
 
     private async Task OnBlurSizeChanged(int value)
     {
+        var before = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
         BlurSizePercent = value;
-        await SaveSettingsAsync();
+        await SaveSettingsAsync(before);
     }
 
     private async Task OnTimeBufferChanged(int value)
     {
+        var before = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
         TimeBufferMs = value;
-        await SaveSettingsAsync();
+        await SaveSettingsAsync(before);
     }
 
-    private async Task SaveSettingsAsync()
+    private async Task SaveSettingsAsync(AnonymizationSettingsDto? beforeState = null)
     {
         if (VideoId is null) return;
 
+        var afterState = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
+        var before = beforeState ?? afterState;
+
         if (_videoEditor is not null)
         {
-            var item = AddAction("Save settings");
-            _videoEditor.EnqueueOperation(async () =>
+            _videoEditor.EnqueueOperation(() => OnVideoEditorAction(new SettingsUpdatedAction
             {
-                try
-                {
-                    using var client = HttpClientFactory.CreateClient("ApiService");
-                    await client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
-                        new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
-                    item.Status = ActionStatus.Success;
-                }
-                catch
-                {
-                    MarkActionFailed(item);
-                }
-            });
+                VideoId = VideoId.Value,
+                BeforeState = before,
+                AfterState = afterState
+            }));
         }
         else
         {
@@ -416,7 +429,7 @@
                 using var client = HttpClientFactory.CreateClient("ApiService");
                 await client.PutAsJsonAsync(
                     $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
-                    new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs });
+                    afterState);
                 item.Status = ActionStatus.Success;
             }
             catch

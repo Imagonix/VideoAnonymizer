@@ -35,6 +35,13 @@ public sealed record ObjectsBulkUpdatedAction : VideoEditorAction
     public required IReadOnlyList<DetectedObjectDto> AfterState { get; init; }
 }
 
+public sealed record SettingsUpdatedAction : VideoEditorAction
+{
+    public required Guid VideoId { get; init; }
+    public required AnonymizationSettingsDto BeforeState { get; init; }
+    public required AnonymizationSettingsDto AfterState { get; init; }
+}
+
 public sealed record UndoAction : VideoEditorAction
 {
 }
