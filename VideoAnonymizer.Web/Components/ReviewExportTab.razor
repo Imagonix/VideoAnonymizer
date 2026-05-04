@@ -95,22 +95,37 @@
                                 @foreach (var item in _actionHistory.AsEnumerable().Reverse())
                                 {
                                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="my-1">
-                                        @if (item.Status == ActionStatus.Success)
+                                        @if (item.Undone)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="text-decoration: line-through; opacity: 0.6;">@item.Description</MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto; opacity: 0.6;">
+                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                            </MudText>
+                                        }
+                                        else if (item.Status == ActionStatus.Success)
                                         {
                                             <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" />
+                                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                            </MudText>
                                         }
                                         else if (item.Status == ActionStatus.Failed)
                                         {
                                             <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" />
+                                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                            </MudText>
                                         }
                                         else
                                         {
                                             <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                                            </MudText>
                                         }
-                                        <MudText Typo="Typo.caption">@item.Description</MudText>
-                                        <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
-                                            @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-                                        </MudText>
                                     </MudStack>
                                 }
                             }
@@ -152,6 +167,7 @@
         public string Description { get; } = description;
         public ActionStatus Status { get; set; } = ActionStatus.Pending;
         public DateTime Timestamp { get; } = timestamp;
+        public bool Undone { get; set; }
     }
 
     private enum ActionStatus { Pending, Success, Failed }
@@ -164,6 +180,7 @@
     private bool _hasErrors;
 
     private readonly List<VideoEditorAction> _undoHistory = [];
+    private readonly List<ActionHistoryItem?> _undoDisplayItems = [];
     private int _historyIndex = -1;
 
     [Parameter]
@@ -215,8 +232,6 @@
             _ => $"Updated {a.Objects.Count} objects"
         },
         SettingsUpdatedAction a => $"Settings: blur {a.BeforeState.BlurSizePercent}%→{a.AfterState.BlurSizePercent}%, buffer {a.BeforeState.TimeBufferMs}ms→{a.AfterState.TimeBufferMs}ms",
-        UndoAction => "Undo",
-        RedoAction => "Redo",
         _ => "Unknown action"
     };
 
@@ -240,61 +255,79 @@
     private async Task OnVideoEditorAction(VideoEditorAction action)
     {
         using var client = HttpClientFactory.CreateClient("ApiService");
-        var item = AddAction(GetActionDescription(action));
 
-        try
+        switch (action)
         {
-            switch (action)
-            {
-                case ObjectAddedAction a:
+            case ObjectAddedAction a:
+                var item1 = AddAction(GetActionDescription(a));
+                try
+                {
                     await client.PostAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
-                    AddToUndoHistory(a);
-                    break;
+                    item1.Status = ActionStatus.Success;
+                    AddToUndoHistory(a, item1);
+                }
+                catch { MarkActionFailed(item1); }
+                break;
 
-                case ObjectUpdatedAction a:
+            case ObjectUpdatedAction a:
+                var item2 = AddAction(GetActionDescription(a));
+                try
+                {
                     await client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object);
-                    AddToUndoHistory(a);
-                    break;
+                    item2.Status = ActionStatus.Success;
+                    AddToUndoHistory(a, item2);
+                }
+                catch { MarkActionFailed(item2); }
+                break;
 
-                case ObjectsBulkUpdatedAction a:
+            case ObjectsBulkUpdatedAction a:
+                var item3 = AddAction(GetActionDescription(a));
+                try
+                {
                     await client.PatchAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
-                    AddToUndoHistory(a);
-                    break;
+                    item3.Status = ActionStatus.Success;
+                    AddToUndoHistory(a, item3);
+                }
+                catch { MarkActionFailed(item3); }
+                break;
 
-                case SettingsUpdatedAction a:
+            case SettingsUpdatedAction a:
+                var item4 = AddAction(GetActionDescription(a));
+                try
+                {
                     await client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
                         a.AfterState);
-                    AddToUndoHistory(a);
-                    break;
+                    item4.Status = ActionStatus.Success;
+                    AddToUndoHistory(a, item4);
+                }
+                catch { MarkActionFailed(item4); }
+                break;
 
-                case UndoAction _:
-                    await ApplyUndoRedo(client, isRedo: false);
-                    break;
+            case UndoAction _:
+                try { await ApplyUndoRedo(client, isRedo: false); }
+                catch { Snackbar.Add("Failed to undo changes.", Severity.Error); }
+                break;
 
-                case RedoAction _:
-                    await ApplyUndoRedo(client, isRedo: true);
-                    break;
-            }
-
-            item.Status = ActionStatus.Success;
-        }
-        catch
-        {
-            MarkActionFailed(item);
+            case RedoAction _:
+                try { await ApplyUndoRedo(client, isRedo: true); }
+                catch { Snackbar.Add("Failed to redo changes.", Severity.Error); }
+                break;
         }
     }
 
-    private void AddToUndoHistory(VideoEditorAction action)
+    private void AddToUndoHistory(VideoEditorAction action, ActionHistoryItem? displayItem = null)
     {
         if (_historyIndex < _undoHistory.Count - 1)
         {
             _undoHistory.RemoveRange(_historyIndex + 1, _undoHistory.Count - _historyIndex - 1);
+            _undoDisplayItems.RemoveRange(_historyIndex + 1, _undoDisplayItems.Count - _historyIndex - 1);
         }
         _undoHistory.Add(action);
+        _undoDisplayItems.Add(displayItem);
         _historyIndex = _undoHistory.Count - 1;
     }
 
@@ -311,69 +344,83 @@
         }
 
         var action = _undoHistory[_historyIndex];
+        var displayItem = _undoDisplayItems[_historyIndex];
 
-        switch (action)
+        try
         {
-            case ObjectAddedAction a:
-                if (isRedo)
-                {
-                    await client.PostAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
-                    if (_videoEditor is not null)
-                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                        {
-                            ObjectsToUpdate = [], ObjectsToRemove = [], ObjectsToAdd = [a.Object]
-                        });
-                }
-                else
-                {
-                    await client.DeleteAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
-                    if (_videoEditor is not null)
-                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                        {
-                            ObjectsToUpdate = [], ObjectsToRemove = [a.Object.Id.ToString()], ObjectsToAdd = []
-                        });
-                }
-                break;
+            switch (action)
+            {
+                case ObjectAddedAction a:
+                    if (isRedo)
+                    {
+                        await client.PostAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                        if (_videoEditor is not null)
+                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                            {
+                                ObjectsToUpdate = [], ObjectsToRemove = [], ObjectsToAdd = [a.Object]
+                            });
+                    }
+                    else
+                    {
+                        await client.DeleteAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                        if (_videoEditor is not null)
+                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                            {
+                                ObjectsToUpdate = [], ObjectsToRemove = [a.Object.Id.ToString()], ObjectsToAdd = []
+                            });
+                    }
+                    break;
 
-            case ObjectUpdatedAction a:
-                var updateState = isRedo ? a.AfterState : a.BeforeState;
-                if (updateState.Count > 0)
-                {
+                case ObjectUpdatedAction a:
+                    var updateState = isRedo ? a.AfterState : a.BeforeState;
+                    if (updateState.Count > 0)
+                    {
+                        await client.PutAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{updateState[0].Id}", updateState[0]);
+                        if (_videoEditor is not null)
+                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                            {
+                                ObjectsToUpdate = updateState, ObjectsToRemove = [], ObjectsToAdd = []
+                            });
+                    }
+                    break;
+
+                case ObjectsBulkUpdatedAction a:
+                    var bulkState = isRedo ? a.AfterState : a.BeforeState;
+                    if (bulkState.Count > 0)
+                    {
+                        await client.PatchAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", bulkState);
+                        if (_videoEditor is not null)
+                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                            {
+                                ObjectsToUpdate = bulkState, ObjectsToRemove = [], ObjectsToAdd = []
+                            });
+                    }
+                    break;
+
+                case SettingsUpdatedAction a:
+                    var settingsState = isRedo ? a.AfterState : a.BeforeState;
+                    BlurSizePercent = settingsState.BlurSizePercent;
+                    TimeBufferMs = settingsState.TimeBufferMs;
                     await client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{updateState[0].Id}", updateState[0]);
-                    if (_videoEditor is not null)
-                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                        {
-                            ObjectsToUpdate = updateState, ObjectsToRemove = [], ObjectsToAdd = []
-                        });
-                }
-                break;
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
+                        settingsState);
+                    await InvokeAsync(StateHasChanged);
+                    break;
+            }
 
-            case ObjectsBulkUpdatedAction a:
-                var bulkState = isRedo ? a.AfterState : a.BeforeState;
-                if (bulkState.Count > 0)
-                {
-                    await client.PatchAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", bulkState);
-                    if (_videoEditor is not null)
-                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                        {
-                            ObjectsToUpdate = bulkState, ObjectsToRemove = [], ObjectsToAdd = []
-                        });
-                }
-                break;
-
-            case SettingsUpdatedAction a:
-                var settingsState = isRedo ? a.AfterState : a.BeforeState;
-                BlurSizePercent = settingsState.BlurSizePercent;
-                TimeBufferMs = settingsState.TimeBufferMs;
-                await client.PutAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
-                    settingsState);
-                await InvokeAsync(StateHasChanged);
-                break;
+            if (displayItem is not null)
+            {
+                displayItem.Undone = !isRedo;
+            }
+        }
+        catch
+        {
+            if (isRedo) _historyIndex--; // roll back redo index increment
+            throw;
         }
 
         if (!isRedo)
