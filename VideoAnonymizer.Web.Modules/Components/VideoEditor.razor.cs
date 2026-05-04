@@ -6,6 +6,13 @@ using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.Web.Modules.Components;
 
+public sealed record DetectedObjectChangeSet
+{
+    public required IReadOnlyList<DetectedObjectDto> ObjectsToUpdate { get; init; }
+    public required IReadOnlyList<string> ObjectsToRemove { get; init; }
+    public required IReadOnlyList<DetectedObjectDto> ObjectsToAdd { get; init; }
+}
+
 public partial class VideoEditor : ComponentBase, IAsyncDisposable
 {
     [Inject]
@@ -41,6 +48,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private readonly CancellationTokenSource _queueCts = new();
     private Task _processingTask = Task.CompletedTask;
     private int _pendingOperationCount;
+    private bool _isIdle = true;
 
     protected override void OnInitialized()
     {
@@ -98,7 +106,22 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     {
         try
         {
-            await InvokeAsync(() => IsProcessingChanged.InvokeAsync(_pendingOperationCount == 0));
+            var isIdle = _pendingOperationCount == 0;
+            _isIdle = isIdle;
+            await InvokeAsync(() => IsProcessingChanged.InvokeAsync(isIdle));
+            await NotifyVueIsIdleAsync();
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task NotifyVueIsIdleAsync()
+    {
+        if (!_mounted || _hostModule is null) return;
+        try
+        {
+            await _hostModule.InvokeVoidAsync("updateVideoEditorIsIdle", _hostElement, _isIdle);
         }
         catch
         {
@@ -106,37 +129,69 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectAddedAction
         {
             VideoId = videoId,
             AnalyzedFrameId = analyzedFrameId,
-            Object = dto
+            Object = dto,
+            BeforeState = beforeState,
+            AfterState = afterState
         }));
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType)
+    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectUpdatedAction
         {
             VideoId = videoId,
             AnalyzedFrameId = analyzedFrameId,
             Object = dto,
-            OperationType = operationType
+            OperationType = operationType,
+            BeforeState = beforeState,
+            AfterState = afterState
         }));
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType)
+    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectsBulkUpdatedAction
         {
             VideoId = videoId,
             Objects = dtos,
-            OperationType = operationType
+            OperationType = operationType,
+            BeforeState = beforeState,
+            AfterState = afterState
         }));
+    }
+
+    [JSInvokable]
+    public async Task OnUndo()
+    {
+        if (!_isIdle) return;
+        EnqueueOperation(() => OnAction.InvokeAsync(new UndoAction()));
+    }
+
+    [JSInvokable]
+    public async Task OnRedo()
+    {
+        if (!_isIdle) return;
+        EnqueueOperation(() => OnAction.InvokeAsync(new RedoAction()));
+    }
+
+    public async Task PushChangesToVue(DetectedObjectChangeSet changes)
+    {
+        if (!_mounted || _hostModule is null) return;
+        try
+        {
+            await _hostModule.InvokeVoidAsync("applyDetectedObjectChanges", _hostElement, changes);
+        }
+        catch
+        {
+        }
     }
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
@@ -204,6 +259,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
             videoId = VideoId.ToString(),
             videoSourceUrl = VideoSourceUrl,
             frames = Frames,
+            isIdle = _isIdle,
             anonymizationSettings = new
             {
                 blurSizePercent = BlurSizePercent,

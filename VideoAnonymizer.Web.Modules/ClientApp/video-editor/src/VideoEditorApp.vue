@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onUnmounted } from 'vue';
 import type { VideoDimensions } from './types';
-import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount } from './types';
+import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount, DetectedObjectChangeSet } from './types';
 import { buildObjectKey, getTimelineKey } from './utils/keys';
 import { useEditorModes } from './composables/useEditorModes';
 import { useMerge } from './composables/useMerge';
@@ -17,7 +17,6 @@ import DetailedView from './DetailedView.vue';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 
 const props = defineProps<{ state: VideoEditorProps }>();
-defineExpose({ getFrames });
 
 const currentTime = ref(0);
 const videoDuration = ref(0);
@@ -39,6 +38,49 @@ const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, is
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
+
+function cloneObjects(objects: DetectedObjectDto[]): DetectedObjectDto[] {
+    return JSON.parse(JSON.stringify(objects));
+}
+
+function onKeyDown(e: KeyboardEvent) {
+    if (!props.state.isIdle) return;
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            props.state.onRedo?.();
+        } else {
+            props.state.onUndo?.();
+        }
+    } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        e.preventDefault();
+        props.state.onRedo?.();
+    }
+}
+
+onMounted(() => document.addEventListener('keydown', onKeyDown));
+onUnmounted(() => document.removeEventListener('keydown', onKeyDown));
+
+function applyChanges(changes: DetectedObjectChangeSet) {
+    for (const obj of changes.objectsToUpdate) {
+        const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
+        if (!frame) continue;
+        const existing = frame.detectedObjects.find(o => o.id === obj.id);
+        if (existing) Object.assign(existing, obj);
+    }
+    for (const id of changes.objectsToRemove) {
+        for (const frame of props.state.frames) {
+            const idx = frame.detectedObjects.findIndex(o => o.id === id);
+            if (idx >= 0) frame.detectedObjects.splice(idx, 1);
+        }
+    }
+    for (const obj of changes.objectsToAdd) {
+        const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
+        if (frame) frame.detectedObjects.push(obj);
+    }
+}
+
+defineExpose({ getFrames, applyChanges });
 
 function getFrames() {
     return JSON.parse(JSON.stringify(props.state.frames))
@@ -117,29 +159,38 @@ const currentFrame = computed(() => {
 
 function toggleObject(id: string, checked: boolean) {
     const matched = frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id));
+    const before = cloneObjects(matched);
     matched.forEach(obj => { obj.selected = checked });
+    const after = cloneObjects(matched);
     if (matched.length === 1) {
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, matched[0].analyzedFrameId, matched[0], 'toggle');
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, matched[0].analyzedFrameId, matched[0], 'toggle', before, after);
     } else if (matched.length > 1) {
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, matched, 'toggle');
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, matched, 'toggle', before, after);
     }
 }
 
 function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
     if (obj.type === 'single') {
+        const before = cloneObjects([obj.detectedObj]);
         obj.detectedObj.selected = checked;
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.detectedObj.analyzedFrameId, obj.detectedObj, 'toggle');
+        const after = cloneObjects([obj.detectedObj]);
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.detectedObj.analyzedFrameId, obj.detectedObj, 'toggle', before, after);
         return;
     }
     const changed: DetectedObjectDto[] = [];
-    obj.occurences.forEach(([_, o]) => { o.selected = checked; changed.push(o); });
-    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'toggle');
+    obj.occurences.forEach(([_, o]) => { changed.push(o); });
+    const before = cloneObjects(changed);
+    obj.occurences.forEach(([_, o]) => { o.selected = checked; });
+    const after = cloneObjects(changed);
+    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'toggle', before, after);
 }
 
 function setTrackId(timelineObject: TimelineObject, trackId: number) {
     if (timelineObject.type === 'single') {
+        const before = cloneObjects([timelineObject.detectedObj]);
         timelineObject.detectedObj.trackId = trackId;
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj, 'reassign');
+        const after = cloneObjects([timelineObject.detectedObj]);
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj, 'reassign', before, after);
         return;
     }
     const oldTrackId = timelineObject.occurences[0]?.[1].trackId;
@@ -147,26 +198,31 @@ function setTrackId(timelineObject: TimelineObject, trackId: number) {
     const changed: DetectedObjectDto[] = [];
     for (const frame of props.state.frames) {
         for (const obj of frame.detectedObjects) {
-            if (obj.trackId === oldTrackId) { obj.trackId = trackId; changed.push(obj); }
+            if (obj.trackId === oldTrackId) { changed.push(obj); }
         }
     }
-    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'reassign');
+    const before = cloneObjects(changed);
+    changed.forEach(obj => { obj.trackId = trackId; });
+    const after = cloneObjects(changed);
+    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'reassign', before, after);
 }
 
 function mergeAction() {
-    const changed = mergeExecute(timelineObjects.value, props.state.frames);
+    const { changed, beforeState } = mergeExecute(timelineObjects.value, props.state.frames);
     deactivate();
     if (changed.length > 0) {
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'merge');
+        const after = cloneObjects(changed);
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'merge', beforeState, after);
     }
 }
 
 function splitAction() {
-    const changed = splitExecute(selectedOccurrences.value, props.state.frames);
+    const { changed, beforeState } = splitExecute(selectedOccurrences.value, props.state.frames);
     if (changed.length > 0) {
         clearOccurrences();
         deactivate();
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'split');
+        const after = cloneObjects(changed);
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'split', beforeState, after);
     }
 }
 
@@ -206,11 +262,13 @@ function addBox(x: number, y: number, width: number, height: number, className: 
         trackId: resolvedTrackId, x, y, width, height, analyzedFrameId: frame.id,
     };
     frame.detectedObjects.push(newObj);
-    props.state.onDetectedObjectAdded?.(props.state.videoId, frame.id, newObj);
+    const after = cloneObjects([newObj]);
+    props.state.onDetectedObjectAdded?.(props.state.videoId, frame.id, newObj, [], after);
 }
 
-function onBoxUpdated(obj: DetectedObjectDto) {
-    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, activeMode.value);
+function onBoxUpdated(obj: DetectedObjectDto, beforeState: DetectedObjectDto[]) {
+    const after = cloneObjects([obj]);
+    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, activeMode.value, beforeState, after);
 }
 </script>
 

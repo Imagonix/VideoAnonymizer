@@ -163,6 +163,9 @@
     private bool _showActionHistory;
     private bool _hasErrors;
 
+    private readonly List<VideoEditorAction> _undoHistory = [];
+    private int _historyIndex = -1;
+
     [Parameter]
     public Guid? VideoId { get; set; }
 
@@ -211,6 +214,8 @@
             "reassign" => $"Reassigned track ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
         },
+        UndoAction => "Undo",
+        RedoAction => "Redo",
         _ => "Unknown action"
     };
 
@@ -243,16 +248,27 @@
                 case ObjectAddedAction a:
                     await client.PostAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                    AddToUndoHistory(a);
                     break;
 
                 case ObjectUpdatedAction a:
                     await client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object);
+                    AddToUndoHistory(a);
                     break;
 
                 case ObjectsBulkUpdatedAction a:
                     await client.PatchAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
+                    AddToUndoHistory(a);
+                    break;
+
+                case UndoAction _:
+                    await ApplyUndoRedo(client, isRedo: false);
+                    break;
+
+                case RedoAction _:
+                    await ApplyUndoRedo(client, isRedo: true);
                     break;
             }
 
@@ -261,6 +277,90 @@
         catch
         {
             MarkActionFailed(item);
+        }
+    }
+
+    private void AddToUndoHistory(VideoEditorAction action)
+    {
+        if (_historyIndex < _undoHistory.Count - 1)
+        {
+            _undoHistory.RemoveRange(_historyIndex + 1, _undoHistory.Count - _historyIndex - 1);
+        }
+        _undoHistory.Add(action);
+        _historyIndex = _undoHistory.Count - 1;
+    }
+
+    private async Task ApplyUndoRedo(HttpClient client, bool isRedo)
+    {
+        if (isRedo)
+        {
+            if (_historyIndex >= _undoHistory.Count - 1) return;
+            _historyIndex++;
+        }
+        else
+        {
+            if (_historyIndex < 0) return;
+        }
+
+        var action = _undoHistory[_historyIndex];
+
+        switch (action)
+        {
+            case ObjectAddedAction a:
+                if (isRedo)
+                {
+                    await client.PostAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                    if (_videoEditor is not null)
+                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                        {
+                            ObjectsToUpdate = [], ObjectsToRemove = [], ObjectsToAdd = [a.Object]
+                        });
+                }
+                else
+                {
+                    await client.DeleteAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                    if (_videoEditor is not null)
+                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                        {
+                            ObjectsToUpdate = [], ObjectsToRemove = [a.Object.Id.ToString()], ObjectsToAdd = []
+                        });
+                }
+                break;
+
+            case ObjectUpdatedAction a:
+                var updateState = isRedo ? a.AfterState : a.BeforeState;
+                if (updateState.Count > 0)
+                {
+                    await client.PutAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{updateState[0].Id}", updateState[0]);
+                    if (_videoEditor is not null)
+                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                        {
+                            ObjectsToUpdate = updateState, ObjectsToRemove = [], ObjectsToAdd = []
+                        });
+                }
+                break;
+
+            case ObjectsBulkUpdatedAction a:
+                var bulkState = isRedo ? a.AfterState : a.BeforeState;
+                if (bulkState.Count > 0)
+                {
+                    await client.PatchAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", bulkState);
+                    if (_videoEditor is not null)
+                        await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                        {
+                            ObjectsToUpdate = bulkState, ObjectsToRemove = [], ObjectsToAdd = []
+                        });
+                }
+                break;
+        }
+
+        if (!isRedo)
+        {
+            _historyIndex--;
         }
     }
 

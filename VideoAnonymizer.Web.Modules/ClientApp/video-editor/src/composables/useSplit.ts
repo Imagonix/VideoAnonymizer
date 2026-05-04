@@ -7,8 +7,9 @@ export function useSplit() {
     function execute(
         selectedOccurrences: Map<string, Set<number>>,
         frames: AnalyzedFrameDto[]
-    ): DetectedObjectDto[] {
+    ): { changed: DetectedObjectDto[], beforeState: DetectedObjectDto[] } {
         const changed: DetectedObjectDto[] = [];
+        const beforeState: DetectedObjectDto[] = [];
 
         const maxTrackId = frames.flatMap(f => f.detectedObjects)
             .reduce((max, o) => Math.max(max, o.trackId ?? 0), 0);
@@ -23,6 +24,7 @@ export function useSplit() {
                 if (!times.has(frame.timeSeconds)) continue;
                 for (const obj of frame.detectedObjects) {
                     if (obj.trackId === sourceTrackId) {
+                        beforeState.push(JSON.parse(JSON.stringify(obj)));
                         obj.trackId = newTrackId;
                         changed.push(obj);
                     }
@@ -33,7 +35,7 @@ export function useSplit() {
         if (changed.length > 0) {
             splitSourceKey.value = null;
         }
-        return changed;
+        return { changed, beforeState };
     }
 
     return { splitSourceKey, execute };

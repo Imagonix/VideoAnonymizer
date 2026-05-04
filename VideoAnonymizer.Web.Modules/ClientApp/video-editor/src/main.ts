@@ -1,10 +1,12 @@
 import { createApp, reactive } from 'vue';
 import VideoEditorApp from './VideoEditorApp.vue';
-import type { VideoEditorProps } from './types';
+import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 
 type AppHandle = {
     update: (nextProps: VideoEditorProps) => void;
     updateSettings: (settings: AnonymizationSettings) => void;
+    updateIsIdle: (isIdle: boolean) => void;
+    applyChanges: (changes: DetectedObjectChangeSet) => void;
     unmount: () => void;
     getFrames: () => any[]
 };
@@ -25,6 +27,8 @@ const callbackKeys: (keyof VideoEditorProps)[] = [
     'onDetectedObjectAdded',
     'onDetectedObjectUpdated',
     'onDetectedObjectsBulkUpdated',
+    'onUndo',
+    'onRedo',
 ];
 
 window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps): AppHandle => {
@@ -40,6 +44,7 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         videoSourceUrl: props.videoSourceUrl,
         frames: props.frames ?? [],
         anonymizationSettings: props.anonymizationSettings,
+        isIdle: true,
         ...callbacks,
     });
 
@@ -58,6 +63,12 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         updateSettings(settings: AnonymizationSettings) {
             state.anonymizationSettings.blurSizePercent = settings.blurSizePercent;
             state.anonymizationSettings.timeBufferMs = settings.timeBufferMs;
+        },
+        updateIsIdle(isIdle: boolean) {
+            state.isIdle = isIdle;
+        },
+        applyChanges(changes: DetectedObjectChangeSet) {
+            (vm as any)?.applyChanges?.(changes);
         },
         getFrames() {
             return vm.getFrames?.() ?? []

@@ -23,9 +23,18 @@ export type VideoEditorProps = {
   videoSourceUrl: string;
   frames: AnalyzedFrameDto[];
   anonymizationSettings: AnonymizationSettings;
-  onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
-  onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string) => void;
-  onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string) => void;
+  isIdle?: boolean;
+  onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
+  onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
+  onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+};
+
+export type DetectedObjectChangeSet = {
+  objectsToUpdate: DetectedObjectDto[];
+  objectsToRemove: string[];
+  objectsToAdd: DetectedObjectDto[];
 };
 
 export type AnonymizationSettings = {

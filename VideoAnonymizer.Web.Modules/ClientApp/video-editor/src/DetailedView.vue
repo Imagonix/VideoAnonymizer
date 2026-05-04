@@ -15,7 +15,7 @@ const emit = defineEmits<{
     (e: 'done'): void;
     (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
     (e: 'add-box', x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number): void;
-    (e: 'box-updated', obj: DetectedObjectDto): void;
+    (e: 'box-updated', obj: DetectedObjectDto, beforeState: DetectedObjectDto[]): void;
 }>();
 
 
@@ -181,10 +181,12 @@ function getEdgeHandleStyle(obj: DetectedObjectDto, position: string) {
 }
 
 const activeBoxId = ref<string | null>(null);
+const beforeEditStates = ref<Map<string, DetectedObjectDto>>(new Map());
 
 function onBoxMouseDown(event: MouseEvent, obj: DetectedObjectDto) {
     const rect = overlayRef.value?.getBoundingClientRect();
     if (!rect) return;
+    beforeEditStates.value.set(obj.id, JSON.parse(JSON.stringify(obj)));
     dragState.value = {
         id: obj.id,
         startX: event.clientX,
@@ -198,6 +200,7 @@ function onResizeHandleDown(event: MouseEvent, obj: DetectedObjectDto, position:
     event.stopPropagation();
     const rect = overlayRef.value?.getBoundingClientRect();
     if (!rect) return;
+    beforeEditStates.value.set(obj.id, JSON.parse(JSON.stringify(obj)));
     resizeState.value = {
         id: obj.id, position,
         startX: event.clientX, startY: event.clientY,
@@ -287,7 +290,11 @@ function onOverlayMouseUp() {
     }
 
     if (updatedObj) {
-        emit('box-updated', updatedObj);
+        const before = beforeEditStates.value.get(updatedObj.id)
+            ? [beforeEditStates.value.get(updatedObj.id)!]
+            : [];
+        beforeEditStates.value.delete(updatedObj.id);
+        emit('box-updated', updatedObj, before);
     }
 }
 

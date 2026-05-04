@@ -31,7 +31,7 @@ Key projects under `VideoAnonymizer.slnx`:
 |---|---|
 | `VideoAnonymizer.Web` | Blazor WASM frontend, SignalR client, download service |
 | `VideoAnonymizer.Web.Contracts` | Shared DTOs (`AnalyzedFrameDto`, `DetectedObjectDto`, etc.) and API route constants |
-| `VideoAnonymizer.Web.Modules` | Razor Class Library hosting the Vue video editor component + action classes (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`) |
+| `VideoAnonymizer.Web.Modules` | Razor Class Library hosting the Vue video editor component + action classes (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`, `UndoAction`, `RedoAction`) |
 | `VideoAnonymizer.ApiService` | ASP.NET Core API (analyze, anonymize, video serving endpoints + SignalR hub) |
 | `VideoAnonymizer.VideoProcessor` | Background worker: frame extraction, blur processing, export |
 | `VideoAnonymizer.ObjectDetection` | Python FastAPI face detection service |
@@ -91,9 +91,9 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Services/IJobHubClient.cs` / `JobHubClient.cs` - SignalR hub connection
 
 ### Vue Editor (within Web.Modules)
-- `VideoAnonymizer.Web.Modules/Actions/VideoEditorAction.cs` - Action class hierarchy (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`); single `OnAction` callback dispatched via switch in `ReviewExportTab`
+- `VideoAnonymizer.Web.Modules/Actions/VideoEditorAction.cs` - Action class hierarchy (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`, `UndoAction`, `RedoAction`); single `OnAction` callback dispatched via switch in `ReviewExportTab`; actions carry `OperationType` string (`"toggle"`, `"merge"`, `"split"`, `"reassign"`, `"move"`, `"resize"`) propagated from Vue
 - `VideoAnonymizer.Web.Modules/Components/VideoEditor.razor.cs` - Operation channel queue, `EnqueueOperation()` public method, `IsProcessingChanged` callback for sync indicator, JS-invokable methods enqueue actions via `OnAction`
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables; `applyChanges()` for receiving delta updates from Blazor
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/EditorControls.vue` - Right-side button panel: Move, Resize, Add, Merge, Split
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/DetailedView.vue` - Fullscreen overlay for Move/Resize/Add operations with canvas frame preview, draggable/resizable boxes, and draw-new-box support
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRow.vue` - Row of occurrence dots; supports split-mode dot clicking with Ctrl/Shift selection
@@ -138,6 +138,7 @@ Key projects under `VideoAnonymizer.slnx`:
 - Add route + handler in `VideoAnonymizer.ApiService/VideoAnonymizerApi.cs`
 - Add path constant in `VideoAnonymizer.Web.Contracts/SharedConstants.cs`
 - Add DTO if needed in `VideoAnonymizer.Web.Contracts/DTO/`
+- Use `HttpPost` for create, `HttpPut` for single update, `HttpPatch` for bulk update, `HttpDelete` for delete
 
 ### Adding a database migration
 Run from `VideoAnonymizer.Database/`:
@@ -231,6 +232,8 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - Video files are stored on disk; the API serves them via `PhysicalFile()` with range processing support
 - The Vue editor communicates with Blazor via JS interop (`GetFramesAsync()` / property updates on the mounted Vue app)
 - Settings (blur size, time buffer) are persisted on change via `PUT /video/{videoId}/settings` and go through the `VideoEditor` operation channel
-- VideoEditor operations (add/update/bulk update detected objects) use a command pattern: `VideoEditorAction` records dispatched through a single `OnAction` callback with a switch in `ReviewExportTab`; designed to support undo in the future
+- VideoEditor operations use a command pattern: `VideoEditorAction` records dispatched through a single `OnAction` callback with a switch in `ReviewExportTab`
+- **Undo/Redo**: Blazor owns the authoritative undo/redo stack. Each action carries `BeforeState` and `AfterState` (deep-cloned by Vue before/after mutation). Vue sends Ctrl+Z/Y as `onUndo`/`onRedo` signals (no payload). Blazor looks up the action at `_historyIndex`, applies the inverse HTTP call, then pushes a `DetectedObjectChangeSet` delta to Vue via `applyDetectedObjectChanges` JS bridge. An overlay (`isIdle`/`IsProcessingChanged`) blocks input while processing. New actions clear any redo history (actions after current index).
+- **Blazor → Vue state propagation**: Blazor pushes state to Vue via dedicated JS bridge functions (`updateVideoEditorIsIdle`, `updateVideoEditorSettings`, `applyDetectedObjectChanges`). These are defined in `videoEditorHost.js` and exposed as `AppHandle` methods in `main.ts`, updating the reactive `state` proxy.
 - HTTP execution logic lives in `ReviewExportTab` (not `VideoEditor`) — `VideoEditor` only provides the queue mechanism and notifies processing state via `IsProcessingChanged`
 - The upload tab shows a list of existing videos loaded from `GET /videos`; clicking a row opens the video directly (no separate button)

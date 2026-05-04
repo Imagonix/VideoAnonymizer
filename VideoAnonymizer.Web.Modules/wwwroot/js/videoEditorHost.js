@@ -36,12 +36,16 @@ export async function mountVideoEditor(element, props, dotNetRef) {
     await ensureAssetsLoaded();
 
     const callbacks = {
-        onDetectedObjectAdded: (videoId, analyzedFrameId, dto) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto),
-        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto, operationType) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto, operationType ?? ''),
-        onDetectedObjectsBulkUpdated: (videoId, dtos, operationType) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? ''),
+        onDetectedObjectAdded: (videoId, analyzedFrameId, dto, beforeState, afterState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto, beforeState, afterState),
+        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto, operationType, beforeState, afterState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto, operationType ?? '', beforeState, afterState),
+        onDetectedObjectsBulkUpdated: (videoId, dtos, operationType, beforeState, afterState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? '', beforeState, afterState),
+        onUndo: () =>
+            dotNetRef.invokeMethodAsync('OnUndo'),
+        onRedo: () =>
+            dotNetRef.invokeMethodAsync('OnRedo'),
     };
 
     const appHandle = window.mountVideoEditorVueApp(element, { ...props, ...callbacks });
@@ -58,6 +62,18 @@ export async function updateVideoEditorSettings(element, settings) {
     const appHandle = mountedApps.get(element);
     if (!appHandle || typeof appHandle.updateSettings !== 'function') return;
     appHandle.updateSettings(settings);
+}
+
+export async function updateVideoEditorIsIdle(element, isIdle) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.updateIsIdle !== 'function') return;
+    appHandle.updateIsIdle(isIdle);
+}
+
+export async function applyDetectedObjectChanges(element, changes) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.applyChanges !== 'function') return;
+    appHandle.applyChanges(changes);
 }
 
 export async function unmountVideoEditor(element) {

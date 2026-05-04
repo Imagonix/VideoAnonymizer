@@ -40,6 +40,20 @@ namespace VideoAnonymizer.ApiService.DataServices
             return Mapper.ToDto(entity);
         }
 
+        public async Task DeleteDetectedObject(Guid videoId, Guid objectId)
+        {
+            using var db = await dbFactory.CreateDbContextAsync();
+
+            var entity = await db.DetectedObjects
+                .Include(o => o.AnalyzedFrame)
+                .FirstOrDefaultAsync(o => o.Id == objectId && o.AnalyzedFrame.VideoId == videoId);
+            if (entity == null)
+                throw new NotFoundException();
+
+            db.DetectedObjects.Remove(entity);
+            await db.SaveChangesAsync();
+        }
+
         public async Task BulkUpdateDetectedObjects(Guid videoId, IReadOnlyList<DetectedObjectDto> dtos)
         {
             using var db = await dbFactory.CreateDbContextAsync();

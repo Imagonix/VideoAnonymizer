@@ -187,6 +187,20 @@ namespace VideoAnonymizer.ApiService
             }
         }
 
+        [HttpDelete($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.AnalyzedFrame}/{{analyzedFrameId:guid}}/{SharedConstants.Paths.DetectedObject}/{{objectId:guid}}")]
+        public async Task<IActionResult> DeleteDetectedObject([FromRoute] Guid videoId, [FromRoute] Guid analyzedFrameId, [FromRoute] Guid objectId)
+        {
+            try
+            {
+                await videoDataService.DeleteDetectedObject(videoId, objectId);
+                return Ok(new ApiResponse<object> { IsSuccess = true });
+            }
+            catch (NotFoundException)
+            {
+                return NotFound();
+            }
+        }
+
         [HttpPatch($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.DetectedObjects}")]
         public async Task<IActionResult> BulkUpdateDetectedObjects([FromRoute] Guid videoId, [FromBody] List<DetectedObjectDto> dtos)
         {
