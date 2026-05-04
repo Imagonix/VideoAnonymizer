@@ -231,7 +231,12 @@
             "reassign" => $"Reassigned track ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
         },
-        SettingsUpdatedAction a => $"Settings: blur {a.BeforeState.BlurSizePercent}%→{a.AfterState.BlurSizePercent}%, buffer {a.BeforeState.TimeBufferMs}ms→{a.AfterState.TimeBufferMs}ms",
+        SettingsUpdatedAction a => (a.BeforeState.BlurSizePercent, a.BeforeState.TimeBufferMs) == (a.AfterState.BlurSizePercent, a.AfterState.TimeBufferMs) ? "Saved settings" :
+            a.BeforeState.BlurSizePercent != a.AfterState.BlurSizePercent && a.BeforeState.TimeBufferMs != a.AfterState.TimeBufferMs
+                ? $"Blur: {a.BeforeState.BlurSizePercent}%→{a.AfterState.BlurSizePercent}%, Buffer: {a.BeforeState.TimeBufferMs}ms→{a.AfterState.TimeBufferMs}ms"
+                : a.BeforeState.BlurSizePercent != a.AfterState.BlurSizePercent
+                    ? $"Blur: {a.BeforeState.BlurSizePercent}% → {a.AfterState.BlurSizePercent}%"
+                    : $"Buffer: {a.BeforeState.TimeBufferMs}ms → {a.AfterState.TimeBufferMs}ms",
         _ => "Unknown action"
     };
 
