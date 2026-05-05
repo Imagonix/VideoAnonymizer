@@ -1,4 +1,4 @@
-namespace VideoAnonymizer.ApiService.Controllers;
+namespace VideoAnonymizer.ApiService.Helpers;
 
 internal static class VideoFileContentTypes
 {
