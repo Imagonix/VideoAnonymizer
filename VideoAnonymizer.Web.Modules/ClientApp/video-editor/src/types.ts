@@ -23,7 +23,6 @@ export type VideoEditorProps = {
   videoSourceUrl: string;
   frames: AnalyzedFrameDto[];
   anonymizationSettings: AnonymizationSettings;
-  isIdle?: boolean;
   onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
   onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string, beforeState: DetectedObjectDto[]) => void;
   onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string, beforeState: DetectedObjectDto[]) => void;
@@ -69,7 +68,7 @@ export type PreviewObject = {
   activation: 'detected' | 'pre' | 'post';
 };
 
-export type EditorMode = 'select' | 'merge' | 'split' | 'move';
+export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add';
 
 export type VideoDimensions = {
   videoWidth: number;

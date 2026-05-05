@@ -1,0 +1,71 @@
+<MudPaper Class="pa-3 mb-3">
+    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
+            <MudStack Spacing="1" Style="width: 220px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.subtitle2">Blur size</MudText>
+                    <MudTooltip Text="Controls how large the anonymized area is compared to the detected face box. Example: 120% means the blur area is 20% larger than the detected box.">
+                        <MudIcon Icon="@Icons.Material.Filled.Info"
+                                 Size="Size.Small"
+                                 Color="Color.Info" />
+                    </MudTooltip>
+                </MudStack>
+
+                <MudNumericField T="int"
+                                 Value="BlurSizePercent"
+                                 ValueChanged="BlurSizePercentChanged"
+                                 Min="100"
+                                 Max="300"
+                                 Step="10"
+                                 Adornment="Adornment.End"
+                                 AdornmentText="%"
+                                 Immediate="false" />
+            </MudStack>
+
+            <MudStack Spacing="1" Style="width: 220px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.subtitle2">Time buffer</MudText>
+                    <MudTooltip Text="Adds blur time before and after a detection, reducing flicker when detections appear or disappear. Example: 300 ms blurs 0.3 seconds before and after detection.">
+                        <MudIcon Icon="@Icons.Material.Filled.Info"
+                                 Size="Size.Small"
+                                 Color="Color.Info" />
+                    </MudTooltip>
+                </MudStack>
+
+                <MudNumericField T="int"
+                                 Value="TimeBufferMs"
+                                 ValueChanged="TimeBufferMsChanged"
+                                 Min="0"
+                                 Max="1000"
+                                 Step="50"
+                                 Adornment="Adornment.End"
+                                 AdornmentText="ms"
+                                 Immediate="false" />
+            </MudStack>
+        </MudStack>
+
+        @ChildContent
+    </MudStack>
+
+    <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+        These settings apply to the whole video, not to individual objects.
+        The preview shows the affected area, not the final blur rendering.
+    </MudAlert>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public int BlurSizePercent { get; set; }
+
+    [Parameter]
+    public EventCallback<int> BlurSizePercentChanged { get; set; }
+
+    [Parameter]
+    public int TimeBufferMs { get; set; }
+
+    [Parameter]
+    public EventCallback<int> TimeBufferMsChanged { get; set; }
+
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+}

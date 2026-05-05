@@ -1,12 +1,15 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue';
+import { computed, ref } from 'vue';
 import type { VideoDimensions } from './types';
-import type { VideoEditorProps, TimelineObject, SingleTimelineObject, TrackedTimelineObject, DetectedObjectDto, PreviewObject, TimelineObjectCount, DetectedObjectChangeSet } from './types';
-import { buildObjectKey, getTimelineKey } from './utils/keys';
+import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
 import { useMerge } from './composables/useMerge';
 import { useOccurrenceSelection } from './composables/useOccurrenceSelection';
 import { useSplit } from './composables/useSplit';
+import { useKeyboardUndoRedo } from './composables/useKeyboardUndoRedo';
+import { useTimelineObjects } from './composables/useTimelineObjects';
+import { useBlurPreviewObjects } from './composables/useBlurPreviewObjects';
+import { useDetectedObjectActions } from './composables/useDetectedObjectActions';
 import VideoPlayer from './VideoPlayer.vue';
 import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
@@ -31,6 +34,7 @@ const videoPlayerRef = ref<{
 
 const videoDimensions = computed(() => videoPlayerRef.value?.videoDimensions ?? null);
 const frames = computed(() => props.state.frames ?? []);
+const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const hoveredTimelineKey = ref<string | null>(null);
 const hoveredObjectKey = ref<string | null>(null);
 
@@ -38,28 +42,16 @@ const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, is
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
+const { currentFrame, timelineObjects, timelineObjectCounts, orderedCurrentFrameObjects } = useTimelineObjects(frames, currentTime);
+const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, anonymizationSettings, isMove);
+const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onBoxUpdated } = useDetectedObjectActions(
+    props.state,
+    frames,
+    currentFrame,
+    activeMode
+);
 
-function cloneObjects(objects: DetectedObjectDto[]): DetectedObjectDto[] {
-    return JSON.parse(JSON.stringify(objects));
-}
-
-function onKeyDown(e: KeyboardEvent) {
-    if (!props.state.isIdle) return;
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        e.preventDefault();
-        if (e.shiftKey) {
-            props.state.onRedo?.();
-        } else {
-            props.state.onUndo?.();
-        }
-    } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-        e.preventDefault();
-        props.state.onRedo?.();
-    }
-}
-
-onMounted(() => document.addEventListener('keydown', onKeyDown));
-onUnmounted(() => document.removeEventListener('keydown', onKeyDown));
+useKeyboardUndoRedo(props.state);
 
 function applyChanges(changes: DetectedObjectChangeSet) {
     for (const obj of changes.objectsToUpdate) {
@@ -84,122 +76,6 @@ defineExpose({ getFrames, applyChanges });
 
 function getFrames() {
     return JSON.parse(JSON.stringify(props.state.frames))
-}
-
-const timelineObjects = computed<TimelineObject[]>(() => {
-    var untracked = frames.value.flatMap(frame => frame.detectedObjects.filter(x => x.trackId == null).map((obj): SingleTimelineObject => ({
-        detectedObj: obj, type: 'single', timeSeconds: frame.timeSeconds,
-    })))
-
-    const grouped = frames.value.flatMap(frame =>
-        frame.detectedObjects.map(obj => ({ trackId: obj.trackId, detectedObj: obj, timeSeconds: frame.timeSeconds }))
-    ).reduce((acc, x) => {
-        if (x.trackId == null) return acc;
-        if (!acc[x.trackId]) { acc[x.trackId] = { type: 'tracked', occurences: [] }; }
-        acc[x.trackId].occurences.push([x.timeSeconds, x.detectedObj]);
-        return acc;
-    }, {} as Record<number, TrackedTimelineObject>);
-
-    return [...Object.values(grouped), ...untracked];
-});
-
-const timelineObjectCounts = computed<TimelineObjectCount[]>(() =>
-    frames.value.map(frame => ({ timeSeconds: frame.timeSeconds, count: frame.detectedObjects.length }))
-        .sort((a, b) => a.timeSeconds - b.timeSeconds)
-);
-
-const orderedCurrentFrameObjects = computed(() => {
-    const frame = currentFrame.value;
-    if (!frame) return [];
-    const orderMap = new Map(timelineObjects.value.map((obj, index) => {
-        if (obj.type === 'tracked') {
-            const first = obj.occurences[0]?.[1];
-            return [first?.trackId != null ? `track-${first.trackId}` : first?.id, index];
-        }
-        return [obj.detectedObj.id, index];
-    }));
-    return [...frame.detectedObjects].sort((a, b) => {
-        const aOrder = orderMap.get(buildObjectKey(a)) ?? Number.MAX_SAFE_INTEGER;
-        const bOrder = orderMap.get(buildObjectKey(b)) ?? Number.MAX_SAFE_INTEGER;
-        return aOrder - bOrder;
-    });
-});
-
-const visibleBlurPreviewObjects = computed(() => {
-    const bufferSeconds = props.state.anonymizationSettings.timeBufferMs / 1000;
-    const result: PreviewObject[] = [];
-    const current = currentFrame.value;
-    if (!current) return [];
-
-    for (const obj of current.detectedObjects) {
-        if (!obj.selected) continue;
-        result.push({ detectedObject: obj, activation: 'detected' });
-    }
-    if (!isMove.value) for (const frame of [...frames.value].sort((a, b) =>
-        Math.abs(a.timeSeconds - current.timeSeconds) - Math.abs(b.timeSeconds - current.timeSeconds)
-    )) {
-        const delta = current.timeSeconds - frame.timeSeconds;
-        if (Math.abs(delta) > bufferSeconds) continue;
-        for (const obj of frame.detectedObjects) {
-            if (!obj.selected) continue;
-            const key = buildObjectKey(obj);
-            if (result.some(r => buildObjectKey(r.detectedObject) === key)) continue;
-            result.push({ detectedObject: obj, activation: delta < 0 ? 'pre' : 'post' });
-        }
-    }
-    return result;
-});
-
-const currentFrame = computed(() => {
-    if (frames.value.length === 0) return null;
-    return [...frames.value].sort((a, b) =>
-        Math.abs(a.timeSeconds - currentTime.value) - Math.abs(b.timeSeconds - currentTime.value)
-    )[0];
-});
-
-function toggleObject(id: string, checked: boolean) {
-    const matched = frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id));
-    const before = cloneObjects(matched);
-    matched.forEach(obj => { obj.selected = checked });
-    if (matched.length === 1) {
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, matched[0].analyzedFrameId, matched[0], 'toggle', before);
-    } else if (matched.length > 1) {
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, matched, 'toggle', before);
-    }
-}
-
-function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
-    if (obj.type === 'single') {
-        const before = cloneObjects([obj.detectedObj]);
-        obj.detectedObj.selected = checked;
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.detectedObj.analyzedFrameId, obj.detectedObj, 'toggle', before);
-        return;
-    }
-    const changed: DetectedObjectDto[] = [];
-    obj.occurences.forEach(([_, o]) => { changed.push(o); });
-    const before = cloneObjects(changed);
-    obj.occurences.forEach(([_, o]) => { o.selected = checked; });
-    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'toggle', before);
-}
-
-function setTrackId(timelineObject: TimelineObject, trackId: number) {
-    if (timelineObject.type === 'single') {
-        const before = cloneObjects([timelineObject.detectedObj]);
-        timelineObject.detectedObj.trackId = trackId;
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj, 'reassign', before);
-        return;
-    }
-    const oldTrackId = timelineObject.occurences[0]?.[1].trackId;
-    if (oldTrackId == null) return;
-    const changed: DetectedObjectDto[] = [];
-    for (const frame of props.state.frames) {
-        for (const obj of frame.detectedObjects) {
-            if (obj.trackId === oldTrackId) { changed.push(obj); }
-        }
-    }
-    const before = cloneObjects(changed);
-    changed.forEach(obj => { obj.trackId = trackId; });
-    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'reassign', before);
 }
 
 function mergeAction() {
@@ -240,35 +116,6 @@ function toggleVideoPlayback() { videoPlayerRef.value?.togglePlayback(); }
 function setVideoVolume(volume: number) {
     videoVolume.value = volume;
     videoPlayerRef.value?.setVolume(volume);
-}
-
-function deleteObject(obj: DetectedObjectDto) {
-    const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
-    if (!frame) return;
-    const idx = frame.detectedObjects.findIndex(o => o.id === obj.id);
-    if (idx < 0) return;
-    frame.detectedObjects.splice(idx, 1);
-    props.state.onDetectedObjectDeleted?.(props.state.videoId, obj.analyzedFrameId, obj);
-}
-
-function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
-    if (!currentFrame.value) return;
-    const frame = currentFrame.value;
-    const nextTrackId = frames.value.flatMap(f => f.detectedObjects).reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1;
-    const frameTrackIds = new Set(frame.detectedObjects.flatMap(o => o.trackId == null ? [] : [o.trackId]));
-    const resolvedTrackId = trackId === 'new' || frameTrackIds.has(trackId)
-        ? nextTrackId
-        : trackId;
-    const newObj: DetectedObjectDto = {
-        id: crypto.randomUUID(), confidence: 1, className: className || null, selected: true,
-        trackId: resolvedTrackId, x, y, width, height, analyzedFrameId: frame.id,
-    };
-    frame.detectedObjects.push(newObj);
-    props.state.onDetectedObjectAdded?.(props.state.videoId, frame.id, newObj);
-}
-
-function onBoxUpdated(obj: DetectedObjectDto, beforeState: DetectedObjectDto[]) {
-    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, activeMode.value, beforeState);
 }
 </script>
 

@@ -1,17 +1,9 @@
-using System.Threading.Channels;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using VideoAnonymizer.Web.Modules.Actions;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.Web.Modules.Components;
-
-public sealed record DetectedObjectChangeSet
-{
-    public required IReadOnlyList<DetectedObjectDto> ObjectsToUpdate { get; init; }
-    public required IReadOnlyList<string> ObjectsToRemove { get; init; }
-    public required IReadOnlyList<DetectedObjectDto> ObjectsToAdd { get; init; }
-}
 
 public partial class VideoEditor : ComponentBase, IAsyncDisposable
 {
@@ -31,9 +23,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     public int TimeBufferMs { get; set; } = 0;
 
     [Parameter]
-    public EventCallback<bool> IsProcessingChanged { get; set; }
-
-    [Parameter]
     public EventCallback<VideoEditorAction> OnAction { get; set; }
 
     private ElementReference _hostElement;
@@ -43,151 +32,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private int _lastBlurSizePercent;
     private int _lastTimeBufferMs;
     private DotNetObjectReference<VideoEditor>? _dotNetRef;
-
-    private readonly Channel<Func<Task>> _operationChannel = Channel.CreateUnbounded<Func<Task>>(new UnboundedChannelOptions { SingleReader = true });
-    private readonly CancellationTokenSource _queueCts = new();
-    private Task _processingTask = Task.CompletedTask;
-    private int _pendingOperationCount;
-    private bool _isIdle = true;
-
-    protected override void OnInitialized()
-    {
-        _processingTask = ProcessQueueAsync();
-    }
-
-    private async Task ProcessQueueAsync()
-    {
-        var reader = _operationChannel.Reader;
-        try
-        {
-            while (await reader.WaitToReadAsync(_queueCts.Token))
-            {
-                while (reader.TryRead(out var operation))
-                {
-                    try
-                    {
-                        await operation();
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    public void EnqueueOperation(Func<Task> operation)
-    {
-        Interlocked.Increment(ref _pendingOperationCount);
-        _ = NotifyProcessingStateAsync();
-        _operationChannel.Writer.TryWrite(WrapOperation(operation));
-    }
-
-    private Func<Task> WrapOperation(Func<Task> operation)
-    {
-        return async () =>
-        {
-            try
-            {
-                await operation();
-            }
-            finally
-            {
-                Interlocked.Decrement(ref _pendingOperationCount);
-                await NotifyProcessingStateAsync();
-            }
-        };
-    }
-
-    private async Task NotifyProcessingStateAsync()
-    {
-        try
-        {
-            var isIdle = _pendingOperationCount == 0;
-            _isIdle = isIdle;
-            await InvokeAsync(() => IsProcessingChanged.InvokeAsync(isIdle));
-            await NotifyVueIsIdleAsync();
-        }
-        catch
-        {
-        }
-    }
-
-    private async Task NotifyVueIsIdleAsync()
-    {
-        if (!_mounted || _hostModule is null) return;
-        try
-        {
-            await _hostModule.InvokeVoidAsync("updateVideoEditorIsIdle", _hostElement, _isIdle);
-        }
-        catch
-        {
-        }
-    }
-
-    [JSInvokable]
-    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
-    {
-        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectAddedAction
-        {
-            VideoId = videoId,
-            AnalyzedFrameId = analyzedFrameId,
-            Object = dto
-        }));
-    }
-
-    [JSInvokable]
-    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType, DetectedObjectDto[] beforeState)
-    {
-        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectUpdatedAction
-        {
-            VideoId = videoId,
-            AnalyzedFrameId = analyzedFrameId,
-            Object = dto,
-            OperationType = operationType,
-            BeforeState = beforeState
-        }));
-    }
-
-    [JSInvokable]
-    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType, DetectedObjectDto[] beforeState)
-    {
-        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectsBulkUpdatedAction
-        {
-            VideoId = videoId,
-            Objects = dtos,
-            OperationType = operationType,
-            BeforeState = beforeState
-        }));
-    }
-
-    [JSInvokable]
-    public async Task OnDetectedObjectDeleted(string videoId, string analyzedFrameId, DetectedObjectDto dto)
-    {
-        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectDeletedAction
-        {
-            VideoId = videoId,
-            AnalyzedFrameId = analyzedFrameId,
-            Object = dto
-        }));
-    }
-
-    [JSInvokable]
-    public async Task OnUndo()
-    {
-        if (!_isIdle) return;
-        EnqueueOperation(() => OnAction.InvokeAsync(new UndoAction()));
-    }
-
-    [JSInvokable]
-    public async Task OnRedo()
-    {
-        if (!_isIdle) return;
-        EnqueueOperation(() => OnAction.InvokeAsync(new RedoAction()));
-    }
 
     public async Task PushChangesToVue(DetectedObjectChangeSet changes)
     {
@@ -266,7 +110,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
             videoId = VideoId.ToString(),
             videoSourceUrl = VideoSourceUrl,
             frames = Frames,
-            isIdle = _isIdle,
             anonymizationSettings = new
             {
                 blurSizePercent = BlurSizePercent,
@@ -277,9 +120,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        _queueCts.Cancel();
-        try { await _processingTask; } catch { }
-
         _dotNetRef?.Dispose();
 
         try

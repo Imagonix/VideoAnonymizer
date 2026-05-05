@@ -66,12 +66,6 @@ export async function updateVideoEditorSettings(element, settings) {
     appHandle.updateSettings(settings);
 }
 
-export async function updateVideoEditorIsIdle(element, isIdle) {
-    const appHandle = mountedApps.get(element);
-    if (!appHandle || typeof appHandle.updateIsIdle !== 'function') return;
-    appHandle.updateIsIdle(isIdle);
-}
-
 export async function applyDetectedObjectChanges(element, changes) {
     const appHandle = mountedApps.get(element);
     if (!appHandle || typeof appHandle.applyChanges !== 'function') return;

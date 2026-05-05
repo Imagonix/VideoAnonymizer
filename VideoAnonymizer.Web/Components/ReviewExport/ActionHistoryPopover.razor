@@ -1,0 +1,92 @@
+<div style="position: relative; display: inline-flex; align-items: center;"
+     @onmouseenter="() => _showActionHistory = true"
+     @onmouseleave="() => _showActionHistory = false">
+
+    @if (IsProcessing)
+    {
+        <MudProgressCircular Indeterminate="true"
+                             Size="Size.Small"
+                             Color="Color.Secondary"
+                             Style="align-self: start; margin-top: 4px;" />
+    }
+    else if (HasErrors)
+    {
+        <MudIcon Icon="@Icons.Material.Filled.Save"
+                 Size="Size.Small"
+                 Color="Color.Error"
+                 Style="align-self: start; margin-top: 4px;" />
+    }
+    else
+    {
+        <MudIcon Icon="@Icons.Material.Filled.Save"
+                 Size="Size.Small"
+                 Color="Color.Primary"
+                 Style="align-self: start; margin-top: 4px;" />
+    }
+
+    @if (_showActionHistory)
+    {
+        <MudPaper Class="pa-2"
+                  Style="position: absolute; top: 100%; right: 0; z-index: 1000; min-width: 300px; max-height: 400px; overflow-y: auto; margin-top: 4px;">
+            <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary">
+                @(IsProcessing ? "Saving..." : "Saved")
+            </MudText>
+            @if (Items.Count == 0)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">No recent actions</MudText>
+            }
+            else
+            {
+                @foreach (var item in Items.Reverse())
+                {
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="my-1">
+                        @if (item.Undone)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="text-decoration: line-through; opacity: 0.6;">@item.Description</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto; opacity: 0.6;">
+                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                            </MudText>
+                        }
+                        else if (item.Status == ActionStatus.Success)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" />
+                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                            </MudText>
+                        }
+                        else if (item.Status == ActionStatus.Failed)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" />
+                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                            </MudText>
+                        }
+                        else
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
+                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                            </MudText>
+                        }
+                    </MudStack>
+                }
+            }
+        </MudPaper>
+    }
+</div>
+
+@code {
+    private bool _showActionHistory;
+
+    [Parameter]
+    public bool IsProcessing { get; set; }
+
+    [Parameter]
+    public bool HasErrors { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<ActionHistoryItem> Items { get; set; } = [];
+}

@@ -1,187 +1,68 @@
-﻿@using VideoAnonymizer.Web.Modules.Components
+@using VideoAnonymizer.Web.Components.ReviewExport
 @using VideoAnonymizer.Web.Modules.Actions
+@using VideoAnonymizer.Web.Modules.Components
 @using VideoAnonymizer.Web.Shared.DTO
-@using VideoAnonymizer.Web.Shared
+@implements IAsyncDisposable
 @inject IHttpClientFactory HttpClientFactory
 @inject ISnackbar Snackbar
 
 <MudPaper Class="pa-6">
     <MudStack Spacing="2">
-        <MudPaper Class="pa-3 mb-3">
-            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
-                    <MudStack Spacing="1" Style="width: 220px;">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                            <MudText Typo="Typo.subtitle2">Blur size</MudText>
-                            <MudTooltip Text="Controls how large the anonymized area is compared to the detected face box. Example: 120% means the blur area is 20% larger than the detected box.">
-                                <MudIcon Icon="@Icons.Material.Filled.Info"
-                                         Size="Size.Small"
-                                         Color="Color.Info" />
-                            </MudTooltip>
-                        </MudStack>
+        <ReviewExportSettings BlurSizePercent="BlurSizePercent"
+                              BlurSizePercentChanged="OnBlurSizeChanged"
+                              TimeBufferMs="TimeBufferMs"
+                              TimeBufferMsChanged="OnTimeBufferChanged">
+            <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
+                                  HasErrors="_hasErrors"
+                                  Items="_actionHistory" />
+        </ReviewExportSettings>
 
-                        <MudNumericField T="int"
-                                         Value="BlurSizePercent"
-                                         ValueChanged="OnBlurSizeChanged"
-                                         Min="100"
-                                         Max="300"
-                                         Step="10"
-                                         Adornment="Adornment.End"
-                                         AdornmentText="%"
-                                         Immediate="false" />
-                    </MudStack>
-
-                    <MudStack Spacing="1" Style="width: 220px;">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                            <MudText Typo="Typo.subtitle2">Time buffer</MudText>
-                            <MudTooltip Text="Adds blur time before and after a detection, reducing flicker when detections appear or disappear. Example: 300 ms blurs 0.3 seconds before and after detection.">
-                                <MudIcon Icon="@Icons.Material.Filled.Info"
-                                         Size="Size.Small"
-                                         Color="Color.Info" />
-                            </MudTooltip>
-                        </MudStack>
-
-                        <MudNumericField T="int"
-                                         Value="TimeBufferMs"
-                                         ValueChanged="OnTimeBufferChanged"
-                                         Min="0"
-                                         Max="1000"
-                                         Step="50"
-                                         Adornment="Adornment.End"
-                                         AdornmentText="ms"
-                                         Immediate="false" />
-                    </MudStack>
-                </MudStack>
-
-                <div style="position: relative; display: inline-flex; align-items: center;"
-                     @onmouseenter="() => _showActionHistory = true"
-                     @onmouseleave="() => _showActionHistory = false">
-
-                    @if (_videoEditorProcessing)
-                    {
-                        <MudProgressCircular Indeterminate="true"
-                                             Size="Size.Small"
-                                             Color="Color.Secondary"
-                                             Style="align-self: start; margin-top: 4px;" />
-                    }
-                    else if (_hasErrors)
-                    {
-                        <MudIcon Icon="@Icons.Material.Filled.Save"
-                                 Size="Size.Small"
-                                 Color="Color.Error"
-                                 Style="align-self: start; margin-top: 4px;" />
-                    }
-                    else
-                    {
-                        <MudIcon Icon="@Icons.Material.Filled.Save"
-                                 Size="Size.Small"
-                                 Color="Color.Primary"
-                                 Style="align-self: start; margin-top: 4px;" />
-                    }
-
-                    @if (_showActionHistory)
-                    {
-                        <MudPaper Class="pa-2"
-                                  Style="position: absolute; top: 100%; right: 0; z-index: 1000; min-width: 300px; max-height: 400px; overflow-y: auto; margin-top: 4px;">
-                            <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary">
-                                @(_videoEditorProcessing ? "Saving..." : "Saved")
-                            </MudText>
-                            @if (_actionHistory.Count == 0)
-                            {
-                                <MudText Typo="Typo.caption" Class="mud-text-secondary">No recent actions</MudText>
-                            }
-                            else
-                            {
-                                @foreach (var item in _actionHistory.AsEnumerable().Reverse())
-                                {
-                                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Class="my-1">
-                                        @if (item.Undone)
-                                        {
-                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="text-decoration: line-through; opacity: 0.6;">@item.Description</MudText>
-                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto; opacity: 0.6;">
-                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-                                            </MudText>
-                                        }
-                                        else if (item.Status == ActionStatus.Success)
-                                        {
-                                            <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" />
-                                            <MudText Typo="Typo.caption">@item.Description</MudText>
-                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
-                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-                                            </MudText>
-                                        }
-                                        else if (item.Status == ActionStatus.Failed)
-                                        {
-                                            <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" />
-                                            <MudText Typo="Typo.caption">@item.Description</MudText>
-                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
-                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-                                            </MudText>
-                                        }
-                                        else
-                                        {
-                                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Secondary" />
-                                            <MudText Typo="Typo.caption">@item.Description</MudText>
-                                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
-                                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
-                                            </MudText>
-                                        }
-                                    </MudStack>
-                                }
-                            }
-                        </MudPaper>
-                    }
-                </div>
-            </MudStack>
-
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
-                These settings apply to the whole video, not to individual objects.
-                The preview shows the affected area, not the final blur rendering.
-            </MudAlert>
-        </MudPaper>
         @if (ShowEditor && VideoId.HasValue && !string.IsNullOrWhiteSpace(VideoSourceUrl))
         {
-            <VideoEditor @ref="_videoEditor"
-                         VideoId="@VideoId.Value"
-                         VideoSourceUrl="@VideoSourceUrl"
-                         Frames="@Frames"
-                         BlurSizePercent="@BlurSizePercent"
-                         TimeBufferMs="@TimeBufferMs"
-                         IsProcessingChanged="OnVideoEditorProcessingChanged"
-                         OnAction="OnVideoEditorAction" />
+            <div style="position: relative;">
+                <VideoEditor @ref="_videoEditor"
+                             VideoId="@VideoId.Value"
+                             VideoSourceUrl="@VideoSourceUrl"
+                             Frames="@Frames"
+                             BlurSizePercent="@BlurSizePercent"
+                             TimeBufferMs="@TimeBufferMs"
+                             OnAction="OnVideoEditorAction" />
+
+                @if (_editorInputBlocked)
+                {
+                    <div style="position: absolute; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35);">
+                        <MudPaper Class="pa-4 d-flex flex-column align-center" Style="gap: 12px;">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2">Finishing pending editor changes...</MudText>
+                        </MudPaper>
+                    </div>
+                }
+            </div>
         }
 
         <MudButton Variant="Variant.Filled"
                    Color="Color.Secondary"
-                   Disabled="!ShowEditor"
+                   Disabled="!ShowEditor || _editorInputBlocked"
                    OnClick="OnStartAnonymizationClicked">
             Anonymize selected objects
         </MudButton>
-
     </MudStack>
 </MudPaper>
 
 @code {
-    private class ActionHistoryItem(string description, DateTime timestamp)
-    {
-        public string Description { get; } = description;
-        public ActionStatus Status { get; set; } = ActionStatus.Pending;
-        public DateTime Timestamp { get; } = timestamp;
-        public bool Undone { get; set; }
-    }
-
-    private enum ActionStatus { Pending, Success, Failed }
-
+    private readonly List<ActionHistoryItem> _actionHistory = [];
+    private readonly VideoEditorActionQueue _actionQueue;
+    private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
     private List<AnalyzedFrameDto> _capturedFrames = [];
     private bool _videoEditorProcessing;
-    private readonly List<ActionHistoryItem> _actionHistory = [];
-    private bool _showActionHistory;
+    private bool _editorInputBlocked;
     private bool _hasErrors;
 
-    private readonly List<VideoEditorAction> _undoHistory = [];
-    private readonly List<ActionHistoryItem?> _undoDisplayItems = [];
-    private int _historyIndex = -1;
+    public ReviewExportTab()
+    {
+        _actionQueue = new VideoEditorActionQueue(OnQueueProcessingChangedAsync);
+    }
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -202,51 +83,120 @@
     public int BlurSizePercent { get; set; } = 120;
 
     [Parameter]
+    public EventCallback<int> BlurSizePercentChanged { get; set; }
+
+    [Parameter]
     public int TimeBufferMs { get; set; } = 300;
+
+    [Parameter]
+    public EventCallback<int> TimeBufferMsChanged { get; set; }
 
     public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
 
-    private void OnVideoEditorProcessingChanged(bool isIdle)
+    private Task OnQueueProcessingChangedAsync(bool isProcessing) =>
+        InvokeAsync(() =>
+        {
+            _videoEditorProcessing = isProcessing;
+            if (!isProcessing)
+            {
+                _editorInputBlocked = false;
+            }
+
+            StateHasChanged();
+        });
+
+    private Task OnVideoEditorAction(VideoEditorAction action)
     {
-        _videoEditorProcessing = !isIdle;
-        StateHasChanged();
+        if (_editorInputBlocked && action is UndoAction or RedoAction)
+            return Task.CompletedTask;
+
+        if (action is UndoAction or RedoAction && _actionQueue.HasPendingActions)
+        {
+            _editorInputBlocked = true;
+            _ = InvokeAsync(StateHasChanged);
+        }
+
+        _actionQueue.Enqueue(() => ProcessVideoEditorActionAsync(action));
+        return Task.CompletedTask;
     }
 
-    private static string GetActionDescription(VideoEditorAction action) => action switch
+    private async Task ProcessVideoEditorActionAsync(VideoEditorAction action)
     {
-        ObjectAddedAction => "Added new bounding box",
-        ObjectUpdatedAction a => a.OperationType switch
+        using var client = HttpClientFactory.CreateClient("ApiService");
+        var persister = new VideoEditorActionPersister(client);
+
+        switch (action)
         {
-            "toggle" => "Changed visibility",
-            "reassign" => "Reassigned track ID",
-            "move" => "Moved bounding box",
-            "resize" => "Resized bounding box",
-            _ => "Updated bounding box"
-        },
-        ObjectsBulkUpdatedAction a => a.OperationType switch
+            case UndoAction:
+                await ApplyUndoRedoAsync(persister, isRedo: false);
+                break;
+
+            case RedoAction:
+                await ApplyUndoRedoAsync(persister, isRedo: true);
+                break;
+
+            default:
+                await PersistActionAsync(persister, action);
+                break;
+        }
+    }
+
+    private async Task PersistActionAsync(VideoEditorActionPersister persister, VideoEditorAction action)
+    {
+        var item = AddAction(VideoEditorActionDescriptions.Get(action));
+
+        try
         {
-            "merge" => $"Merged {a.Objects.Count} objects",
-            "split" => $"Split {a.Objects.Count} objects",
-            "toggle" => $"Changed visibility ({a.Objects.Count} objects)",
-            "reassign" => $"Reassigned track ID ({a.Objects.Count} objects)",
-            _ => $"Updated {a.Objects.Count} objects"
-        },
-        ObjectDeletedAction => "Deleted bounding box",
-        SettingsUpdatedAction a => (a.BeforeState.BlurSizePercent, a.BeforeState.TimeBufferMs) == (a.AfterState.BlurSizePercent, a.AfterState.TimeBufferMs) ? "Saved settings" :
-            a.BeforeState.BlurSizePercent != a.AfterState.BlurSizePercent && a.BeforeState.TimeBufferMs != a.AfterState.TimeBufferMs
-                ? $"Blur: {a.BeforeState.BlurSizePercent}%→{a.AfterState.BlurSizePercent}%, Buffer: {a.BeforeState.TimeBufferMs}ms→{a.AfterState.TimeBufferMs}ms"
-                : a.BeforeState.BlurSizePercent != a.AfterState.BlurSizePercent
-                    ? $"Blur: {a.BeforeState.BlurSizePercent}% → {a.AfterState.BlurSizePercent}%"
-                    : $"Buffer: {a.BeforeState.TimeBufferMs}ms → {a.AfterState.TimeBufferMs}ms",
-        _ => "Unknown action"
-    };
+            await persister.SaveAsync(action);
+            item.Status = ActionStatus.Success;
+            _undoRedoState.Add(action, item);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            MarkActionFailed(item);
+        }
+    }
+
+    private async Task ApplyUndoRedoAsync(VideoEditorActionPersister persister, bool isRedo)
+    {
+        var operation = _undoRedoState.Begin(isRedo);
+        if (operation is null)
+            return;
+
+        try
+        {
+            await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync);
+            _undoRedoState.Complete(operation, isRedo);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            _undoRedoState.Rollback(isRedo);
+            Snackbar.Add(isRedo ? "Failed to redo changes." : "Failed to undo changes.", Severity.Error);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ApplySettingsFromHistoryAsync(AnonymizationSettingsDto settings)
+    {
+        BlurSizePercent = settings.BlurSizePercent;
+        TimeBufferMs = settings.TimeBufferMs;
+
+        await BlurSizePercentChanged.InvokeAsync(settings.BlurSizePercent);
+        await TimeBufferMsChanged.InvokeAsync(settings.TimeBufferMs);
+        await InvokeAsync(StateHasChanged);
+    }
 
     private ActionHistoryItem AddAction(string description)
     {
         var item = new ActionHistoryItem(description, DateTime.UtcNow);
         _actionHistory.Add(item);
         if (_actionHistory.Count > 20)
+        {
             _actionHistory.RemoveAt(0);
+        }
+
         return item;
     }
 
@@ -254,226 +204,8 @@
     {
         item.Status = ActionStatus.Failed;
         _hasErrors = true;
-        InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(StateHasChanged);
         Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
-    }
-
-    private static async Task EnsureSuccessfulResponseAsync(Task<HttpResponseMessage> requestTask)
-    {
-        using var response = await requestTask;
-        response.EnsureSuccessStatusCode();
-    }
-
-    private async Task OnVideoEditorAction(VideoEditorAction action)
-    {
-        using var client = HttpClientFactory.CreateClient("ApiService");
-
-        switch (action)
-        {
-            case ObjectAddedAction a:
-                var item1 = AddAction(GetActionDescription(a));
-                try
-                {
-                    await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object));
-                    item1.Status = ActionStatus.Success;
-                    AddToUndoHistory(a, item1);
-                }
-                catch { MarkActionFailed(item1); }
-                break;
-
-            case ObjectUpdatedAction a:
-                var item2 = AddAction(GetActionDescription(a));
-                try
-                {
-                    await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object));
-                    item2.Status = ActionStatus.Success;
-                    AddToUndoHistory(a, item2);
-                }
-                catch { MarkActionFailed(item2); }
-                break;
-
-            case ObjectsBulkUpdatedAction a:
-                var item3 = AddAction(GetActionDescription(a));
-                try
-                {
-                    await EnsureSuccessfulResponseAsync(client.PatchAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects));
-                    item3.Status = ActionStatus.Success;
-                    AddToUndoHistory(a, item3);
-                }
-                catch { MarkActionFailed(item3); }
-                break;
-
-            case ObjectDeletedAction a:
-                var item4 = AddAction(GetActionDescription(a));
-                try
-                {
-                    await EnsureSuccessfulResponseAsync(client.DeleteAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}"));
-                    item4.Status = ActionStatus.Success;
-                    AddToUndoHistory(a, item4);
-                }
-                catch { MarkActionFailed(item4); }
-                break;
-
-            case SettingsUpdatedAction a:
-                var item5 = AddAction(GetActionDescription(a));
-                try
-                {
-                    await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
-                        a.AfterState));
-                    item5.Status = ActionStatus.Success;
-                    AddToUndoHistory(a, item5);
-                }
-                catch { MarkActionFailed(item5); }
-                break;
-
-            case UndoAction _:
-                try { await ApplyUndoRedo(client, isRedo: false); }
-                catch { Snackbar.Add("Failed to undo changes.", Severity.Error); }
-                break;
-
-            case RedoAction _:
-                try { await ApplyUndoRedo(client, isRedo: true); }
-                catch { Snackbar.Add("Failed to redo changes.", Severity.Error); }
-                break;
-        }
-    }
-
-    private void AddToUndoHistory(VideoEditorAction action, ActionHistoryItem? displayItem = null)
-    {
-        if (_historyIndex < _undoHistory.Count - 1)
-        {
-            _undoHistory.RemoveRange(_historyIndex + 1, _undoHistory.Count - _historyIndex - 1);
-            _undoDisplayItems.RemoveRange(_historyIndex + 1, _undoDisplayItems.Count - _historyIndex - 1);
-        }
-        _undoHistory.Add(action);
-        _undoDisplayItems.Add(displayItem);
-        _historyIndex = _undoHistory.Count - 1;
-    }
-
-    private async Task ApplyUndoRedo(HttpClient client, bool isRedo)
-    {
-        if (isRedo)
-        {
-            if (_historyIndex >= _undoHistory.Count - 1) return;
-            _historyIndex++;
-        }
-        else
-        {
-            if (_historyIndex < 0) return;
-        }
-
-        var action = _undoHistory[_historyIndex];
-        var displayItem = _undoDisplayItems[_historyIndex];
-
-        try
-        {
-            switch (action)
-            {
-                case ObjectAddedAction a:
-                    if (isRedo)
-                    {
-                        await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object));
-                        if (_videoEditor is not null)
-                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                            {
-                                ObjectsToUpdate = [], ObjectsToRemove = [], ObjectsToAdd = [a.Object]
-                            });
-                    }
-                    else
-                    {
-                        await EnsureSuccessfulResponseAsync(client.DeleteAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}"));
-                        if (_videoEditor is not null)
-                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                            {
-                                ObjectsToUpdate = [], ObjectsToRemove = [a.Object.Id.ToString()], ObjectsToAdd = []
-                            });
-                    }
-                    break;
-
-                case ObjectUpdatedAction a:
-                    IReadOnlyList<DetectedObjectDto> updateState = isRedo ? [a.Object] : a.BeforeState;
-                    if (updateState.Count > 0)
-                    {
-                        await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{updateState[0].Id}", updateState[0]));
-                        if (_videoEditor is not null)
-                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                            {
-                                ObjectsToUpdate = updateState, ObjectsToRemove = [], ObjectsToAdd = []
-                            });
-                    }
-                    break;
-
-                case ObjectsBulkUpdatedAction a:
-                    IReadOnlyList<DetectedObjectDto> bulkState = isRedo ? a.Objects : a.BeforeState;
-                    if (bulkState.Count > 0)
-                    {
-                        await EnsureSuccessfulResponseAsync(client.PatchAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", bulkState));
-                        if (_videoEditor is not null)
-                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                            {
-                                ObjectsToUpdate = bulkState, ObjectsToRemove = [], ObjectsToAdd = []
-                            });
-                    }
-                    break;
-
-                case ObjectDeletedAction a:
-                    if (isRedo)
-                    {
-                        await EnsureSuccessfulResponseAsync(client.DeleteAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}"));
-                        if (_videoEditor is not null)
-                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                            {
-                                ObjectsToUpdate = [], ObjectsToRemove = [a.Object.Id.ToString()], ObjectsToAdd = []
-                            });
-                    }
-                    else
-                    {
-                        await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object));
-                        if (_videoEditor is not null)
-                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                            {
-                                ObjectsToUpdate = [], ObjectsToRemove = [], ObjectsToAdd = [a.Object]
-                            });
-                    }
-                    break;
-
-                case SettingsUpdatedAction a:
-                    var settingsState = isRedo ? a.AfterState : a.BeforeState;
-                    BlurSizePercent = settingsState.BlurSizePercent;
-                    TimeBufferMs = settingsState.TimeBufferMs;
-                    await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
-                        settingsState));
-                    await InvokeAsync(StateHasChanged);
-                    break;
-            }
-
-            if (displayItem is not null)
-            {
-                displayItem.Undone = !isRedo;
-            }
-        }
-        catch
-        {
-            if (isRedo) _historyIndex--; // roll back redo index increment
-            throw;
-        }
-
-        if (!isRedo)
-        {
-            _historyIndex--;
-        }
     }
 
     private async Task OnStartAnonymizationClicked()
@@ -489,6 +221,7 @@
     {
         var before = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
         BlurSizePercent = value;
+        await BlurSizePercentChanged.InvokeAsync(value);
         await SaveSettingsAsync(before);
     }
 
@@ -496,40 +229,28 @@
     {
         var before = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
         TimeBufferMs = value;
+        await TimeBufferMsChanged.InvokeAsync(value);
         await SaveSettingsAsync(before);
     }
 
-    private async Task SaveSettingsAsync(AnonymizationSettingsDto? beforeState = null)
+    private Task SaveSettingsAsync(AnonymizationSettingsDto? beforeState = null)
     {
-        if (VideoId is null) return;
+        if (VideoId is null)
+            return Task.CompletedTask;
 
         var afterState = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
         var before = beforeState ?? afterState;
 
-        if (_videoEditor is not null)
+        return OnVideoEditorAction(new SettingsUpdatedAction
         {
-            _videoEditor.EnqueueOperation(() => OnVideoEditorAction(new SettingsUpdatedAction
-            {
-                VideoId = VideoId.Value,
-                BeforeState = before,
-                AfterState = afterState
-            }));
-        }
-        else
-        {
-            var item = AddAction("Save settings");
-            try
-            {
-                using var client = HttpClientFactory.CreateClient("ApiService");
-                await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
-                    $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
-                    afterState));
-                item.Status = ActionStatus.Success;
-            }
-            catch
-            {
-                MarkActionFailed(item);
-            }
-        }
+            VideoId = VideoId.Value,
+            BeforeState = before,
+            AfterState = afterState
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _actionQueue.DisposeAsync();
     }
 }

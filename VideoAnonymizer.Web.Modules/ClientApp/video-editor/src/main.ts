@@ -5,7 +5,6 @@ import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 type AppHandle = {
     update: (nextProps: VideoEditorProps) => void;
     updateSettings: (settings: AnonymizationSettings) => void;
-    updateIsIdle: (isIdle: boolean) => void;
     applyChanges: (changes: DetectedObjectChangeSet) => void;
     unmount: () => void;
     getFrames: () => any[]
@@ -45,7 +44,6 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         videoSourceUrl: props.videoSourceUrl,
         frames: props.frames ?? [],
         anonymizationSettings: props.anonymizationSettings,
-        isIdle: true,
         ...callbacks,
     });
 
@@ -64,9 +62,6 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         updateSettings(settings: AnonymizationSettings) {
             state.anonymizationSettings.blurSizePercent = settings.blurSizePercent;
             state.anonymizationSettings.timeBufferMs = settings.timeBufferMs;
-        },
-        updateIsIdle(isIdle: boolean) {
-            state.isIdle = isIdle;
         },
         applyChanges(changes: DetectedObjectChangeSet) {
             (vm as any)?.applyChanges?.(changes);
