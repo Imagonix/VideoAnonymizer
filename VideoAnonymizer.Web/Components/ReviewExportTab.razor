@@ -258,6 +258,12 @@
         Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
     }
 
+    private static async Task EnsureSuccessfulResponseAsync(Task<HttpResponseMessage> requestTask)
+    {
+        using var response = await requestTask;
+        response.EnsureSuccessStatusCode();
+    }
+
     private async Task OnVideoEditorAction(VideoEditorAction action)
     {
         using var client = HttpClientFactory.CreateClient("ApiService");
@@ -268,8 +274,8 @@
                 var item1 = AddAction(GetActionDescription(a));
                 try
                 {
-                    await client.PostAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                    await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object));
                     item1.Status = ActionStatus.Success;
                     AddToUndoHistory(a, item1);
                 }
@@ -280,8 +286,8 @@
                 var item2 = AddAction(GetActionDescription(a));
                 try
                 {
-                    await client.PutAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object);
+                    await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}", a.Object));
                     item2.Status = ActionStatus.Success;
                     AddToUndoHistory(a, item2);
                 }
@@ -292,8 +298,8 @@
                 var item3 = AddAction(GetActionDescription(a));
                 try
                 {
-                    await client.PatchAsJsonAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects);
+                    await EnsureSuccessfulResponseAsync(client.PatchAsJsonAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", a.Objects));
                     item3.Status = ActionStatus.Success;
                     AddToUndoHistory(a, item3);
                 }
@@ -304,8 +310,8 @@
                 var item4 = AddAction(GetActionDescription(a));
                 try
                 {
-                    await client.DeleteAsync(
-                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                    await EnsureSuccessfulResponseAsync(client.DeleteAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}"));
                     item4.Status = ActionStatus.Success;
                     AddToUndoHistory(a, item4);
                 }
@@ -316,9 +322,9 @@
                 var item5 = AddAction(GetActionDescription(a));
                 try
                 {
-                    await client.PutAsJsonAsync(
+                    await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
-                        a.AfterState);
+                        a.AfterState));
                     item5.Status = ActionStatus.Success;
                     AddToUndoHistory(a, item5);
                 }
@@ -371,8 +377,8 @@
                 case ObjectAddedAction a:
                     if (isRedo)
                     {
-                        await client.PostAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                        await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object));
                         if (_videoEditor is not null)
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
@@ -381,8 +387,8 @@
                     }
                     else
                     {
-                        await client.DeleteAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                        await EnsureSuccessfulResponseAsync(client.DeleteAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}"));
                         if (_videoEditor is not null)
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
@@ -395,8 +401,8 @@
                     var updateState = isRedo ? a.AfterState : a.BeforeState;
                     if (updateState.Count > 0)
                     {
-                        await client.PutAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{updateState[0].Id}", updateState[0]);
+                        await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{updateState[0].Id}", updateState[0]));
                         if (_videoEditor is not null)
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
@@ -409,8 +415,8 @@
                     var bulkState = isRedo ? a.AfterState : a.BeforeState;
                     if (bulkState.Count > 0)
                     {
-                        await client.PatchAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", bulkState);
+                        await EnsureSuccessfulResponseAsync(client.PatchAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}", bulkState));
                         if (_videoEditor is not null)
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
@@ -422,8 +428,8 @@
                 case ObjectDeletedAction a:
                     if (isRedo)
                     {
-                        await client.DeleteAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                        await EnsureSuccessfulResponseAsync(client.DeleteAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}"));
                         if (_videoEditor is not null)
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
@@ -432,8 +438,8 @@
                     }
                     else
                     {
-                        await client.PostAsJsonAsync(
-                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                        await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object));
                         if (_videoEditor is not null)
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
@@ -446,9 +452,9 @@
                     var settingsState = isRedo ? a.AfterState : a.BeforeState;
                     BlurSizePercent = settingsState.BlurSizePercent;
                     TimeBufferMs = settingsState.TimeBufferMs;
-                    await client.PutAsJsonAsync(
+                    await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
-                        settingsState);
+                        settingsState));
                     await InvokeAsync(StateHasChanged);
                     break;
             }
@@ -515,9 +521,9 @@
             try
             {
                 using var client = HttpClientFactory.CreateClient("ApiService");
-                await client.PutAsJsonAsync(
+                await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
                     $"/{SharedConstants.Paths.Video}/{VideoId}/{SharedConstants.Paths.VideoSettings}",
-                    afterState);
+                    afterState));
                 item.Status = ActionStatus.Success;
             }
             catch
