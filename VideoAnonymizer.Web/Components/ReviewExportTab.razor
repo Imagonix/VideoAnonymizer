@@ -12,9 +12,18 @@
                               BlurSizePercentChanged="OnBlurSizeChanged"
                               TimeBufferMs="TimeBufferMs"
                               TimeBufferMsChanged="OnTimeBufferChanged">
-            <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
-                                  HasErrors="_hasErrors"
-                                  Items="_actionHistory" />
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
+                                      HasErrors="_hasErrors"
+                                      Items="_actionHistory" />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           Size="Size.Small"
+                           Disabled="!ShowEditor || _editorInputBlocked"
+                           OnClick="OnStartAnonymizationClicked">
+                    Export
+                </MudButton>
+            </MudStack>
         </ReviewExportSettings>
 
         @if (ShowEditor && VideoId.HasValue && !string.IsNullOrWhiteSpace(VideoSourceUrl))
@@ -39,13 +48,6 @@
                 }
             </div>
         }
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Secondary"
-                   Disabled="!ShowEditor || _editorInputBlocked"
-                   OnClick="OnStartAnonymizationClicked">
-            Export
-        </MudButton>
     </MudStack>
 </MudPaper>
 
