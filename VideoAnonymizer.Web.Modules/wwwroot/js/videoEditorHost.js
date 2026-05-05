@@ -36,14 +36,14 @@ export async function mountVideoEditor(element, props, dotNetRef) {
     await ensureAssetsLoaded();
 
     const callbacks = {
-        onDetectedObjectAdded: (videoId, analyzedFrameId, dto, beforeState, afterState) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto, beforeState, afterState),
-        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto, operationType, beforeState, afterState) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto, operationType ?? '', beforeState, afterState),
-        onDetectedObjectsBulkUpdated: (videoId, dtos, operationType, beforeState, afterState) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? '', beforeState, afterState),
-        onDetectedObjectDeleted: (videoId, analyzedFrameId, dto, beforeState, afterState) =>
-            dotNetRef.invokeMethodAsync('OnDetectedObjectDeleted', videoId, analyzedFrameId, dto, beforeState, afterState),
+        onDetectedObjectAdded: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto),
+        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto, operationType, beforeState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto, operationType ?? '', beforeState),
+        onDetectedObjectsBulkUpdated: (videoId, dtos, operationType, beforeState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? '', beforeState),
+        onDetectedObjectDeleted: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectDeleted', videoId, analyzedFrameId, dto),
         onUndo: () =>
             dotNetRef.invokeMethodAsync('OnUndo'),
         onRedo: () =>

@@ -161,11 +161,10 @@ function toggleObject(id: string, checked: boolean) {
     const matched = frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id));
     const before = cloneObjects(matched);
     matched.forEach(obj => { obj.selected = checked });
-    const after = cloneObjects(matched);
     if (matched.length === 1) {
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, matched[0].analyzedFrameId, matched[0], 'toggle', before, after);
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, matched[0].analyzedFrameId, matched[0], 'toggle', before);
     } else if (matched.length > 1) {
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, matched, 'toggle', before, after);
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, matched, 'toggle', before);
     }
 }
 
@@ -173,24 +172,21 @@ function toggleTrackedObject(obj: TimelineObject, checked: boolean) {
     if (obj.type === 'single') {
         const before = cloneObjects([obj.detectedObj]);
         obj.detectedObj.selected = checked;
-        const after = cloneObjects([obj.detectedObj]);
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.detectedObj.analyzedFrameId, obj.detectedObj, 'toggle', before, after);
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.detectedObj.analyzedFrameId, obj.detectedObj, 'toggle', before);
         return;
     }
     const changed: DetectedObjectDto[] = [];
     obj.occurences.forEach(([_, o]) => { changed.push(o); });
     const before = cloneObjects(changed);
     obj.occurences.forEach(([_, o]) => { o.selected = checked; });
-    const after = cloneObjects(changed);
-    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'toggle', before, after);
+    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'toggle', before);
 }
 
 function setTrackId(timelineObject: TimelineObject, trackId: number) {
     if (timelineObject.type === 'single') {
         const before = cloneObjects([timelineObject.detectedObj]);
         timelineObject.detectedObj.trackId = trackId;
-        const after = cloneObjects([timelineObject.detectedObj]);
-        props.state.onDetectedObjectUpdated?.(props.state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj, 'reassign', before, after);
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj, 'reassign', before);
         return;
     }
     const oldTrackId = timelineObject.occurences[0]?.[1].trackId;
@@ -203,16 +199,14 @@ function setTrackId(timelineObject: TimelineObject, trackId: number) {
     }
     const before = cloneObjects(changed);
     changed.forEach(obj => { obj.trackId = trackId; });
-    const after = cloneObjects(changed);
-    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'reassign', before, after);
+    props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'reassign', before);
 }
 
 function mergeAction() {
     const { changed, beforeState } = mergeExecute(timelineObjects.value, props.state.frames);
     deactivate();
     if (changed.length > 0) {
-        const after = cloneObjects(changed);
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'merge', beforeState, after);
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'merge', beforeState);
     }
 }
 
@@ -221,8 +215,7 @@ function splitAction() {
     if (changed.length > 0) {
         clearOccurrences();
         deactivate();
-        const after = cloneObjects(changed);
-        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'split', beforeState, after);
+        props.state.onDetectedObjectsBulkUpdated?.(props.state.videoId, changed, 'split', beforeState);
     }
 }
 
@@ -250,14 +243,12 @@ function setVideoVolume(volume: number) {
 }
 
 function deleteObject(obj: DetectedObjectDto) {
-    const before = cloneObjects([obj]);
     const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
     if (!frame) return;
     const idx = frame.detectedObjects.findIndex(o => o.id === obj.id);
     if (idx < 0) return;
     frame.detectedObjects.splice(idx, 1);
-    const after: DetectedObjectDto[] = [];
-    props.state.onDetectedObjectDeleted?.(props.state.videoId, obj.analyzedFrameId, obj, before, after);
+    props.state.onDetectedObjectDeleted?.(props.state.videoId, obj.analyzedFrameId, obj);
 }
 
 function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
@@ -273,13 +264,11 @@ function addBox(x: number, y: number, width: number, height: number, className: 
         trackId: resolvedTrackId, x, y, width, height, analyzedFrameId: frame.id,
     };
     frame.detectedObjects.push(newObj);
-    const after = cloneObjects([newObj]);
-    props.state.onDetectedObjectAdded?.(props.state.videoId, frame.id, newObj, [], after);
+    props.state.onDetectedObjectAdded?.(props.state.videoId, frame.id, newObj);
 }
 
 function onBoxUpdated(obj: DetectedObjectDto, beforeState: DetectedObjectDto[]) {
-    const after = cloneObjects([obj]);
-    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, activeMode.value, beforeState, after);
+    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, activeMode.value, beforeState);
 }
 </script>
 

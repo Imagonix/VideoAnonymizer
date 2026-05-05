@@ -24,10 +24,10 @@ export type VideoEditorProps = {
   frames: AnalyzedFrameDto[];
   anonymizationSettings: AnonymizationSettings;
   isIdle?: boolean;
-  onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
-  onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
-  onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
-  onDetectedObjectDeleted?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
+  onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
+  onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string, beforeState: DetectedObjectDto[]) => void;
+  onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string, beforeState: DetectedObjectDto[]) => void;
+  onDetectedObjectDeleted?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
   onUndo?: () => void;
   onRedo?: () => void;
 };

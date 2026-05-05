@@ -129,20 +129,18 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
+    public async Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectAddedAction
         {
             VideoId = videoId,
             AnalyzedFrameId = analyzedFrameId,
-            Object = dto,
-            BeforeState = beforeState,
-            AfterState = afterState
+            Object = dto
         }));
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
+    public async Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType, DetectedObjectDto[] beforeState)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectUpdatedAction
         {
@@ -150,34 +148,30 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
             AnalyzedFrameId = analyzedFrameId,
             Object = dto,
             OperationType = operationType,
-            BeforeState = beforeState,
-            AfterState = afterState
+            BeforeState = beforeState
         }));
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
+    public async Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType, DetectedObjectDto[] beforeState)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectsBulkUpdatedAction
         {
             VideoId = videoId,
             Objects = dtos,
             OperationType = operationType,
-            BeforeState = beforeState,
-            AfterState = afterState
+            BeforeState = beforeState
         }));
     }
 
     [JSInvokable]
-    public async Task OnDetectedObjectDeleted(string videoId, string analyzedFrameId, DetectedObjectDto dto, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
+    public async Task OnDetectedObjectDeleted(string videoId, string analyzedFrameId, DetectedObjectDto dto)
     {
         EnqueueOperation(() => OnAction.InvokeAsync(new ObjectDeletedAction
         {
             VideoId = videoId,
             AnalyzedFrameId = analyzedFrameId,
-            Object = dto,
-            BeforeState = beforeState,
-            AfterState = afterState
+            Object = dto
         }));
     }
 

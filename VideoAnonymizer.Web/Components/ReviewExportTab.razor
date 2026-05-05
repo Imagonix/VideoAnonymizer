@@ -398,7 +398,7 @@
                     break;
 
                 case ObjectUpdatedAction a:
-                    var updateState = isRedo ? a.AfterState : a.BeforeState;
+                    IReadOnlyList<DetectedObjectDto> updateState = isRedo ? [a.Object] : a.BeforeState;
                     if (updateState.Count > 0)
                     {
                         await EnsureSuccessfulResponseAsync(client.PutAsJsonAsync(
@@ -412,7 +412,7 @@
                     break;
 
                 case ObjectsBulkUpdatedAction a:
-                    var bulkState = isRedo ? a.AfterState : a.BeforeState;
+                    IReadOnlyList<DetectedObjectDto> bulkState = isRedo ? a.Objects : a.BeforeState;
                     if (bulkState.Count > 0)
                     {
                         await EnsureSuccessfulResponseAsync(client.PatchAsJsonAsync(
