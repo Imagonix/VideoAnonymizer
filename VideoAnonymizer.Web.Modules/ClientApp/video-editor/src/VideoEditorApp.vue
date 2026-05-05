@@ -248,6 +248,7 @@ function setVideoVolume(volume: number) {
 
 .object-list {
     width: 120px;
+    min-height: 46px;
     flex-shrink: 0;
 }
 
