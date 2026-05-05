@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net" modified="2026-05-04T00:00:00.000Z" agent="Codex" version="24.7.17" type="device">
+  <diagram id="local-vs-cloud" name="Local vs Cloud Trust Boundary">
+    <mxGraphModel dx="1422" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        <mxCell id="title" value="Same AI feature, different trust boundary" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=32;fontStyle=1;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="320" y="40" width="760" height="50" as="geometry"/>
+        </mxCell>
+        <mxCell id="cloudLabel" value="Cloud-first" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="120" y="130" width="220" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="localLabel" value="Local-first" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="120" y="480" width="220" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfLocalBoundary" value="🖥️ Local machine" style="swimlane;html=1;whiteSpace=wrap;rounded=1;arcSize=8;startSize=44;horizontal=1;fontSize=18;fontStyle=1;fontColor=#FFFFFF;strokeColor=#7AA2F7;fillColor=#111827;separatorColor=#7AA2F7;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="120" y="190" width="310" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfCloudBoundary" value="☁️ Cloud" style="swimlane;html=1;whiteSpace=wrap;rounded=1;arcSize=8;startSize=44;horizontal=1;fontSize=18;fontStyle=1;fontColor=#FFFFFF;strokeColor=#F59E0B;fillColor=#1F1A10;separatorColor=#F59E0B;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="660" y="190" width="520" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfBrowser" value="Browser" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;fontColor=#FFFFFF;strokeColor=#7AA2F7;fillColor=#172033;arcSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="190" y="260" width="170" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfApp" value="App" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;fontColor=#FFFFFF;strokeColor=#F59E0B;fillColor=#2A2113;arcSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="730" y="260" width="150" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfModel" value="AI model" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;fontColor=#FFFFFF;strokeColor=#F59E0B;fillColor=#2A2113;arcSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="970" y="260" width="150" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfArrow1" value="" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#FFFFFF;" edge="1" parent="1" source="cfBrowser" target="cfApp">
+          <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfArrow2" value="" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#FFFFFF;" edge="1" parent="1" source="cfApp" target="cfModel">
+          <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="cfCaption" value="Processing crosses into an external environment" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#D1D5DB;" vertex="1" parent="1">
+          <mxGeometry x="330" y="370" width="640" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfLocalBoundary" value="🖥️ Local machine" style="swimlane;html=1;whiteSpace=wrap;rounded=1;arcSize=8;startSize=44;horizontal=1;fontSize=18;fontStyle=1;fontColor=#FFFFFF;strokeColor=#10B981;fillColor=#0E1F1A;separatorColor=#10B981;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="120" y="540" width="1060" height="160" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfBrowser" value="Browser" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;fontColor=#FFFFFF;strokeColor=#10B981;fillColor=#132B24;arcSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="220" y="610" width="170" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfApp" value="App" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;fontColor=#FFFFFF;strokeColor=#10B981;fillColor=#132B24;arcSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="580" y="610" width="150" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfModel" value="AI model" style="rounded=1;whiteSpace=wrap;html=1;fontSize=18;fontColor=#FFFFFF;strokeColor=#10B981;fillColor=#132B24;arcSize=12;strokeWidth=2;" vertex="1" parent="1">
+          <mxGeometry x="930" y="610" width="150" height="52" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfArrow1" value="" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#FFFFFF;" edge="1" parent="1" source="lfBrowser" target="lfApp">
+          <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfArrow2" value="" style="endArrow=block;startArrow=block;html=1;rounded=0;strokeWidth=2;strokeColor=#FFFFFF;" edge="1" parent="1" source="lfApp" target="lfModel">
+          <mxGeometry width="50" height="50" relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="lfCaption" value="Processing stays on the user’s machine" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontColor=#D1D5DB;" vertex="1" parent="1">
+          <mxGeometry x="330" y="720" width="640" height="34" as="geometry"/>
+        </mxCell>
+        <mxCell id="footer" value="Same workflow. Different data boundary." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=22;fontStyle=1;fontColor=#FFFFFF;" vertex="1" parent="1">
+          <mxGeometry x="390" y="795" width="620" height="40" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

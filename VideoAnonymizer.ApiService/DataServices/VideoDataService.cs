@@ -30,7 +30,9 @@ namespace VideoAnonymizer.ApiService.DataServices
 
             var entity = await db.DetectedObjects
                 .Include(o => o.AnalyzedFrame)
-                .FirstOrDefaultAsync(o => o.Id == dto.Id && o.AnalyzedFrame.VideoId == videoId);
+                .FirstOrDefaultAsync(o => o.Id == dto.Id
+                    && o.AnalyzedFrameId == dto.AnalyzedFrameId
+                    && o.AnalyzedFrame.VideoId == videoId);
             if (entity == null)
                 throw new NotFoundException();
 
@@ -72,7 +74,11 @@ namespace VideoAnonymizer.ApiService.DataServices
             var dtoMap = dtos.ToDictionary(d => d.Id);
             foreach (var entity in existing)
             {
-                Mapper.UpdateEntity(dtoMap[entity.Id], entity);
+                var dto = dtoMap[entity.Id];
+                if (dto.AnalyzedFrameId != entity.AnalyzedFrameId)
+                    throw new NotFoundException();
+
+                Mapper.UpdateEntity(dto, entity);
             }
 
             await db.SaveChangesAsync();
