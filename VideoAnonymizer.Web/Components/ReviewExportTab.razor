@@ -231,6 +231,7 @@
             "reassign" => $"Reassigned track ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
         },
+        ObjectDeletedAction => "Deleted bounding box",
         SettingsUpdatedAction a => (a.BeforeState.BlurSizePercent, a.BeforeState.TimeBufferMs) == (a.AfterState.BlurSizePercent, a.AfterState.TimeBufferMs) ? "Saved settings" :
             a.BeforeState.BlurSizePercent != a.AfterState.BlurSizePercent && a.BeforeState.TimeBufferMs != a.AfterState.TimeBufferMs
                 ? $"Blur: {a.BeforeState.BlurSizePercent}%→{a.AfterState.BlurSizePercent}%, Buffer: {a.BeforeState.TimeBufferMs}ms→{a.AfterState.TimeBufferMs}ms"
@@ -299,17 +300,29 @@
                 catch { MarkActionFailed(item3); }
                 break;
 
-            case SettingsUpdatedAction a:
+            case ObjectDeletedAction a:
                 var item4 = AddAction(GetActionDescription(a));
+                try
+                {
+                    await client.DeleteAsync(
+                        $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                    item4.Status = ActionStatus.Success;
+                    AddToUndoHistory(a, item4);
+                }
+                catch { MarkActionFailed(item4); }
+                break;
+
+            case SettingsUpdatedAction a:
+                var item5 = AddAction(GetActionDescription(a));
                 try
                 {
                     await client.PutAsJsonAsync(
                         $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.VideoSettings}",
                         a.AfterState);
-                    item4.Status = ActionStatus.Success;
-                    AddToUndoHistory(a, item4);
+                    item5.Status = ActionStatus.Success;
+                    AddToUndoHistory(a, item5);
                 }
-                catch { MarkActionFailed(item4); }
+                catch { MarkActionFailed(item5); }
                 break;
 
             case UndoAction _:
@@ -402,6 +415,29 @@
                             await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
                             {
                                 ObjectsToUpdate = bulkState, ObjectsToRemove = [], ObjectsToAdd = []
+                            });
+                    }
+                    break;
+
+                case ObjectDeletedAction a:
+                    if (isRedo)
+                    {
+                        await client.DeleteAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/{a.Object.Id}");
+                        if (_videoEditor is not null)
+                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                            {
+                                ObjectsToUpdate = [], ObjectsToRemove = [a.Object.Id.ToString()], ObjectsToAdd = []
+                            });
+                    }
+                    else
+                    {
+                        await client.PostAsJsonAsync(
+                            $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.AnalyzedFrame}/{a.AnalyzedFrameId}/{SharedConstants.Paths.DetectedObject}/", a.Object);
+                        if (_videoEditor is not null)
+                            await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                            {
+                                ObjectsToUpdate = [], ObjectsToRemove = [], ObjectsToAdd = [a.Object]
                             });
                     }
                     break;

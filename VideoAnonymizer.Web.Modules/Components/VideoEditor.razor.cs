@@ -169,6 +169,19 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
+    public async Task OnDetectedObjectDeleted(string videoId, string analyzedFrameId, DetectedObjectDto dto, DetectedObjectDto[] beforeState, DetectedObjectDto[] afterState)
+    {
+        EnqueueOperation(() => OnAction.InvokeAsync(new ObjectDeletedAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto,
+            BeforeState = beforeState,
+            AfterState = afterState
+        }));
+    }
+
+    [JSInvokable]
     public async Task OnUndo()
     {
         if (!_isIdle) return;

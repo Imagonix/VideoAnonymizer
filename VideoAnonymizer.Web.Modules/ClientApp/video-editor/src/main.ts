@@ -27,6 +27,7 @@ const callbackKeys: (keyof VideoEditorProps)[] = [
     'onDetectedObjectAdded',
     'onDetectedObjectUpdated',
     'onDetectedObjectsBulkUpdated',
+    'onDetectedObjectDeleted',
     'onUndo',
     'onRedo',
 ];

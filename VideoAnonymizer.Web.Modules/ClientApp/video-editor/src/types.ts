@@ -27,6 +27,7 @@ export type VideoEditorProps = {
   onDetectedObjectAdded?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
   onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
   onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
+  onDetectedObjectDeleted?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, beforeState: DetectedObjectDto[], afterState: DetectedObjectDto[]) => void;
   onUndo?: () => void;
   onRedo?: () => void;
 };

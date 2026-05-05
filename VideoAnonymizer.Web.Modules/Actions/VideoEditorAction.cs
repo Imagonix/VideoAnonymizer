@@ -35,6 +35,15 @@ public sealed record ObjectsBulkUpdatedAction : VideoEditorAction
     public required IReadOnlyList<DetectedObjectDto> AfterState { get; init; }
 }
 
+public sealed record ObjectDeletedAction : VideoEditorAction
+{
+    public required string VideoId { get; init; }
+    public required string AnalyzedFrameId { get; init; }
+    public required DetectedObjectDto Object { get; init; }
+    public required IReadOnlyList<DetectedObjectDto> BeforeState { get; init; }
+    public required IReadOnlyList<DetectedObjectDto> AfterState { get; init; }
+}
+
 public sealed record SettingsUpdatedAction : VideoEditorAction
 {
     public required Guid VideoId { get; init; }

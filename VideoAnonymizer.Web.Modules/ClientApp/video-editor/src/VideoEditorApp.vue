@@ -249,6 +249,17 @@ function setVideoVolume(volume: number) {
     videoPlayerRef.value?.setVolume(volume);
 }
 
+function deleteObject(obj: DetectedObjectDto) {
+    const before = cloneObjects([obj]);
+    const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
+    if (!frame) return;
+    const idx = frame.detectedObjects.findIndex(o => o.id === obj.id);
+    if (idx < 0) return;
+    frame.detectedObjects.splice(idx, 1);
+    const after: DetectedObjectDto[] = [];
+    props.state.onDetectedObjectDeleted?.(props.state.videoId, obj.analyzedFrameId, obj, before, after);
+}
+
 function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
     if (!currentFrame.value) return;
     const frame = currentFrame.value;
@@ -291,7 +302,8 @@ function onBoxUpdated(obj: DetectedObjectDto, beforeState: DetectedObjectDto[]) 
             <div class="right-panel">
                 <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects"
                   @toggle="toggleObject"
-                  @hover-row="hoveredObjectKey = $event" />
+                  @hover-row="hoveredObjectKey = $event"
+                  @delete-object="deleteObject" />
                 <EditorControls
                   :move-mode="isMove"
                   :resize-mode="isResize"
