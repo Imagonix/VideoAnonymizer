@@ -76,8 +76,8 @@ namespace VideoAnonymizer.Web.Pages
                 IsAnonymized = true;
                 ProgressPercent = 100;
                 IsBusy = false;
-                StatusText = "Video anonymized successfully. Downloading...";
-                Snackbar.Add("Video anonymized successfully. Download starting...", Severity.Success);
+                StatusText = "Video blurred successfully. Downloading...";
+                Snackbar.Add("Video blurred successfully. Download starting...", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);
                 await DownloadAsync();
@@ -129,7 +129,7 @@ namespace VideoAnonymizer.Web.Pages
             {
                 IsBusy = true;
                 ProgressPercent = null;
-                StatusText = "Uploading and analyzing video...";
+                StatusText = "Importing video...";
 
                 await InvokeAsync(StateHasChanged);
 
@@ -154,7 +154,7 @@ namespace VideoAnonymizer.Web.Pages
                     throw new InvalidOperationException("Analyze endpoint did not return a video id.");
 
                 _currentVideoId = result.Payload;
-                StatusText = "Video uploaded. Analyzing frames...";
+                StatusText = "Video created. Analyzing frames...";
             }
             catch (Exception ex)
             {
@@ -259,7 +259,7 @@ namespace VideoAnonymizer.Web.Pages
             {
                 IsBusy = true;
                 ProgressPercent = null;
-                StatusText = "Starting anonymization...";
+                StatusText = "Starting blurring...";
 
                 var frames = _reviewExportTab.CapturedFrames.ToList();
 
@@ -293,15 +293,15 @@ namespace VideoAnonymizer.Web.Pages
 
                 if (ProgressPercent is null)
                 {
-                    StatusText = "Anonymization started. Waiting for completion...";
+                    StatusText = "Blurring video started. Waiting for completion...";
                 }
             }
             catch (Exception ex)
             {
                 IsBusy = false;
                 ProgressPercent = null;
-                StatusText = "Anonymization failed.";
-                Snackbar.Add($"Anonymization failed: {ex.Message}", Severity.Error);
+                StatusText = "Blurring video failed.";
+                Snackbar.Add($"Blurring video failed: {ex.Message}", Severity.Error);
             }
 
             await InvokeAsync(StateHasChanged);
@@ -320,7 +320,7 @@ namespace VideoAnonymizer.Web.Pages
                 StatusText = "Download started.";
                 await InvokeAsync(StateHasChanged);
 
-                await DownloadService.DownloadFileAsync($"anonymized-{SelectedFileName}", url);
+                await DownloadService.DownloadFileAsync($"blurred-{SelectedFileName}", url);
             }
             catch (Exception ex)
             {

@@ -17,8 +17,8 @@ public static class VideoEditorActionDescriptions
         },
         ObjectsBulkUpdatedAction a => a.OperationType switch
         {
-            "merge" => $"Merged {a.Objects.Count} objects",
-            "split" => $"Split {a.Objects.Count} objects",
+            "merge" => $"Merged tracked Objects {string.Join(",", GetMergedTrackIdValues(a))}",
+            "split" => $"Split out {a.Objects.Count} bounding boxes from track ID {a.BeforeState[0]?.TrackId}",
             "toggle" => $"Changed visibility ({a.Objects.Count} objects)",
             "reassign" => $"Reassigned track ID ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
@@ -27,6 +27,18 @@ public static class VideoEditorActionDescriptions
         SettingsUpdatedAction a => GetSettingsDescription(a),
         _ => "Unknown action"
     };
+
+    private static IEnumerable<int> GetMergedTrackIdValues(ObjectsBulkUpdatedAction action)
+    {
+        var targetId = action.Objects.FirstOrDefault()?.TrackId;
+        var sourceIds = action.BeforeState
+            .Select(o => o.TrackId)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value);
+        return targetId.HasValue
+            ? new[] { targetId.Value }.Concat(sourceIds).Distinct()
+            : sourceIds.Distinct();
+    }
 
     private static string GetSettingsDescription(SettingsUpdatedAction action)
     {
