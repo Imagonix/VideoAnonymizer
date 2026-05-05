@@ -7,7 +7,7 @@
         <MudText Typo="Typo.h6">Import a new video</MudText>
 
         <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-            <MudFileUpload T="IBrowserFile"
+            <MudFileUpload @ref="_fileUpload" T="IBrowserFile"
                            FilesChanged="OnFilesChanged"
                            Accept="video/*"
                            Hidden="true">
@@ -124,6 +124,17 @@
 
     [Parameter]
     public bool IsBusy { get; set; }
+
+    private MudFileUpload<IBrowserFile>? _fileUpload;
+
+    public async Task ClearFileInput()
+    {
+        if (_fileUpload == null)
+        {
+            return;
+        }
+        await _fileUpload.ClearAsync();
+    }
 
     private bool CanDetect => !IsBusy && !string.IsNullOrWhiteSpace(SelectedFileName);
 

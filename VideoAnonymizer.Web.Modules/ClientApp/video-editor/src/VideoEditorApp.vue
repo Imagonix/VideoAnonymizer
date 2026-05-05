@@ -136,7 +136,7 @@ function setVideoVolume(volume: number) {
             </div>
 
             <div class="right-panel">
-                <ObjectList data-testid="object-list" class="object-list" :objects="orderedCurrentFrameObjects"
+                <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects"
                   @toggle="toggleObject"
                   @hover-row="hoveredObjectKey = $event"
                   @delete-object="deleteObject" />
@@ -244,12 +244,6 @@ function setVideoVolume(volume: number) {
     flex-direction: row;
     gap: 0;
     align-items: flex-start;
-}
-
-.object-list {
-    width: 120px;
-    min-height: 46px;
-    flex-shrink: 0;
 }
 
 .timeline-wrapper {

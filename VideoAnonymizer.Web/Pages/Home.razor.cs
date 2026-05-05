@@ -18,8 +18,10 @@ namespace VideoAnonymizer.Web.Pages
         private IDisposable? _jobProgressSubscription;
 
         private ReviewExportTab? _reviewExportTab;
+        private UploadTab? _uploadTab;
 
         private IBrowserFile? _selectedFile;
+        private string? _downloadFileName;
         private Guid? _currentVideoId;
         private Guid? _anonymizeVideoJobId;
 
@@ -62,6 +64,8 @@ namespace VideoAnonymizer.Web.Pages
                 _showEditor = true;
                 _activeTabIndex = 1;
                 _selectedFile = null;
+                SelectedFileName = null;
+                _uploadTab?.ClearFileInput();
                 Snackbar.Add("Video processed. You can now review detected objects.", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);
@@ -105,8 +109,12 @@ namespace VideoAnonymizer.Web.Pages
 
         private Task OnFileSelected(IBrowserFile? file)
         {
+            if (file is null)
+                return Task.CompletedTask;
+
             _selectedFile = file;
-            SelectedFileName = file?.Name;
+            _downloadFileName = file.Name;
+            SelectedFileName = file.Name;
 
             IsAnonymized = false;
             _currentVideoId = null;
@@ -189,8 +197,10 @@ namespace VideoAnonymizer.Web.Pages
             await LoadExistingVideosAsync();
             _currentVideoId = videoId;
             _selectedFile = null;
+            SelectedFileName = null;
+            _uploadTab?.ClearFileInput();
             var videoDto = _existingVideos?.FirstOrDefault(v => v.Id == videoId);
-            SelectedFileName = videoDto?.OriginalFileName;
+            _downloadFileName = videoDto?.OriginalFileName;
             _blurSizePercent = videoDto?.BlurSizePercent ?? 120;
             _timeBufferMs = videoDto?.TimeBufferMs ?? 300;
             IsAnonymized = false;
@@ -320,7 +330,7 @@ namespace VideoAnonymizer.Web.Pages
                 StatusText = "Download started.";
                 await InvokeAsync(StateHasChanged);
 
-                await DownloadService.DownloadFileAsync($"blurred-{SelectedFileName}", url);
+                await DownloadService.DownloadFileAsync($"blurred-{_downloadFileName ?? "video"}", url);
             }
             catch (Exception ex)
             {

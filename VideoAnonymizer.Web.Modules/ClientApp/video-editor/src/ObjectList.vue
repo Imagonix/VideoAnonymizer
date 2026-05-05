@@ -42,7 +42,7 @@ function cancelDelete() {
 </script>
 
 <template>
-    <div data-testid="object-list">
+    <div data-testid="object-list" class="object-list" >
         <div v-for="obj in objects" :key="obj.id" class="object-row"
           @mouseenter="onMouseEnter(obj)" @mouseleave="onMouseLeave(obj)">
             <MudLikeCheckbox :checked="obj.selected" @change="(value: boolean) => emit('toggle', obj.id, value)">
@@ -106,5 +106,11 @@ function cancelDelete() {
 .delete-btn svg {
     width: 16px;
     height: 16px;
+}
+
+.object-list {
+    width: 120px;
+    min-height: 46px;
+    flex-shrink: 0;
 }
 </style>
