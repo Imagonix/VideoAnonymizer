@@ -217,7 +217,7 @@
         ObjectAddedAction => "Added new bounding box",
         ObjectUpdatedAction a => a.OperationType switch
         {
-            "toggle" => "Toggled object selection",
+            "toggle" => "Changed visibility",
             "reassign" => "Reassigned track ID",
             "move" => "Moved bounding box",
             "resize" => "Resized bounding box",
@@ -227,8 +227,8 @@
         {
             "merge" => $"Merged {a.Objects.Count} objects",
             "split" => $"Split {a.Objects.Count} objects",
-            "toggle" => $"Toggled {a.Objects.Count} objects",
-            "reassign" => $"Reassigned track ({a.Objects.Count} objects)",
+            "toggle" => $"Changed visibility ({a.Objects.Count} objects)",
+            "reassign" => $"Reassigned track ID ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
         },
         ObjectDeletedAction => "Deleted bounding box",
