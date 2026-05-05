@@ -4,7 +4,7 @@
 <MudPaper Class="pa-6">
     <MudStack Spacing="4">
 
-        <MudText Typo="Typo.h6">Upload a new video</MudText>
+        <MudText Typo="Typo.h6">Import a new video</MudText>
 
         <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             <MudFileUpload T="IBrowserFile"
@@ -25,7 +25,7 @@
             </MudFileUpload>
 
             <MudText Typo="Typo.body1">
-                Choose a video file from your device.
+                Choose a video file.
             </MudText>
 
             @if (!string.IsNullOrWhiteSpace(SelectedFileName))
