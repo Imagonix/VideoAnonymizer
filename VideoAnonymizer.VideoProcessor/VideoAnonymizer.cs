@@ -310,16 +310,19 @@ public class VideoAnonymizer(
             return [];
 
         var currentTime = currentFrameIndex / fps;
+        var sortedTimes = analyzedFrames.Keys.OrderBy(t => t).ToList();
 
         var result = new Dictionary<string, DetectedObject>();
 
-        foreach (var kvp in analyzedFrames)
+        for (int i = sortedTimes.Count - 1; i >= 0; i--)
         {
-            var analyzedTime = kvp.Key;
+            var analyzedTime = sortedTimes[i];
+            var nextTime = (i + 1 < sortedTimes.Count) ? sortedTimes[i + 1] : double.MaxValue;
+            var coverageEnd = nextTime + timeBufferSeconds;
 
-            if (Math.Abs(analyzedTime - currentTime) <= timeBufferSeconds)
+            if (currentTime >= analyzedTime && currentTime < coverageEnd)
             {
-                foreach (var obj in kvp.Value)
+                foreach (var obj in analyzedFrames[analyzedTime])
                 {
                     var key = obj.TrackId?.ToString() ?? obj.Id.ToString();
 
