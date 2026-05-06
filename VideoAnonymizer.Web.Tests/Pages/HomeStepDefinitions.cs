@@ -104,21 +104,21 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
             await ComponentUnderTest.WaitForAssertionAsync(() =>
             {
-                var anonymizeButton = ComponentUnderTest
+                var exportButton = ComponentUnderTest
                     .FindComponents<MudButton>()
-                    .Single(x => x.Markup.Contains("Anonymize", StringComparison.OrdinalIgnoreCase));
+                    .Single(x => x.Markup.Contains("Export", StringComparison.OrdinalIgnoreCase));
 
-                anonymizeButton.Instance.Disabled.Should().BeFalse(
-                    "the anonymize button should be enabled after the video was analyzed");
+                exportButton.Instance.Disabled.Should().BeFalse(
+                    "the export button should be enabled after the video was analyzed");
             }, TimeSpan.FromSeconds(60));
 
             await ComponentUnderTest.InvokeAsync(async () =>
             {
-                var anonymizeButton = ComponentUnderTest
+                var exportButton = ComponentUnderTest
                     .FindComponents<MudButton>()
-                    .Single(x => x.Markup.Contains("Anonymize", StringComparison.OrdinalIgnoreCase));
+                    .Single(x => x.Markup.Contains("Export", StringComparison.OrdinalIgnoreCase));
 
-                var buttonElement = anonymizeButton.Find("button");
+                var buttonElement = exportButton.Find("button");
                 await buttonElement.ClickAsync();
             });
         }
@@ -157,7 +157,6 @@ namespace VideoAnonymizer.Web.Tests.Pages
             Services.AddSingleton<IHttpClientFactory>(new FakeHttpClientFactory(MockHttpMessageHandler));
             Services.AddSingleton<IJobHubClient>(JobHubClient);
             Services.AddSingleton<IDownloadService>(DownloadService);
-            SetupMockClient();
         }
 
         protected void SetupMockClient()
@@ -185,6 +184,10 @@ namespace VideoAnonymizer.Web.Tests.Pages
                         Content = new StringContent(response)
                     };
                 });
+
+            MockHttpMessageHandler
+                .When(HttpMethod.Get, $"/{SharedConstants.Paths.Videos}")
+                .Respond("application/json", "[]");
 
             MockHttpMessageHandler
                 .When(HttpMethod.Get, $"/{SharedConstants.Paths.Analyzed}/{_currentVideoIdDefaultValue}")
