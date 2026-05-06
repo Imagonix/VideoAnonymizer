@@ -262,20 +262,20 @@ describe('VideoEditorApp integration', () => {
     describe('add', () => {
         it('opens DetailedView when Add is clicked', async () => {
             await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
 
         it('tooggles Add mode on and off', async () => {
             await clickButton(wrapper, 'Add');
             expect(wrapper.text()).toContain('Exit Add');
             await clickButton(wrapper, 'Exit Add');
-            expect(wrapper.text()).not.toContain('Detailed View');
+            expect(wrapper.text()).not.toContain('✕');
         });
 
         it('closes overlay on close button', async () => {
             await clickButton(wrapper, 'Add');
             await clickButton(wrapper, '✕');
-            expect(wrapper.text()).not.toContain('Detailed View');
+            expect(wrapper.text()).not.toContain('✕');
         });
 
         it('mode exclusivity: Add deactivates Merge', async () => {
@@ -283,7 +283,7 @@ describe('VideoEditorApp integration', () => {
             expect(wrapper.text()).toContain('Exit Merge');
             await clickButton(wrapper, 'Add');
             expect(wrapper.text()).not.toContain('Exit Merge');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
 
         it('mode exclusivity: Add deactivates Resize', async () => {
@@ -291,7 +291,7 @@ describe('VideoEditorApp integration', () => {
             expect(wrapper.text()).toContain('Exit Resize');
             await clickButton(wrapper, 'Add');
             expect(wrapper.text()).not.toContain('Exit Resize');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
 
         it('adds a new object via addBox with new trackId', async () => {
@@ -333,26 +333,26 @@ describe('VideoEditorApp integration', () => {
 
         it('switches modes inside DetailedView', async () => {
             await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
 
             const modeBtns = wrapper.findAll('.mode-switch-btn');
             expect(modeBtns.length).toBe(3);
 
             await modeBtns[0].trigger('click');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
 
             await modeBtns[1].trigger('click');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
 
             await modeBtns[2].trigger('click');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
     });
 
     describe('resize', () => {
         it('opens DetailedView when Resize is clicked', async () => {
             await clickButton(wrapper, 'Resize');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
 
         it('updates width and height after resize', async () => {
@@ -372,20 +372,20 @@ describe('VideoEditorApp integration', () => {
             expect(wrapper.text()).toContain('Exit Split');
             await clickButton(wrapper, 'Resize');
             expect(wrapper.text()).not.toContain('Exit Split');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
     });
 
     describe('move', () => {
         it('opens overlay when Move is clicked', async () => {
             await clickButton(wrapper, 'Move');
-            expect(wrapper.text()).toContain('Detailed View');
+            expect(wrapper.text()).toContain('✕');
         });
 
         it('closes overlay on close button', async () => {
             await clickButton(wrapper, 'Move');
             await clickButton(wrapper, '✕');
-            expect(wrapper.text()).not.toContain('Detailed View');
+            expect(wrapper.text()).not.toContain('✕');
         });
 
         it('returns updated coordinates via getFrames after moving in overlay', async () => {
