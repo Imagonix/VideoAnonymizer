@@ -1,79 +1,70 @@
-﻿@using VideoAnonymizer.Web.Modules.Components
+@using VideoAnonymizer.Web.Components.ReviewExport
+@using VideoAnonymizer.Web.Modules.Actions
+@using VideoAnonymizer.Web.Modules.Components
 @using VideoAnonymizer.Web.Shared.DTO
+@implements IAsyncDisposable
+@inject IHttpClientFactory HttpClientFactory
+@inject ISnackbar Snackbar
 
 <MudPaper Class="pa-6">
     <MudStack Spacing="2">
-        <MudPaper Class="pa-3 mb-3">
-            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center">
-                <MudStack Spacing="1" Style="width: 220px;">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudText Typo="Typo.subtitle2">Blur size</MudText>
-                        <MudTooltip Text="Controls how large the anonymized area is compared to the detected face box. Example: 120% means the blur area is 20% larger than the detected box.">
-                            <MudIcon Icon="@Icons.Material.Filled.Info"
-                                     Size="Size.Small"
-                                     Color="Color.Info" />
-                        </MudTooltip>
-                    </MudStack>
-
-                    <MudNumericField T="int"
-                                     @bind-Value="BlurSizePercent"
-                                     Min="100"
-                                     Max="300"
-                                     Step="10"
-                                     Adornment="Adornment.End"
-                                     AdornmentText="%"
-                                     Immediate="false" />
-                </MudStack>
-
-                <MudStack Spacing="1" Style="width: 220px;">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudText Typo="Typo.subtitle2">Time buffer</MudText>
-                        <MudTooltip Text="Adds blur time before and after a detection, reducing flicker when detections appear or disappear. Example: 300 ms blurs 0.3 seconds before and after detection.">
-                            <MudIcon Icon="@Icons.Material.Filled.Info"
-                                     Size="Size.Small"
-                                     Color="Color.Info" />
-                        </MudTooltip>
-                    </MudStack>
-
-                    <MudNumericField T="int"
-                                     @bind-Value="TimeBufferMs"
-                                     Min="0"
-                                     Max="1000"
-                                     Step="50"
-                                     Adornment="Adornment.End"
-                                     AdornmentText="ms"
-                                     Immediate="false" />
-                </MudStack>
+        <ReviewExportSettings BlurSizePercent="BlurSizePercent"
+                              BlurSizePercentChanged="OnBlurSizeChanged"
+                              TimeBufferMs="TimeBufferMs"
+                              TimeBufferMsChanged="OnTimeBufferChanged">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
+                                      HasErrors="_hasErrors"
+                                      Items="_actionHistory" />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Secondary"
+                           Size="Size.Small"
+                           Disabled="!ShowEditor || _editorInputBlocked"
+                           OnClick="OnStartAnonymizationClicked">
+                    Export
+                </MudButton>
             </MudStack>
+        </ReviewExportSettings>
 
-            <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
-                These settings apply to the whole video, not to individual objects.
-                The preview shows the affected area, not the final blur rendering.
-            </MudAlert>
-        </MudPaper>
         @if (ShowEditor && VideoId.HasValue && !string.IsNullOrWhiteSpace(VideoSourceUrl))
         {
-            <VideoEditor @ref="_videoEditor"
-                         VideoId="@VideoId.Value"
-                         VideoSourceUrl="@VideoSourceUrl"
-                         Frames="@Frames"
-                         BlurSizePercent="@BlurSizePercent"
-                         TimeBufferMs="@TimeBufferMs" />
+            <div style="position: relative;">
+                <VideoEditor @ref="_videoEditor"
+                             VideoId="@VideoId.Value"
+                             VideoSourceUrl="@VideoSourceUrl"
+                             Frames="@Frames"
+                             BlurSizePercent="@BlurSizePercent"
+                             TimeBufferMs="@TimeBufferMs"
+                             OnAction="OnVideoEditorAction" />
+
+                @if (_editorInputBlocked)
+                {
+                    <div style="position: absolute; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.35);">
+                        <MudPaper Class="pa-4 d-flex flex-column align-center" Style="gap: 12px;">
+                            <MudProgressCircular Indeterminate="true" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2">Finishing pending editor changes...</MudText>
+                        </MudPaper>
+                    </div>
+                }
+            </div>
         }
-
-        <MudButton Variant="Variant.Filled"
-                   Color="Color.Secondary"
-                   Disabled="!ShowEditor"
-                   OnClick="OnStartAnonymizationClicked">
-            Anonymize selected objects
-        </MudButton>
-
     </MudStack>
 </MudPaper>
 
 @code {
+    private readonly List<ActionHistoryItem> _actionHistory = [];
+    private readonly VideoEditorActionQueue _actionQueue;
+    private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
     private List<AnalyzedFrameDto> _capturedFrames = [];
+    private bool _videoEditorProcessing;
+    private bool _editorInputBlocked;
+    private bool _hasErrors;
+
+    public ReviewExportTab()
+    {
+        _actionQueue = new VideoEditorActionQueue(OnQueueProcessingChangedAsync);
+    }
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -94,9 +85,130 @@
     public int BlurSizePercent { get; set; } = 120;
 
     [Parameter]
+    public EventCallback<int> BlurSizePercentChanged { get; set; }
+
+    [Parameter]
     public int TimeBufferMs { get; set; } = 300;
 
+    [Parameter]
+    public EventCallback<int> TimeBufferMsChanged { get; set; }
+
     public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
+
+    private Task OnQueueProcessingChangedAsync(bool isProcessing) =>
+        InvokeAsync(() =>
+        {
+            _videoEditorProcessing = isProcessing;
+            if (!isProcessing)
+            {
+                _editorInputBlocked = false;
+            }
+
+            StateHasChanged();
+        });
+
+    private Task OnVideoEditorAction(VideoEditorAction action)
+    {
+        if (_editorInputBlocked && action is UndoAction or RedoAction)
+            return Task.CompletedTask;
+
+        if (action is UndoAction or RedoAction && _actionQueue.HasPendingActions)
+        {
+            _editorInputBlocked = true;
+            _ = InvokeAsync(StateHasChanged);
+        }
+
+        _actionQueue.Enqueue(() => ProcessVideoEditorActionAsync(action));
+        return Task.CompletedTask;
+    }
+
+    private async Task ProcessVideoEditorActionAsync(VideoEditorAction action)
+    {
+        using var client = HttpClientFactory.CreateClient("ApiService");
+        var persister = new VideoEditorActionPersister(client);
+
+        switch (action)
+        {
+            case UndoAction:
+                await ApplyUndoRedoAsync(persister, isRedo: false);
+                break;
+
+            case RedoAction:
+                await ApplyUndoRedoAsync(persister, isRedo: true);
+                break;
+
+            default:
+                await PersistActionAsync(persister, action);
+                break;
+        }
+    }
+
+    private async Task PersistActionAsync(VideoEditorActionPersister persister, VideoEditorAction action)
+    {
+        var item = AddAction(VideoEditorActionDescriptions.Get(action));
+
+        try
+        {
+            await persister.SaveAsync(action);
+            item.Status = ActionStatus.Success;
+            _undoRedoState.Add(action, item);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            MarkActionFailed(item);
+        }
+    }
+
+    private async Task ApplyUndoRedoAsync(VideoEditorActionPersister persister, bool isRedo)
+    {
+        var operation = _undoRedoState.Begin(isRedo);
+        if (operation is null)
+            return;
+
+        try
+        {
+            await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync);
+            _undoRedoState.Complete(operation, isRedo);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            _undoRedoState.Rollback(isRedo);
+            Snackbar.Add(isRedo ? "Failed to redo changes." : "Failed to undo changes.", Severity.Error);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task ApplySettingsFromHistoryAsync(AnonymizationSettingsDto settings)
+    {
+        BlurSizePercent = settings.BlurSizePercent;
+        TimeBufferMs = settings.TimeBufferMs;
+
+        await BlurSizePercentChanged.InvokeAsync(settings.BlurSizePercent);
+        await TimeBufferMsChanged.InvokeAsync(settings.TimeBufferMs);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private ActionHistoryItem AddAction(string description)
+    {
+        var item = new ActionHistoryItem(description, DateTime.UtcNow);
+        _actionHistory.Add(item);
+        if (_actionHistory.Count > 20)
+        {
+            _actionHistory.RemoveAt(0);
+        }
+
+        return item;
+    }
+
+    private void MarkActionFailed(ActionHistoryItem item)
+    {
+        item.Status = ActionStatus.Failed;
+        _hasErrors = true;
+        _ = InvokeAsync(StateHasChanged);
+        Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
+    }
 
     private async Task OnStartAnonymizationClicked()
     {
@@ -105,5 +217,42 @@
 
         _capturedFrames = (await _videoEditor.GetFramesAsync()).ToList();
         await StartAnonymization.InvokeAsync();
+    }
+
+    private async Task OnBlurSizeChanged(int value)
+    {
+        var before = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
+        BlurSizePercent = value;
+        await BlurSizePercentChanged.InvokeAsync(value);
+        await SaveSettingsAsync(before);
+    }
+
+    private async Task OnTimeBufferChanged(int value)
+    {
+        var before = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
+        TimeBufferMs = value;
+        await TimeBufferMsChanged.InvokeAsync(value);
+        await SaveSettingsAsync(before);
+    }
+
+    private Task SaveSettingsAsync(AnonymizationSettingsDto? beforeState = null)
+    {
+        if (VideoId is null)
+            return Task.CompletedTask;
+
+        var afterState = new AnonymizationSettingsDto { BlurSizePercent = BlurSizePercent, TimeBufferMs = TimeBufferMs };
+        var before = beforeState ?? afterState;
+
+        return OnVideoEditorAction(new SettingsUpdatedAction
+        {
+            VideoId = VideoId.Value,
+            BeforeState = before,
+            AfterState = afterState
+        });
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await _actionQueue.DisposeAsync();
     }
 }

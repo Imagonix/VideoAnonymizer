@@ -2,22 +2,25 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VideoAnonymizer.Database;
 
 #nullable disable
 
-namespace VideoAnonymizer.Database.Migrations
+namespace VideoAnonymizer.Database.Postgres.Migrations
 {
     [DbContext(typeof(VideoAnonymizerDbContext))]
-    partial class VideoAnonymizerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260503101241_AddOriginalFileName")]
+    partial class AddOriginalFileName
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
+                .HasAnnotation("ProductVersion", "10.0.7")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -117,6 +120,10 @@ namespace VideoAnonymizer.Database.Migrations
 
                     b.Property<int>("BlurSizePercent")
                         .HasColumnType("integer");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("text");
 
                     b.Property<string>("SourcePath")
                         .IsRequired()

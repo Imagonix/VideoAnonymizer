@@ -1,4 +1,5 @@
 using VideoAnonymizer.Database.Extensions;
+using VideoAnonymizer.Database.Postgres.Extensions;
 using VideoAnonymizer.ModelDownloader;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -7,7 +8,7 @@ builder.Services.Configure<ModelDownloadOptions>(
     builder.Configuration.GetSection("ModelDownload"));
 
 builder.Services.AddHttpClient<ModelDownloadService>();
-builder.AddVideoAnonymizerDbContextFactory();
+builder.AddPostgresVideoAnonymizerDbContextFactory();
 
 using var host = builder.Build();
 

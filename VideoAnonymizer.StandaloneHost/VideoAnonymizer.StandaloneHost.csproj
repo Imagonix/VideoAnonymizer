@@ -24,6 +24,7 @@
     <ProjectReference Include="..\VideoAnonymizer.ApiService\VideoAnonymizer.ApiService.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.Database\VideoAnonymizer.Database.csproj" />
+    <ProjectReference Include="..\VideoAnonymizer.Database.SQLite\VideoAnonymizer.Database.SQLite.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.ModelDownloader\VideoAnonymizer.ModelDownloader.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.VideoProcessor\VideoAnonymizer.VideoProcessor.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.Web\VideoAnonymizer.Web.csproj" />

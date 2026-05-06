@@ -41,6 +41,8 @@ COPY VideoAnonymizer.ServiceDefaults/ VideoAnonymizer.ServiceDefaults/
 COPY VideoAnonymizer.Contracts/ VideoAnonymizer.Contracts/
 COPY VideoAnonymizer.Web.Contracts/ VideoAnonymizer.Web.Contracts/
 COPY VideoAnonymizer.Database/ VideoAnonymizer.Database/
+COPY VideoAnonymizer.Database.Postgres/ VideoAnonymizer.Database.Postgres/
+COPY VideoAnonymizer.Database.SQLite/ VideoAnonymizer.Database.SQLite/
 COPY VideoAnonymizer.ObjectDetectionClient/ VideoAnonymizer.ObjectDetectionClient/
 COPY VideoAnonymizer.Web.Modules/ VideoAnonymizer.Web.Modules/
 COPY VideoAnonymizer.Web/ VideoAnonymizer.Web/

@@ -4,38 +4,33 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using VideoAnonymizer.Database;
 
 #nullable disable
 
-namespace VideoAnonymizer.Database.Migrations
+namespace VideoAnonymizer.Database.SQLite.Migrations
 {
     [DbContext(typeof(VideoAnonymizerDbContext))]
-    [Migration("20260328132923_initial")]
-    partial class initial
+    [Migration("20260503101855_AddOriginalFileName")]
+    partial class AddOriginalFileName
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.5")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
-
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
 
             modelBuilder.Entity("VideoAnonymizer.Database.AnalyzedFrame", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<double>("TimeSeconds")
-                        .HasColumnType("double precision");
+                        .HasColumnType("REAL");
 
                     b.Property<Guid>("VideoId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -48,34 +43,34 @@ namespace VideoAnonymizer.Database.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("AnalyzedFrameId")
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ClassName")
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
 
                     b.Property<double>("Confidence")
-                        .HasColumnType("double precision");
+                        .HasColumnType("REAL");
 
                     b.Property<int>("Height")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.Property<bool>("Selected")
-                        .HasColumnType("boolean");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int?>("TrackId")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Width")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("X")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Y")
-                        .HasColumnType("integer");
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -84,18 +79,53 @@ namespace VideoAnonymizer.Database.Migrations
                     b.ToTable("DetectedObjects");
                 });
 
+            modelBuilder.Entity("VideoAnonymizer.Database.SystemSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.ToTable("SystemSettings");
+                });
+
             modelBuilder.Entity("VideoAnonymizer.Database.Video", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("AnonomizedPath")
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BlurSizePercent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("SourcePath")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TimeBufferMs")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 

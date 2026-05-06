@@ -2,6 +2,7 @@ using VideoAnonymizer.ApiService;
 using VideoAnonymizer.ApiService.Notifications;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Database.Extensions;
+using VideoAnonymizer.Database.SQLite.Extensions;
 using VideoAnonymizer.ModelDownloader;
 using VideoAnonymizer.VideoProcessor;
 using VideoAnonymizer.Web.Shared;
@@ -16,7 +17,7 @@ builder.Services.AddSingleton<IMessagePublisher, DirectMessagePublisher>();
 builder.Services.AddVideoProcessorWorkers();
 builder.Services.AddVideoProcessorMessageHandlers();
 
-builder.AddVideoAnonymizerDbContextFactory();
+builder.AddSqliteVideoAnonymizerDbContextFactory();
 builder.AddVideoAnonymizerApiServices();
 
 builder.Services.Configure<ModelDownloadOptions>(builder.Configuration.GetSection("ModelDownload"));
@@ -32,6 +33,8 @@ builder.Services.AddHostedService<ObjectDetectionProcessHostedService>();
 builder.Services.AddHostedService<BrowserLauncherHostedService>();
 
 var app = builder.Build();
+
+await app.Services.ApplyDatabaseMigrationsAsync(app.Configuration);
 
 app.UseExceptionHandler();
 

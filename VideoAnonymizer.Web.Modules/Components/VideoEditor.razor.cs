@@ -1,19 +1,20 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using VideoAnonymizer.Web.Modules.Actions;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.Web.Modules.Components;
 
 public partial class VideoEditor : ComponentBase, IAsyncDisposable
 {
-    [Inject] 
+    [Inject]
     private IJSRuntime JS { get; set; } = default!;
 
-    [Parameter, EditorRequired] 
+    [Parameter, EditorRequired]
     public Guid VideoId { get; set; }
-    [Parameter] 
+    [Parameter]
     public string VideoSourceUrl { get; set; } = string.Empty;
-    [Parameter] 
+    [Parameter]
     public IReadOnlyList<AnalyzedFrameDto> Frames { get; set; } = Array.Empty<AnalyzedFrameDto>();
     [Parameter]
     public int BlurSizePercent { get; set; } = 120;
@@ -21,12 +22,87 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     [Parameter]
     public int TimeBufferMs { get; set; } = 0;
 
+    [Parameter]
+    public EventCallback<VideoEditorAction> OnAction { get; set; }
+
     private ElementReference _hostElement;
     private IJSObjectReference? _hostModule;
     private bool _mounted;
     private bool _loadFailed;
     private int _lastBlurSizePercent;
     private int _lastTimeBufferMs;
+    private DotNetObjectReference<VideoEditor>? _dotNetRef;
+
+    [JSInvokable]
+    public Task OnDetectedObjectAdded(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        return OnAction.InvokeAsync(new ObjectAddedAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto
+        });
+    }
+
+    [JSInvokable]
+    public Task OnDetectedObjectUpdated(string videoId, string analyzedFrameId, DetectedObjectDto dto, string operationType, DetectedObjectDto[] beforeState)
+    {
+        return OnAction.InvokeAsync(new ObjectUpdatedAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto,
+            OperationType = operationType,
+            BeforeState = beforeState
+        });
+    }
+
+    [JSInvokable]
+    public Task OnDetectedObjectsBulkUpdated(string videoId, DetectedObjectDto[] dtos, string operationType, DetectedObjectDto[] beforeState)
+    {
+        return OnAction.InvokeAsync(new ObjectsBulkUpdatedAction
+        {
+            VideoId = videoId,
+            Objects = dtos,
+            OperationType = operationType,
+            BeforeState = beforeState
+        });
+    }
+
+    [JSInvokable]
+    public Task OnDetectedObjectDeleted(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        return OnAction.InvokeAsync(new ObjectDeletedAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto
+        });
+    }
+
+    [JSInvokable]
+    public Task OnUndo()
+    {
+        return OnAction.InvokeAsync(new UndoAction());
+    }
+
+    [JSInvokable]
+    public Task OnRedo()
+    {
+        return OnAction.InvokeAsync(new RedoAction());
+    }
+
+    public async Task PushChangesToVue(DetectedObjectChangeSet changes)
+    {
+        if (!_mounted || _hostModule is null) return;
+        try
+        {
+            await _hostModule.InvokeVoidAsync("applyDetectedObjectChanges", _hostElement, changes);
+        }
+        catch
+        {
+        }
+    }
 
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
     {
@@ -50,10 +126,13 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                     "import",
                     "/_content/VideoAnonymizer.Web.Modules/js/videoEditorHost.js");
 
+                _dotNetRef = DotNetObjectReference.Create(this);
+
                 await _hostModule.InvokeVoidAsync(
                     "mountVideoEditor",
                     _hostElement,
-                    BuildProps());
+                    BuildProps(),
+                    _dotNetRef);
 
                 _lastBlurSizePercent = BlurSizePercent;
                 _lastTimeBufferMs = TimeBufferMs;
@@ -87,7 +166,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     {
         return new
         {
-            videoId = VideoId,
+            videoId = VideoId.ToString(),
             videoSourceUrl = VideoSourceUrl,
             frames = Frames,
             anonymizationSettings = new
@@ -100,6 +179,8 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        _dotNetRef?.Dispose();
+
         try
         {
             if (_hostModule is not null)

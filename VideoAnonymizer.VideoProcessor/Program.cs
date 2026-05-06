@@ -2,6 +2,7 @@ using VideoAnonymizer.Contracts.Extensions;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database.Extensions;
+using VideoAnonymizer.Database.Postgres.Extensions;
 using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.VideoProcessor;
 
@@ -32,7 +33,7 @@ builder.Services.AddSingleton(sp =>
     return new ObjectDetectionClient(baseUrl, httpClient);
 });
 
-builder.AddVideoAnonymizerDbContextFactory();
+builder.AddPostgresVideoAnonymizerDbContextFactory();
 
 var host = builder.Build();
 host.Run();

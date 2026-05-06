@@ -32,9 +32,25 @@ async function ensureAssetsLoaded() {
     }
 }
 
-export async function mountVideoEditor(element, props) {
+export async function mountVideoEditor(element, props, dotNetRef) {
     await ensureAssetsLoaded();
-    const appHandle = window.mountVideoEditorVueApp(element, props);
+
+    const callbacks = {
+        onDetectedObjectAdded: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectAdded', videoId, analyzedFrameId, dto),
+        onDetectedObjectUpdated: (videoId, analyzedFrameId, dto, operationType, beforeState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectUpdated', videoId, analyzedFrameId, dto, operationType ?? '', beforeState),
+        onDetectedObjectsBulkUpdated: (videoId, dtos, operationType, beforeState) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? '', beforeState),
+        onDetectedObjectDeleted: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnDetectedObjectDeleted', videoId, analyzedFrameId, dto),
+        onUndo: () =>
+            dotNetRef.invokeMethodAsync('OnUndo'),
+        onRedo: () =>
+            dotNetRef.invokeMethodAsync('OnRedo'),
+    };
+
+    const appHandle = window.mountVideoEditorVueApp(element, { ...props, ...callbacks });
     mountedApps.set(element, appHandle);
 }
 
@@ -48,6 +64,12 @@ export async function updateVideoEditorSettings(element, settings) {
     const appHandle = mountedApps.get(element);
     if (!appHandle || typeof appHandle.updateSettings !== 'function') return;
     appHandle.updateSettings(settings);
+}
+
+export async function applyDetectedObjectChanges(element, changes) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.applyChanges !== 'function') return;
+    appHandle.applyChanges(changes);
 }
 
 export async function unmountVideoEditor(element) {

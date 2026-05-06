@@ -9,13 +9,17 @@ namespace VideoAnonymizer.Web.Shared
         public static class Paths
         {
             public const string Analyzed = "analyzed";
+            public const string AnalyzedFrame = "analyzedFrame";
             public const string Analyze = "analyze";
             public const string Anonymized = "anonymized";
             public const string Anonymize = "anonymize";
+            public const string AppState = "state";
+            public const string DetectedObject = "detectedObject";
+            public const string DetectedObjects = "detectedObjects";
             public const string Health = "health";
             public const string Video = "video";
-
-            public const string AppState = "state";
+            public const string Videos = "videos";
+            public const string VideoSettings = "settings";
         }
 
         public static class SignalR

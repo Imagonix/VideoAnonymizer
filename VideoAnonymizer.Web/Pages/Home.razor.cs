@@ -18,8 +18,10 @@ namespace VideoAnonymizer.Web.Pages
         private IDisposable? _jobProgressSubscription;
 
         private ReviewExportTab? _reviewExportTab;
+        private UploadTab? _uploadTab;
 
         private IBrowserFile? _selectedFile;
+        private string? _downloadFileName;
         private Guid? _currentVideoId;
         private Guid? _anonymizeVideoJobId;
 
@@ -34,6 +36,10 @@ namespace VideoAnonymizer.Web.Pages
         private List<AnalyzedFrameDto> _analyzedFrames = [];
         private bool _showEditor;
         private string? _videoSourceUrl;
+        private List<VideoDto>? _existingVideos;
+
+        private int _blurSizePercent = 120;
+        private int _timeBufferMs = 300;
 
         private int DetectionIntervalMs { get; set; } = 100;
 
@@ -42,6 +48,8 @@ namespace VideoAnonymizer.Web.Pages
 
         protected override async Task OnInitializedAsync()
         {
+            await LoadExistingVideosAsync();
+
             _videoAnalyzedSubscription = JobHubClient.OnVideoAnalyzed(async message =>
             {
                 if (_currentVideoId.IsNullOrEmpty())
@@ -52,9 +60,12 @@ namespace VideoAnonymizer.Web.Pages
 
                 StatusText = "Video analyzed. Loading editor...";
                 await LoadAnalyzedFramesAsync(_currentVideoId);
+                await LoadExistingVideosAsync();
                 _showEditor = true;
                 _activeTabIndex = 1;
                 _selectedFile = null;
+                SelectedFileName = null;
+                _uploadTab?.ClearFileInput();
                 Snackbar.Add("Video processed. You can now review detected objects.", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);
@@ -69,8 +80,8 @@ namespace VideoAnonymizer.Web.Pages
                 IsAnonymized = true;
                 ProgressPercent = 100;
                 IsBusy = false;
-                StatusText = "Video anonymized successfully. Downloading...";
-                Snackbar.Add("Video anonymized successfully. Download starting...", Severity.Success);
+                StatusText = "Video blurred successfully. Downloading...";
+                Snackbar.Add("Video blurred successfully. Download starting...", Severity.Success);
 
                 await InvokeAsync(StateHasChanged);
                 await DownloadAsync();
@@ -98,8 +109,12 @@ namespace VideoAnonymizer.Web.Pages
 
         private Task OnFileSelected(IBrowserFile? file)
         {
+            if (file is null)
+                return Task.CompletedTask;
+
             _selectedFile = file;
-            SelectedFileName = file?.Name;
+            _downloadFileName = file.Name;
+            SelectedFileName = file.Name;
 
             IsAnonymized = false;
             _currentVideoId = null;
@@ -122,7 +137,7 @@ namespace VideoAnonymizer.Web.Pages
             {
                 IsBusy = true;
                 ProgressPercent = null;
-                StatusText = "Uploading and analyzing video...";
+                StatusText = "Importing video...";
 
                 await InvokeAsync(StateHasChanged);
 
@@ -147,7 +162,7 @@ namespace VideoAnonymizer.Web.Pages
                     throw new InvalidOperationException("Analyze endpoint did not return a video id.");
 
                 _currentVideoId = result.Payload;
-                StatusText = "Video uploaded. Analyzing frames...";
+                StatusText = "Video created. Analyzing frames...";
             }
             catch (Exception ex)
             {
@@ -157,6 +172,61 @@ namespace VideoAnonymizer.Web.Pages
                 Snackbar.Add($"Upload failed: {ex.Message}", Severity.Error);
             }
 
+            await InvokeAsync(StateHasChanged);
+        }
+
+        private async Task LoadExistingVideosAsync()
+        {
+            try
+            {
+                using var httpClient = HttpClientFactory.CreateClient("ApiService");
+                var response = await httpClient.GetAsync($"/{SharedConstants.Paths.Videos}");
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<List<VideoDto>>>();
+                _existingVideos = result?.Payload;
+            }
+            catch
+            {
+                _existingVideos = null;
+            }
+        }
+
+        private async Task OnExistingVideoSelected(Guid videoId)
+        {
+            await LoadExistingVideosAsync();
+            _currentVideoId = videoId;
+            _selectedFile = null;
+            SelectedFileName = null;
+            _uploadTab?.ClearFileInput();
+            var videoDto = _existingVideos?.FirstOrDefault(v => v.Id == videoId);
+            _downloadFileName = videoDto?.OriginalFileName;
+            _blurSizePercent = videoDto?.BlurSizePercent ?? 120;
+            _timeBufferMs = videoDto?.TimeBufferMs ?? 300;
+            IsAnonymized = false;
+            _anonymizeVideoJobId = null;
+            _showEditor = false;
+            _videoSourceUrl = null;
+            _analyzedFrames = [];
+
+            StatusText = "Opening Video...";
+            IsBusy = true;
+            await InvokeAsync(StateHasChanged);
+
+            await LoadAnalyzedFramesAsync(videoId);
+
+            if (_analyzedFrames.Count > 0)
+            {
+                _showEditor = true;
+                _activeTabIndex = 1;
+                StatusText = "Video loaded. You can review detected objects.";
+            }
+            else
+            {
+                StatusText = "No analysis found for this video. Upload and detect objects to analyze it.";
+            }
+
+            IsBusy = false;
             await InvokeAsync(StateHasChanged);
         }
 
@@ -199,7 +269,7 @@ namespace VideoAnonymizer.Web.Pages
             {
                 IsBusy = true;
                 ProgressPercent = null;
-                StatusText = "Starting anonymization...";
+                StatusText = "Starting blurring...";
 
                 var frames = _reviewExportTab.CapturedFrames.ToList();
 
@@ -233,15 +303,15 @@ namespace VideoAnonymizer.Web.Pages
 
                 if (ProgressPercent is null)
                 {
-                    StatusText = "Anonymization started. Waiting for completion...";
+                    StatusText = "Blurring video started. Waiting for completion...";
                 }
             }
             catch (Exception ex)
             {
                 IsBusy = false;
                 ProgressPercent = null;
-                StatusText = "Anonymization failed.";
-                Snackbar.Add($"Anonymization failed: {ex.Message}", Severity.Error);
+                StatusText = "Blurring video failed.";
+                Snackbar.Add($"Blurring video failed: {ex.Message}", Severity.Error);
             }
 
             await InvokeAsync(StateHasChanged);
@@ -260,7 +330,7 @@ namespace VideoAnonymizer.Web.Pages
                 StatusText = "Download started.";
                 await InvokeAsync(StateHasChanged);
 
-                await DownloadService.DownloadFileAsync($"anonymized-{SelectedFileName}", url);
+                await DownloadService.DownloadFileAsync($"blurred-{_downloadFileName ?? "video"}", url);
             }
             catch (Exception ex)
             {
