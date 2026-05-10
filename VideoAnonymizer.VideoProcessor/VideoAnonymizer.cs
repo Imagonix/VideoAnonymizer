@@ -300,7 +300,7 @@ public class VideoAnonymizer(
         return result;
     }
 
-    private static List<DetectedObject> GetObjectsFromRelevantAnalyzedFrames(
+    public static List<DetectedObject> GetObjectsFromRelevantAnalyzedFrames(
         Dictionary<double, List<DetectedObject>> analyzedFrames,
         int currentFrameIndex,
         double fps,

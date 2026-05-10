@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Reflection;
 using FluentAssertions;
 using Reqnroll;
 using VideoAnonymizer.Database;
@@ -9,13 +8,29 @@ namespace VideoAnonymizer.ApiService.Tests.Steps;
 [Binding]
 public sealed class FrameCoverageStepDefinitions
 {
-    private Dictionary<double, List<DetectedObject>> _analyzedFrames = [];
-    private List<DetectedObject> _relevantObjects = [];
+    private readonly ScenarioContext _scenarioContext;
+
+    private Dictionary<double, List<DetectedObject>> AnalyzedFrames
+    {
+        get => _scenarioContext.Get<Dictionary<double, List<DetectedObject>>>(nameof(AnalyzedFrames));
+        set => _scenarioContext.Set(value, nameof(AnalyzedFrames));
+    }
+
+    private List<DetectedObject> RelevantObjects
+    {
+        get => _scenarioContext.Get<List<DetectedObject>>(nameof(RelevantObjects));
+        set => _scenarioContext.Set(value, nameof(RelevantObjects));
+    }
+
+    public FrameCoverageStepDefinitions(ScenarioContext scenarioContext)
+    {
+        _scenarioContext = scenarioContext;
+    }
 
     [Given("analyzed detections")]
     public void GivenAnalyzedDetections(Table table)
     {
-        _analyzedFrames = [];
+        AnalyzedFrames = [];
 
         foreach (var row in table.Rows)
         {
@@ -23,10 +38,10 @@ public sealed class FrameCoverageStepDefinitions
             var trackId = int.Parse(row["trackId"], CultureInfo.InvariantCulture);
             var x = int.Parse(row["x"], CultureInfo.InvariantCulture);
 
-            if (!_analyzedFrames.TryGetValue(timeSeconds, out var objects))
+            if (!AnalyzedFrames.TryGetValue(timeSeconds, out var objects))
             {
                 objects = [];
-                _analyzedFrames[timeSeconds] = objects;
+                AnalyzedFrames[timeSeconds] = objects;
             }
 
             objects.Add(CreateObject(trackId, x));
@@ -36,7 +51,7 @@ public sealed class FrameCoverageStepDefinitions
     [When("the processor asks for objects at {double} seconds with a {double} second buffer")]
     public void WhenTheProcessorAsksForObjectsAtSecondsWithBuffer(double currentTimeSeconds, double timeBufferSeconds)
     {
-        _relevantObjects = GetObjects(_analyzedFrames, currentTimeSeconds, timeBufferSeconds);
+        RelevantObjects = GetObjects(AnalyzedFrames, currentTimeSeconds, timeBufferSeconds);
     }
 
     [Then("the relevant objects are")]
@@ -48,7 +63,7 @@ public sealed class FrameCoverageStepDefinitions
                 int.Parse(row["x"], CultureInfo.InvariantCulture)))
             .ToList();
 
-        _relevantObjects
+        RelevantObjects
             .Select(obj => new ObjectSnapshot(obj.TrackId!.Value, obj.X))
             .Should().BeEquivalentTo(expected);
     }
@@ -61,13 +76,13 @@ public sealed class FrameCoverageStepDefinitions
             .Select(id => int.Parse(id, CultureInfo.InvariantCulture))
             .ToList();
 
-        _relevantObjects.Select(obj => obj.TrackId).Should().BeEquivalentTo(expected);
+        RelevantObjects.Select(obj => obj.TrackId).Should().BeEquivalentTo(expected);
     }
 
     [Then("no relevant objects are returned")]
     public void ThenNoRelevantObjectsAreReturned()
     {
-        _relevantObjects.Should().BeEmpty();
+        RelevantObjects.Should().BeEmpty();
     }
 
     private static List<DetectedObject> GetObjects(
@@ -78,12 +93,11 @@ public sealed class FrameCoverageStepDefinitions
         const double fps = 100;
         var frameIndex = (int)Math.Round(currentTimeSeconds * fps);
 
-        // TODO Make method public and call directly
-        var method = typeof(VideoAnonymizer.VideoProcessor.VideoAnonymizer)
-            .GetMethod("GetObjectsFromRelevantAnalyzedFrames", BindingFlags.NonPublic | BindingFlags.Static);
-
-        method.Should().NotBeNull();
-        return ((List<DetectedObject>)method!.Invoke(null, [analyzedFrames, frameIndex, fps, timeBufferSeconds])!)!;
+        return VideoAnonymizer.VideoProcessor.VideoAnonymizer.GetObjectsFromRelevantAnalyzedFrames(
+            analyzedFrames,
+            frameIndex,
+            fps,
+            timeBufferSeconds);
     }
 
     private static DetectedObject CreateObject(int trackId, int x) =>
