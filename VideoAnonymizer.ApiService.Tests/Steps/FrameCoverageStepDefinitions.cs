@@ -2,6 +2,7 @@ using System.Globalization;
 using FluentAssertions;
 using Reqnroll;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.VideoProcessor;
 
 namespace VideoAnonymizer.ApiService.Tests.Steps;
 
@@ -51,7 +52,14 @@ public sealed class FrameCoverageStepDefinitions
     [When("the processor asks for objects at {double} seconds with a {double} second buffer")]
     public void WhenTheProcessorAsksForObjectsAtSecondsWithBuffer(double currentTimeSeconds, double timeBufferSeconds)
     {
-        RelevantObjects = GetObjects(AnalyzedFrames, currentTimeSeconds, timeBufferSeconds);
+        const double fps = 100;
+        var frameIndex = (int)Math.Round(currentTimeSeconds * fps);
+
+        RelevantObjects = RelevantDetectedObjectSelector.GetObjectsFromRelevantAnalyzedFrames(
+            AnalyzedFrames,
+            frameIndex,
+            fps,
+            timeBufferSeconds);
     }
 
     [Then("the relevant objects are")]
@@ -83,21 +91,6 @@ public sealed class FrameCoverageStepDefinitions
     public void ThenNoRelevantObjectsAreReturned()
     {
         RelevantObjects.Should().BeEmpty();
-    }
-
-    private static List<DetectedObject> GetObjects(
-        Dictionary<double, List<DetectedObject>> analyzedFrames,
-        double currentTimeSeconds,
-        double timeBufferSeconds)
-    {
-        const double fps = 100;
-        var frameIndex = (int)Math.Round(currentTimeSeconds * fps);
-
-        return VideoAnonymizer.VideoProcessor.VideoAnonymizer.GetObjectsFromRelevantAnalyzedFrames(
-            analyzedFrames,
-            frameIndex,
-            fps,
-            timeBufferSeconds);
     }
 
     private static DetectedObject CreateObject(int trackId, int x) =>
