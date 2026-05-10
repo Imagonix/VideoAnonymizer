@@ -51,8 +51,8 @@ function createMockState(): VideoEditorProps {
     };
 }
 
-function mountEditor() {
-    const state = reactive(createMockState());
+function mountEditor(overrides: Partial<VideoEditorProps> = {}) {
+    const state = reactive({ ...createMockState(), ...overrides } as VideoEditorProps);
     const wrapper = mount(VideoEditorApp, {
         props: { state },
         global: {
@@ -431,4 +431,5 @@ describe('VideoEditorApp integration', () => {
             expect(tracksOnF1).toEqual([1, 2]);
         });
     });
+
 });
