@@ -15,7 +15,10 @@ namespace VideoAnonymizer.ApiService.DataServices
             {
                 throw new NotFoundException();
             }
-            var dtos = video.AnalyzedFrames.Select(x => Mapper.ToDto(x)).ToList();
+            var dtos = video.AnalyzedFrames
+                .OrderBy(x => x.FrameIndex)
+                .Select(x => Mapper.ToDto(x))
+                .ToList();
             return dtos;
         }
 

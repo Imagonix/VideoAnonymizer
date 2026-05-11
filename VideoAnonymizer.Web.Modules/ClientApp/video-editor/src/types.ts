@@ -13,6 +13,7 @@ export type DetectedObjectDto = {
 
 export type AnalyzedFrameDto = {
   id: string;
+  frameIndex?: number;
   timeSeconds: number;
   videoId: string;
   detectedObjects: DetectedObjectDto[];

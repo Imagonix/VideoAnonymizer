@@ -7,6 +7,7 @@ namespace VideoAnonymizer.Database
 {
     public class AnalyzedFrame : EntityBase
     {
+        public int FrameIndex { get; set; }
         public double TimeSeconds { get; set; }
         public virtual ICollection<DetectedObject> DetectedObjects { get; set; }
         public virtual Guid VideoId { get; set; }
