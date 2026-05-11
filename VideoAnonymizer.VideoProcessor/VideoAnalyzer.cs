@@ -40,6 +40,8 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
         var dbFactory = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
         using var db = await dbFactory.CreateDbContextAsync();
         var video = await db.Videos.FindAsync(job.VideoId);
+        if (video is null)
+            throw new InvalidOperationException($"Video {job.VideoId} was not found.");
         lastReportedProgress = await ReportProgressAsync(
             job.VideoId,
             job.VideoId,
@@ -94,9 +96,17 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
                 {
                     ImageBase64 = imageBase64,
                     SessionId = sessionId,
+                    Fps = fps,
+                }, stoppingToken);
+            var trackedDetections = await objectDetectionClient.TrackObjectsAsync(
+                new TrackObjectsRequest
+                {
+                    Detections = detections,
+                    SessionId = sessionId,
+                    Fps = fps,
                 }, stoppingToken);
 
-            var detectedObjects = detections.Select(detection => new DetectedObject()
+            var detectedObjects = trackedDetections.Select(detection => new DetectedObject()
             {
                 Selected = true,
                 AnalyzedFrameId = analyzedFrame.Id,
@@ -115,7 +125,7 @@ public class VideoAnalyzer(ILogger<VideoAnalyzer> logger, IMessagePublisher mess
                 "Frame {FrameIndex} at {Timestamp} processed. Detections: {Count}",
                 frameIndex,
                 TimeSpan.FromSeconds(frameIndex / fps),
-                detections?.Count ?? 0);
+                trackedDetections?.Count ?? 0);
 
             processedFrameCount++;
             lastReportedProgress = await ReportProgressAsync(

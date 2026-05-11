@@ -42,6 +42,18 @@ def test_detectObjects_valid_image(client, detect_request):
         assert "height" in detection
         assert "trackId" in detection
 
+def test_trackObjects_empty_detections(client):
+    request = {
+        "detections": [],
+        "sessionId": "track-test-empty",
+        "fps": 25.0
+    }
+
+    response = client.post("/trackObjects", json=request)
+
+    assert response.status_code == 200
+    assert response.json() == []
+
 def test_resetTracker(client):
     response = client.post("/resetTracker?sessionId=test-session-456")
     assert response.status_code == 200

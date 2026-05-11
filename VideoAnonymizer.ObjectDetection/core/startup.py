@@ -10,5 +10,6 @@ def log_startup() -> None:
         logger.info(f"FastAPI Server started on http://0.0.0.0:{port}")
         logger.info(f"   Health: http://0.0.0.0:{port}/health")
         logger.info(f"   Detect: http://0.0.0.0:{port}/detectObjects")
+        logger.info(f"   Track: http://0.0.0.0:{port}/trackObjects")
     else:
         logger.warning("PORT environment variable is not set!")
