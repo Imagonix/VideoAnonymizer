@@ -42,6 +42,7 @@ Key projects under `VideoAnonymizer.slnx`:
 | `VideoAnonymizer.Contracts` | RabbitMQ message types and constants |
 | `VideoAnonymizer.AppHost` | .NET Aspire orchestrator |
 | `VideoAnonymizer.Web.Tests` | bUnit + SpecFlow web component tests |
+| `VideoAnonymizer.ApiService.Tests` | Lightweight non-Docker API/service persistence tests |
 | `VideoAnonymizer.ApiService.IntegrationTests` | API integration tests |
 
 ## Data Flow (End-to-End)
@@ -160,9 +161,26 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 
 ### Running tests
 - Web tests: `dotnet test VideoAnonymizer.Web.Tests/` (bUnit + SpecFlow)
+- API service tests: `dotnet test VideoAnonymizer.ApiService.Tests/`
 - API integration tests: `dotnet test VideoAnonymizer.ApiService.IntegrationTests/`
 - Python detection tests: in `VideoAnonymizer.ObjectDetectionTests/`
 - Vue editor integration tests: `npm test` from `VideoAnonymizer.Web.Modules/ClientApp/video-editor/` (vitest + jsdom)
+
+### Test Conventions
+- Gherkin scenarios should describe user stories in human-readable language.
+- Prefer one `When` per scenario. Split scenarios when multiple user actions would otherwise require multiple `When` steps.
+- Reqnroll step definitions should store scenario state in `ScenarioContext`, following the pattern in `HomeStepDefinitions`, instead of keeping mutable instance fields.
+- Do not edit generated `.feature.cs` files directly. Edit `.feature` files and step definitions.
+- Vue `.feature` tests are executed by the Vitest feature runner, not by Reqnroll, so Visual Studio Reqnroll navigation does not apply to those files.
+
+### Refactoring Guidance
+- Do not extract single-use helper methods unless the surrounding method is becoming hard to read.
+- Prefer extracting cohesive static logic into a named helper class when it represents a real concept.
+- Keep worker/orchestration classes focused on workflow; move reusable selection, mapping, or geometry logic out when it becomes independently testable.
+
+### CI Notes
+- The standalone workflow should run lightweight API tests with `dotnet test VideoAnonymizer.ApiService.Tests/...`.
+- Keep Dockerfile and `.dockerignore` focused on runtime/build projects. Do not add test projects to the Docker build context unless Docker builds start running tests.
 
 ## Docker Setup
 
