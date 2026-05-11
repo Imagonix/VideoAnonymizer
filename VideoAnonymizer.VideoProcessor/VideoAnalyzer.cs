@@ -61,7 +61,7 @@ public class VideoAnalyzer(
             Operation,
             DetectionProgressStart,
             lastReportedProgress,
-            "Analyzing frames...",
+            "Preparing frame analysis...",
             stoppingToken);
 
         var detectionResult = await RunDetectionPipelineAsync(
@@ -84,7 +84,7 @@ public class VideoAnalyzer(
                 Operation,
                 TrackingProgressStart,
                 lastReportedProgress,
-                "Tracking detected objects...",
+                "Assigning object tracks...",
                 stoppingToken);
 
             var trackingResult = await TrackPersistedFramesAsync(
@@ -116,7 +116,7 @@ public class VideoAnalyzer(
             Operation,
             TrackingProgressEnd,
             lastReportedProgress,
-            "Writing analysis to database...",
+            "Finalizing analysis...",
             stoppingToken);
 
         await ReportProgressAsync(
@@ -358,7 +358,7 @@ public class VideoAnalyzer(
                 DetectionProgressStart,
                 DetectionProgressEnd,
                 lastReportedProgress,
-                $"Detected objects in {savedFrameCount} of {totalFramesToAnalyze} frames...",
+                $"Saved {savedFrameCount} of {totalFramesToAnalyze} analyzed frames...",
                 cancellationToken);
 
             batch.Clear();
@@ -427,7 +427,7 @@ public class VideoAnalyzer(
                 TrackingProgressStart,
                 TrackingProgressEnd,
                 lastReportedProgress,
-                $"Tracked objects in {trackedFrameCount} of {totalFramesToAnalyze} frames...",
+                $"Assigned tracks for {trackedFrameCount} of {totalFramesToAnalyze} analyzed frames...",
                 cancellationToken);
         }
 
