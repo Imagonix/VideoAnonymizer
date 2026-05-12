@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import List
 
 import numpy as np
@@ -10,11 +11,12 @@ from services.postprocessing import postprocess
 from services.model_session import session, input_name
 
 logger = logging.getLogger(__name__)
+_inference_semaphore = threading.Semaphore(1)
 
 def detect_objects(request: DetectRequest) -> List[DetectionResult]:
     image = decode_base64_image(request.imageBase64)
     input_tensor, scale_x, scale_y = preprocess(image)
-    outputs = session.run(None, {input_name: input_tensor})
+    outputs = _run_inference(input_tensor)
     return postprocess(outputs, scale_x, scale_y)
 
 
@@ -36,7 +38,7 @@ def detect_objects_batch(request: BatchDetectRequest) -> List[BatchDetectionResu
     )
 
     try:
-        outputs = session.run(None, {input_name: input_batch})
+        outputs = _run_inference(input_batch)
         return [
             BatchDetectionResult(
                 frameIndex=frame.frame_index,
@@ -63,11 +65,16 @@ def _prepare_frame(frame_index: int, image_base64: str):
 
 
 def _detect_prepared_frame(frame) -> BatchDetectionResult:
-    outputs = session.run(None, {input_name: frame.input_tensor})
+    outputs = _run_inference(frame.input_tensor)
     return BatchDetectionResult(
         frameIndex=frame.frame_index,
         detections=postprocess(outputs, frame.scale_x, frame.scale_y),
     )
+
+
+def _run_inference(input_tensor: np.ndarray) -> list[np.ndarray]:
+    with _inference_semaphore:
+        return session.run(None, {input_name: input_tensor})
 
 
 class PreparedFrame:
