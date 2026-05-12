@@ -6,6 +6,15 @@ class DetectRequest(BaseModel):
     imageBase64: str
 
 
+class BatchDetectFrame(BaseModel):
+    frameIndex: int
+    imageBase64: str
+
+
+class BatchDetectRequest(BaseModel):
+    frames: list[BatchDetectFrame]
+
+
 class DetectionResult(BaseModel):
     className: str
     confidence: float
@@ -17,6 +26,11 @@ class DetectionResult(BaseModel):
         default=None,
         json_schema_extra={"type": "integer", "nullable": True}
     )
+
+
+class BatchDetectionResult(BaseModel):
+    frameIndex: int
+    detections: list[DetectionResult]
 
 
 class TrackRequest(BaseModel):

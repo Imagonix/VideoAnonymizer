@@ -58,7 +58,8 @@ def decode_boxes(
 def postprocess(
     outputs: list[np.ndarray],
     scale_x: float,
-    scale_y: float
+    scale_y: float,
+    batch_index: int = 0
 ) -> List[DetectionResult]:
     """
     Expects typical RetinaFace-like output:
@@ -67,9 +68,9 @@ def postprocess(
     outputs[2] = landms
     """
 
-    loc = outputs[0][0]
-    conf = outputs[1][0]
-    # landms = outputs[2][0]  # currently unused
+    loc = outputs[0][batch_index]
+    conf = outputs[1][batch_index]
+    # landms = outputs[2][batch_index]  # currently unused
 
     priors = generate_priors((INPUT_SIZE[1], INPUT_SIZE[0]))
     boxes = decode_boxes(loc, priors)

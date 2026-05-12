@@ -14,6 +14,8 @@ internal sealed class VideoAnalysisPipeline(
     IConfiguration configuration,
     VideoAnalysisProgressReporter progressReporter)
 {
+    private static readonly TimeSpan BatchFillDelay = TimeSpan.FromMilliseconds(20);
+
     public async Task<VideoAnalysisPipelineResult> RunAsync(
         AnalyzeVideo job,
         VideoAnalysisMetadata videoMetadata,
@@ -23,10 +25,11 @@ internal sealed class VideoAnalysisPipeline(
         var options = VideoAnalysisPipelineOptions.FromConfiguration(configuration);
 
         logger.LogInformation(
-            "Processing video {VideoPath} with FPS {Fps}. Detection workers: {WorkerCount}, queue capacity: {QueueCapacity}",
+            "Processing video {VideoPath} with FPS {Fps}. Detection workers: {WorkerCount}, batch size: {BatchSize}, queue capacity: {QueueCapacity}",
             job.Path,
             videoMetadata.Fps,
             options.WorkerCount,
+            options.BatchSize,
             options.QueueCapacity);
 
         using var scope = serviceProvider.CreateScope();
@@ -63,6 +66,7 @@ internal sealed class VideoAnalysisPipeline(
                 frameJobs.Reader,
                 detectionResults.Writer,
                 objectDetectionClient,
+                options.BatchSize,
                 pipelineToken))
             .ToArray();
 
@@ -162,29 +166,135 @@ internal sealed class VideoAnalysisPipeline(
         ChannelReader<FrameDetectionJob> reader,
         ChannelWriter<FrameDetectionResult> writer,
         ObjectDetectionClient.ObjectDetectionClient objectDetectionClient,
+        int batchSize,
         CancellationToken cancellationToken)
     {
-        await foreach (var job in reader.ReadAllAsync(cancellationToken))
+        while (await reader.WaitToReadAsync(cancellationToken))
         {
-            var detections = await objectDetectionClient.DetectObjects_detectObjects_postAsync(
-                new DetectRequest
+            var batch = await ReadDetectionBatchAsync(reader, batchSize, cancellationToken);
+            if (batch.Count == 0)
+                continue;
+
+            var results = await DetectFrameBatchWithFallbackAsync(
+                batch,
+                objectDetectionClient,
+                cancellationToken);
+
+            foreach (var result in results)
+                await writer.WriteAsync(result, cancellationToken);
+
+            logger.LogDebug(
+                "Detection worker {WorkerId} processed {BatchSize} frames.",
+                workerId,
+                batch.Count);
+        }
+    }
+
+    private static async Task<List<FrameDetectionJob>> ReadDetectionBatchAsync(
+        ChannelReader<FrameDetectionJob> reader,
+        int batchSize,
+        CancellationToken cancellationToken)
+    {
+        var batch = new List<FrameDetectionJob>(batchSize);
+
+        while (batch.Count < batchSize)
+        {
+            if (reader.TryRead(out var job))
+            {
+                batch.Add(job);
+                continue;
+            }
+
+            if (batch.Count == 0)
+                return batch;
+
+            await Task.Delay(BatchFillDelay, cancellationToken);
+
+            if (reader.TryRead(out var delayedJob))
+            {
+                batch.Add(delayedJob);
+                continue;
+            }
+
+            break;
+        }
+
+        return batch;
+    }
+
+    private async Task<IReadOnlyList<FrameDetectionResult>> DetectFrameBatchWithFallbackAsync(
+        IReadOnlyList<FrameDetectionJob> batch,
+        ObjectDetectionClient.ObjectDetectionClient objectDetectionClient,
+        CancellationToken cancellationToken)
+    {
+        if (batch.Count == 1)
+            return [await DetectSingleFrameAsync(batch[0], objectDetectionClient, cancellationToken)];
+
+        try
+        {
+            var response = await objectDetectionClient.DetectObjectsBatchAsync(
+                new DetectObjectsBatchRequest
                 {
-                    ImageBase64 = job.ImageBase64,
-                    SessionId = string.Empty,
-                    Fps = 0
+                    Frames = batch
+                        .Select(job => new DetectObjectsBatchFrame
+                        {
+                            FrameIndex = job.FrameIndex,
+                            ImageBase64 = job.ImageBase64
+                        })
+                        .ToList()
                 },
                 cancellationToken);
 
-            await writer.WriteAsync(
-                new FrameDetectionResult(job.FrameIndex, job.TimeSeconds, detections.ToList()),
+            var resultsByFrameIndex = response.ToDictionary(
+                result => result.FrameIndex,
+                result => result.Detections?.ToList() ?? []);
+
+            if (batch.Any(job => !resultsByFrameIndex.ContainsKey(job.FrameIndex)))
+                throw new InvalidOperationException("Batch detection response did not include all requested frames.");
+
+            return batch
+                .Select(job => new FrameDetectionResult(
+                    job.FrameIndex,
+                    job.TimeSeconds,
+                    resultsByFrameIndex.GetValueOrDefault(job.FrameIndex) ?? []))
+                .ToList();
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            logger.LogWarning(
+                ex,
+                "Batch detection failed for {BatchSize} frames. Splitting the batch and retrying.",
+                batch.Count);
+
+            var midpoint = batch.Count / 2;
+            var firstHalf = await DetectFrameBatchWithFallbackAsync(
+                batch.Take(midpoint).ToList(),
+                objectDetectionClient,
+                cancellationToken);
+            var secondHalf = await DetectFrameBatchWithFallbackAsync(
+                batch.Skip(midpoint).ToList(),
+                objectDetectionClient,
                 cancellationToken);
 
-            logger.LogDebug(
-                "Detection worker {WorkerId} processed frame {FrameIndex}. Detections: {DetectionCount}",
-                workerId,
-                job.FrameIndex,
-                detections.Count);
+            return firstHalf.Concat(secondHalf).ToList();
         }
+    }
+
+    private static async Task<FrameDetectionResult> DetectSingleFrameAsync(
+        FrameDetectionJob job,
+        ObjectDetectionClient.ObjectDetectionClient objectDetectionClient,
+        CancellationToken cancellationToken)
+    {
+        var detections = await objectDetectionClient.DetectObjects_detectObjects_postAsync(
+            new DetectRequest
+            {
+                ImageBase64 = job.ImageBase64,
+                SessionId = string.Empty,
+                Fps = 0
+            },
+            cancellationToken);
+
+        return new FrameDetectionResult(job.FrameIndex, job.TimeSeconds, detections.ToList());
     }
 
     private static async Task CompleteResultWriterWhenWorkersCompleteAsync(

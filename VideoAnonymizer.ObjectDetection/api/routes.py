@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from typing import List
-from models import DetectRequest, DetectionResult, TrackRequest
-from services.detection_service import detect_objects
+from models import BatchDetectRequest, BatchDetectionResult, DetectRequest, DetectionResult, TrackRequest
+from services.detection_service import detect_objects, detect_objects_batch
 from services.tracking_service import (
     track_objects,
     reset_tracker,
@@ -23,6 +23,10 @@ def health():
 @router.post("/detectObjects", response_model=List[DetectionResult])
 def detect_objects_endpoint(request: DetectRequest):
     return detect_objects(request)
+
+@router.post("/detectObjectsBatch", response_model=List[BatchDetectionResult])
+def detect_objects_batch_endpoint(request: BatchDetectRequest):
+    return detect_objects_batch(request)
 
 @router.post("/trackObjects", response_model=List[DetectionResult])
 def track_objects_endpoint(request: TrackRequest):
