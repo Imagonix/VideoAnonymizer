@@ -12,7 +12,6 @@ public class CudaRuntimeStateDto
     public string[] ActiveProviders { get; set; } = [];
     public bool CudaProviderAvailable { get; set; }
     public bool CudaExecutionProviderActive { get; set; }
-    public bool RunsOnCpu { get; set; }
     public string? InitializationError { get; set; }
     public string[] MissingDependencies { get; set; } = [];
     public string Recommendation { get; set; } = string.Empty;

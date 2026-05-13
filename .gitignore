@@ -20,3 +20,4 @@ bin
 /VideoAnonymizer.Web.Modules/wwwroot/vue/video-editor/index.js
 /tmp
 /docker-data
+/**/artifacts

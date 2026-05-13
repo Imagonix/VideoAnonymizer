@@ -3,7 +3,7 @@ using VideoAnonymizer.Contracts.Messaging;
 
 namespace VideoAnonymizer.VideoProcessor;
 
-public sealed class AnalyzeVideoHandler(VideoAnalyzer worker) : IMessageHandler<AnalyzeVideo>
+internal sealed class AnalyzeVideoHandler(VideoAnalyzer worker) : IMessageHandler<AnalyzeVideo>
 {
     public Task HandleAsync(AnalyzeVideo message, CancellationToken cancellationToken = default)
     {
