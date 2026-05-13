@@ -62,6 +62,7 @@ internal sealed class VideoAnalyzer(
 
         var trackingResult = await objectTrackingPipeline.RunAsync(
             job.VideoId,
+            job.Path,
             videoMetadata.Fps,
             videoMetadata.TotalFramesToAnalyze,
             lastReportedProgress,
