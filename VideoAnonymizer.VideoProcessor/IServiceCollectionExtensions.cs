@@ -12,6 +12,9 @@ namespace VideoAnonymizer.VideoProcessor
     {
         public static IServiceCollection AddVideoProcessorWorkers(this IServiceCollection services)
         {
+            services.AddSingleton<VideoAnalysisProgressReporter>();
+            services.AddSingleton<VideoAnalysisPipeline>();
+            services.AddSingleton<ObjectTrackingPipeline>();
             services.AddSingletonAsHostedService<VideoAnalyzer>();
             services.AddSingletonAsHostedService<VideoAnonymizer>();
             return services;

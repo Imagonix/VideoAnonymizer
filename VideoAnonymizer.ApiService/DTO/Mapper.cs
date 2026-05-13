@@ -12,6 +12,7 @@ namespace VideoAnonymizer.ApiService.DTO
             return new AnalyzedFrameDto
             {
                 Id = entity.Id,
+                FrameIndex = entity.FrameIndex,
                 TimeSeconds = entity.TimeSeconds,
                 VideoId = entity.VideoId,
                 DetectedObjects = entity.DetectedObjects?
@@ -47,6 +48,7 @@ namespace VideoAnonymizer.ApiService.DTO
             var entity = new AnalyzedFrame
             {
                 Id = dto.Id,
+                FrameIndex = dto.FrameIndex,
                 TimeSeconds = dto.TimeSeconds,
                 VideoId = dto.VideoId,
                 DetectedObjects = dto.DetectedObjects?
@@ -112,6 +114,7 @@ namespace VideoAnonymizer.ApiService.DTO
             ArgumentNullException.ThrowIfNull(entity);
 
             entity.TimeSeconds = dto.TimeSeconds;
+            entity.FrameIndex = dto.FrameIndex;
             entity.VideoId = dto.VideoId;
 
             entity.DetectedObjects = dto.DetectedObjects?

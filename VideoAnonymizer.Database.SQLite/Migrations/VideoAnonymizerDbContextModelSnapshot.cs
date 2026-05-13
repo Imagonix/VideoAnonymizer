@@ -23,6 +23,9 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("FrameIndex")
+                        .HasColumnType("INTEGER");
+
                     b.Property<double>("TimeSeconds")
                         .HasColumnType("REAL");
 

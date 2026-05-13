@@ -94,9 +94,6 @@ namespace VideoAnonymizer.ApiService.DataServices
             [JsonPropertyName("cuda_execution_provider_active")]
             public bool CudaExecutionProviderActive { get; set; }
 
-            [JsonPropertyName("runs_on_cpu")]
-            public bool RunsOnCpu { get; set; }
-
             [JsonPropertyName("initialization_error")]
             public string? InitializationError { get; set; }
 
@@ -123,7 +120,6 @@ namespace VideoAnonymizer.ApiService.DataServices
                     ActiveProviders = ActiveProviders ?? [],
                     CudaProviderAvailable = CudaProviderAvailable,
                     CudaExecutionProviderActive = CudaExecutionProviderActive,
-                    RunsOnCpu = RunsOnCpu,
                     InitializationError = InitializationError,
                     MissingDependencies = MissingDependencies ?? [],
                     Recommendation = Recommendation ?? string.Empty,

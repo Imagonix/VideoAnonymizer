@@ -23,6 +23,7 @@ var objectDetectionUrl = builder.Configuration["services:objectDetection:https:0
 builder.Services.AddHttpClient("objectDetection", client =>
 {
     client.BaseAddress = new Uri(objectDetectionUrl);
+    client.Timeout = TimeSpan.FromMinutes(1);
 });
 
 builder.Services.AddSingleton(sp =>

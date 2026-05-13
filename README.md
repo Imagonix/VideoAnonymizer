@@ -2,7 +2,7 @@
 
 **Local-first video anonymization for faces, built as a full-stack engineering project.**
 
-VideoAnonymizer helps detect faces in videos, review the detections, select which detected objects should be anonymized, and export a blurred version of the video. The standalone variant runs on the user's own machine: videos, extracted frames, detection results, and exports stay local instead of being uploaded to a remote service.
+VideoAnonymizer helps detect faces in videos, review and correct detections, select which detected objects should be blurred, and export a blurred version of the video. The standalone variant runs on the user's own machine: videos, extracted frames, detection results, editor corrections, blur settings, and exports stay local instead of being uploaded to a remote service.
 
 VideoAnonymizer is usable for face anonymization demos and local experimentation, but it is not yet a hardened production privacy product.
 
@@ -44,8 +44,9 @@ See [docker/README.md](docker/README.md) for more details.
 ## Highlights
 
 - local-first privacy workflow: raw videos stay on the user's machine
-- full review loop before anonymization
+- full review and correction loop before blurring
 - Blazor + Vue integration for a rich video editor
+- local persistence for imported videos, editor corrections, and blur settings
 - Python ONNX inference behind a .NET application
 - standalone, Docker, and Aspire-based distributed modes
 - CI pipeline for testing and packaged releases
@@ -56,20 +57,22 @@ VideoAnonymizer currently focuses on **face anonymization**.
 
 What works today:
 
-- upload/select a video
+- import a new video or reopen previously imported local videos
 - analyze frames with a Python object detection service
 - detect faces using an ONNX model
 - review detected objects in a video/timeline UI
-- deselect objects that should not be anonymized
+- deselect objects that should not be blurred
+- add, move, resize, delete, merge, and split bounding boxes/tracks
+- persist editor corrections and blur settings
+- undo/redo editor and blur setting changes through the action history
 - blur selected detections
-- export and download the anonymized video
+- export and download the blurred video
 - run via Docker on any OS, as a standalone local Windows package, or from source as a distributed Aspire app
 
 What is not there yet:
 
-- manual drawing of new boxes
-- moving or resizing detections
 - detection of license plates, addresses, labels, or other sensitive objects
+- production-grade automatic object tracking for difficult footage
 - signed Windows releases without SmartScreen friction
 
 ## Architecture
@@ -86,6 +89,7 @@ In standalone mode:
 
 - processing happens locally on the user's machine
 - user videos are not sent to a remote backend
+- metadata, detections, editor corrections, and blur settings are stored in a local SQLite database
 - the face detection model is downloaded on first start if missing
 - GPU acceleration is used when available, with CPU fallback supported
 - Docker runs this mode cross-platform; the standalone Windows package uses the same local-first architecture
@@ -99,11 +103,11 @@ The distributed variant keeps service boundaries explicit and is orchestrated wi
 - `video processor` - worker service for frame extraction, anonymization, and export
 - `objectDetection` - Python FastAPI computer vision service
 - `RabbitMQ` - asynchronous job queue
-- `PostgreSQL` - metadata and processing state
+- `PostgreSQL` - distributed metadata and processing state
 - `modeldownloader` - startup model provisioning
 - `database migration service` - schema migration on startup
 
-The two modes share the same application concepts while using different infrastructure adapters for persistence and messaging.
+The two modes share the same application concepts while using different infrastructure adapters for persistence and messaging: SQLite/direct messaging in standalone and Docker mode, PostgreSQL/RabbitMQ in distributed mode.
 
 ## Processing Flow
 
@@ -112,9 +116,10 @@ The two modes share the same application concepts while using different infrastr
 3. The video processor extracts frames.
 4. Frames are sent to the Python detection service.
 5. Detected faces are stored and displayed in the review UI.
-6. The user deselects objects that should remain visible.
-7. Selected detections are blurred.
-8. The processed video is exported for download.
+6. The user corrects detections by adding, moving, resizing, deleting, merging, or splitting boxes/tracks.
+7. Editor corrections, selection changes, and blur settings are saved before export.
+8. Selected detections are blurred.
+9. The processed video is exported for download.
 
 ## From Source Code
 
@@ -167,6 +172,8 @@ This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, wor
 - SignalR
 - RabbitMQ for distributed messaging
 - direct messaging abstraction for standalone mode
+- SQLite for standalone and Docker persistence
+- PostgreSQL for distributed persistence
 
 ### Frontend
 
@@ -185,6 +192,7 @@ This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, wor
 ### Infrastructure and Delivery
 
 - .NET Aspire
+- SQLite
 - PostgreSQL
 - RabbitMQ
 - Docker
@@ -202,13 +210,13 @@ This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, wor
 
 In progress:
 
-- manual bounding box editing
+- improved object tracking across frames
 
 Planned:
 
 - license plate detection
 - additional sensitive object categories
-- improved object tracking across frames
+- release signing and packaging polish
 
 ## Project Purpose
 
@@ -231,8 +239,8 @@ VideoAnonymizer is built local-first so you stay in full control of your data. N
 
 | Mode | Storage location | What's there |
 |---|---|---|
-| **Docker** | `./docker-data/` on your host machine (mapped to `/data` in the container) | Source videos, anonymized exports, cached AI model, processing metadata |
-| **Standalone** | `App_Data/` folder next to `VideoAnonymizer.exe` | Same as Docker |
+| **Docker** | `./docker-data/` on your host machine (mapped to `/data` in the container) | Source videos, anonymized exports, cached AI model, processing metadata, editor corrections, blur settings, and `videoanonymizer.db` |
+| **Standalone** | `App_Data/` folder next to `VideoAnonymizer.exe` | Source videos, anonymized exports, processing metadata, editor corrections, blur settings, and `videoanonymizer.db` |
 | **Development** | `VideoAnonymizer.ApiService/App_Data/Uploads/` and `/data` in the project directory | Videos and exports from local dev runs, downloaded AI model |
 
 ### How to clean up

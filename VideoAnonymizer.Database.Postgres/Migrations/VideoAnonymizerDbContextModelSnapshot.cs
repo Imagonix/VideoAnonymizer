@@ -28,6 +28,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("FrameIndex")
+                        .HasColumnType("integer");
+
                     b.Property<double>("TimeSeconds")
                         .HasColumnType("double precision");
 

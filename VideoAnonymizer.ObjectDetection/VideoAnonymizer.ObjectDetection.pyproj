@@ -34,6 +34,7 @@
     <Compile Include="services\model_session.py" />
     <Compile Include="services\postprocessing.py" />
     <Compile Include="services\preprocessing.py" />
+    <Compile Include="services\tracking_service.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="models\" />

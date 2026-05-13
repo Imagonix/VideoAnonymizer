@@ -1,0 +1,680 @@
+using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
+using NUnit.Framework;
+using Reqnroll;
+using VideoAnonymizer.ApiService.Controllers;
+using VideoAnonymizer.ApiService.DataServices;
+using VideoAnonymizer.Contracts;
+using VideoAnonymizer.Contracts.Messaging;
+using VideoAnonymizer.Contracts.RabbitMQ;
+using VideoAnonymizer.Database;
+using VideoAnonymizer.Web.Shared.DTO;
+
+namespace VideoAnonymizer.ApiService.Tests.Steps;
+
+[Binding]
+public sealed class LocalVideoPersistenceStepDefinitions
+{
+    private readonly ScenarioContext _scenarioContext;
+
+    private SqliteConnection Connection
+    {
+        get => _scenarioContext.Get<SqliteConnection>(nameof(Connection));
+        set => _scenarioContext.Set(value, nameof(Connection));
+    }
+
+    private ServiceProvider Services
+    {
+        get => _scenarioContext.Get<ServiceProvider>(nameof(Services));
+        set => _scenarioContext.Set(value, nameof(Services));
+    }
+
+    private ServiceProvider RestartedServices
+    {
+        get => _scenarioContext.Get<ServiceProvider>(nameof(RestartedServices));
+        set => _scenarioContext.Set(value, nameof(RestartedServices));
+    }
+
+    private IDbContextFactory<VideoAnonymizerDbContext> DbFactory
+    {
+        get => _scenarioContext.Get<IDbContextFactory<VideoAnonymizerDbContext>>(nameof(DbFactory));
+        set => _scenarioContext.Set(value, nameof(DbFactory));
+    }
+
+    private string ContentRoot
+    {
+        get => _scenarioContext.Get<string>(nameof(ContentRoot));
+        set => _scenarioContext.Set(value, nameof(ContentRoot));
+    }
+
+    private RecordingMessagePublisher Publisher
+    {
+        get => _scenarioContext.Get<RecordingMessagePublisher>(nameof(Publisher));
+        set => _scenarioContext.Set(value, nameof(Publisher));
+    }
+
+    private Guid VideoId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(VideoId));
+        set => _scenarioContext.Set(value, nameof(VideoId));
+    }
+
+    private Guid OtherVideoId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(OtherVideoId));
+        set => _scenarioContext.Set(value, nameof(OtherVideoId));
+    }
+
+    private Guid FrameId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(FrameId));
+        set => _scenarioContext.Set(value, nameof(FrameId));
+    }
+
+    private Guid SecondFrameId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(SecondFrameId));
+        set => _scenarioContext.Set(value, nameof(SecondFrameId));
+    }
+
+    private Guid ForeignFrameId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(ForeignFrameId));
+        set => _scenarioContext.Set(value, nameof(ForeignFrameId));
+    }
+
+    private Guid ExistingObjectId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(ExistingObjectId));
+        set => _scenarioContext.Set(value, nameof(ExistingObjectId));
+    }
+
+    private Guid AddedObjectId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(AddedObjectId));
+        set => _scenarioContext.Set(value, nameof(AddedObjectId));
+    }
+
+    private Guid SecondObjectId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(SecondObjectId));
+        set => _scenarioContext.Set(value, nameof(SecondObjectId));
+    }
+
+    private Guid ForeignObjectId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(ForeignObjectId));
+        set => _scenarioContext.Set(value, nameof(ForeignObjectId));
+    }
+
+    private string UploadedFileName
+    {
+        get => _scenarioContext.Get<string>(nameof(UploadedFileName));
+        set => _scenarioContext.Set(value, nameof(UploadedFileName));
+    }
+
+    private int DetectionIntervalMs
+    {
+        get => _scenarioContext.Get<int>(nameof(DetectionIntervalMs));
+        set => _scenarioContext.Set(value, nameof(DetectionIntervalMs));
+    }
+
+    private string OriginalPath
+    {
+        get => _scenarioContext.Get<string>(nameof(OriginalPath));
+        set => _scenarioContext.Set(value, nameof(OriginalPath));
+    }
+
+    private string AnonymizedPath
+    {
+        get => _scenarioContext.Get<string>(nameof(AnonymizedPath));
+        set => _scenarioContext.Set(value, nameof(AnonymizedPath));
+    }
+
+    private IActionResult LastResult
+    {
+        get => _scenarioContext.Get<IActionResult>(nameof(LastResult));
+        set => _scenarioContext.Set(value, nameof(LastResult));
+    }
+
+    private IActionResult LastOriginalFileResult
+    {
+        get => _scenarioContext.Get<IActionResult>(nameof(LastOriginalFileResult));
+        set => _scenarioContext.Set(value, nameof(LastOriginalFileResult));
+    }
+
+    private IActionResult LastAnonymizedFileResult
+    {
+        get => _scenarioContext.Get<IActionResult>(nameof(LastAnonymizedFileResult));
+        set => _scenarioContext.Set(value, nameof(LastAnonymizedFileResult));
+    }
+
+    private List<VideoDto> ListedVideos
+    {
+        get => _scenarioContext.Get<List<VideoDto>>(nameof(ListedVideos));
+        set => _scenarioContext.Set(value, nameof(ListedVideos));
+    }
+
+    private List<AnalyzedFrameDto> ListedFrames
+    {
+        get => _scenarioContext.Get<List<AnalyzedFrameDto>>(nameof(ListedFrames));
+        set => _scenarioContext.Set(value, nameof(ListedFrames));
+    }
+
+    public LocalVideoPersistenceStepDefinitions(ScenarioContext scenarioContext)
+    {
+        _scenarioContext = scenarioContext;
+    }
+
+    [BeforeScenario("api_persistence")]
+    public async Task SetUp()
+    {
+        ContentRoot = Path.Combine(TestContext.CurrentContext.WorkDirectory, "persistence-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(ContentRoot);
+
+        Connection = new SqliteConnection("Data Source=:memory:");
+        await Connection.OpenAsync();
+
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<VideoAnonymizerDbContext>(options => options.UseSqlite(Connection));
+        Services = services.BuildServiceProvider();
+        DbFactory = Services.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        await db.Database.EnsureCreatedAsync();
+    }
+
+    [AfterScenario("api_persistence")]
+    public async Task TearDown()
+    {
+        if (_scenarioContext.TryGetValue<ServiceProvider>(nameof(RestartedServices), out var restartedServices))
+        {
+            await restartedServices.DisposeAsync();
+        }
+
+        if (_scenarioContext.TryGetValue<ServiceProvider>(nameof(Services), out var services))
+        {
+            await services.DisposeAsync();
+        }
+
+        if (_scenarioContext.TryGetValue<SqliteConnection>(nameof(Connection), out var connection))
+        {
+            await connection.DisposeAsync();
+        }
+
+        SqliteConnection.ClearAllPools();
+
+        if (_scenarioContext.TryGetValue<string>(nameof(ContentRoot), out var contentRoot)
+            && Directory.Exists(contentRoot))
+        {
+            Directory.Delete(contentRoot, recursive: true);
+        }
+    }
+
+    [Given("a reviewer uploads {string} for object detection every {int} ms")]
+    public async Task GivenAReviewerUploadsForObjectDetectionEveryMs(string fileName, int detectionIntervalMs)
+    {
+        Publisher = new RecordingMessagePublisher();
+        UploadedFileName = fileName;
+        DetectionIntervalMs = detectionIntervalMs;
+        var upload = CreateVideoUpload(fileName);
+
+        LastResult = await CreateVideosController(Publisher)
+            .Analyze(upload, CancellationToken.None, detectionIntervalMs);
+
+        VideoId = GetOkPayload<Guid>(LastResult);
+    }
+
+    [When("the reviewer opens the saved videos list")]
+    public async Task WhenTheReviewerOpensTheSavedVideosList()
+    {
+        ListedVideos = GetOkPayload<List<VideoDto>>(await CreateVideosController().GetVideos());
+    }
+
+    [Then("the uploaded video is listed with the default anonymization settings")]
+    public void ThenTheUploadedVideoIsListedWithDefaultAnonymizationSettings()
+    {
+        ListedVideos.Should().ContainSingle(video =>
+            video.Id == VideoId
+            && video.OriginalFileName == UploadedFileName
+            && video.BlurSizePercent == 120
+            && video.TimeBufferMs == 300);
+    }
+
+    [Then("an analysis job is published for the stored video")]
+    public void ThenAnAnalysisJobIsPublishedForTheStoredVideo()
+    {
+        var published = Publisher.Messages.Should()
+            .ContainSingle(message => message.RoutingKey == RabbitMQConstants.RoutingKeys.Analyze)
+            .Subject;
+
+        var analyze = published.Payload.Should().BeOfType<AnalyzeVideo>().Subject;
+        analyze.VideoId.Should().Be(VideoId);
+        analyze.CaptureIntervalMs.Should().Be(DetectionIntervalMs);
+        File.Exists(analyze.Path).Should().BeTrue();
+    }
+
+    [Given("an imported video named {string}")]
+    public async Task GivenAnImportedVideoNamed(string originalFileName)
+    {
+        VideoId = await SeedVideoAsync(originalFileName: originalFileName);
+    }
+
+    [When("the reviewer changes the blur size to {int} percent and the time buffer to {int} ms")]
+    public async Task WhenTheReviewerChangesTheBlurSizeAndTimeBuffer(int blurSizePercent, int timeBufferMs)
+    {
+        LastResult = await CreateVideosController().UpdateVideoSettings(VideoId, new AnonymizationSettingsDto
+        {
+            BlurSizePercent = blurSizePercent,
+            TimeBufferMs = timeBufferMs
+        });
+    }
+
+    [Then("the saved videos list shows blur size {int} percent and time buffer {int} ms")]
+    public async Task ThenTheSavedVideosListShowsBlurSizeAndTimeBuffer(int blurSizePercent, int timeBufferMs)
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        var videos = GetOkPayload<List<VideoDto>>(await CreateVideosController().GetVideos());
+        videos.Should().ContainSingle(video =>
+            video.Id == VideoId
+            && video.BlurSizePercent == blurSizePercent
+            && video.TimeBufferMs == timeBufferMs);
+    }
+
+    [Then("the database stores blur size {int} percent and time buffer {int} ms")]
+    public async Task ThenTheDatabaseStoresBlurSizeAndTimeBuffer(int blurSizePercent, int timeBufferMs)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var persisted = await db.Videos.SingleAsync(v => v.Id == VideoId);
+        persisted.BlurSizePercent.Should().Be(blurSizePercent);
+        persisted.TimeBufferMs.Should().Be(timeBufferMs);
+    }
+
+    [Given("a reviewed video has one detected face")]
+    public async Task GivenAReviewedVideoHasOneDetectedFace()
+    {
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+
+        await SeedVideoAsync(VideoId, [CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 1)])]);
+    }
+
+    [When("the reviewer adds another face, moves it, deselects it, and deletes the original face")]
+    public async Task WhenTheReviewerAddsMovesDeselectsAndDeletesFaces()
+    {
+        AddedObjectId = Guid.NewGuid();
+        var controller = CreateDetectedObjectsController();
+        var added = CreateObjectDto(AddedObjectId, FrameId, trackId: 2, x: 50, y: 60);
+
+        var addResult = await controller.AddDetectedObject(VideoId, FrameId, added);
+        addResult.Should().BeOfType<CreatedAtActionResult>();
+
+        var updated = CreateObjectDto(AddedObjectId, FrameId, trackId: 2, selected: false, x: 70, y: 80, width: 42, height: 43);
+        var updateResult = await controller.UpdateDetectedObject(VideoId, FrameId, AddedObjectId, updated);
+        updateResult.Should().BeOfType<OkObjectResult>();
+
+        var deleteResult = await controller.DeleteDetectedObject(VideoId, FrameId, ExistingObjectId);
+        deleteResult.Should().BeOfType<OkObjectResult>();
+    }
+
+    [Then("reopening the analyzed video shows only the edited face")]
+    public async Task ThenReopeningTheAnalyzedVideoShowsOnlyTheEditedFace()
+    {
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        ListedFrames.Should().ContainSingle();
+
+        var objects = ListedFrames.Single().DetectedObjects;
+        objects.Should().ContainSingle();
+        objects.Single().Should().BeEquivalentTo(CreateObjectDto(
+            AddedObjectId,
+            FrameId,
+            trackId: 2,
+            selected: false,
+            x: 70,
+            y: 80,
+            width: 42,
+            height: 43));
+    }
+
+    [Given("a reviewed video and another video both have detected faces")]
+    public async Task GivenAReviewedVideoAndAnotherVideoBothHaveDetectedFaces()
+    {
+        VideoId = Guid.NewGuid();
+        OtherVideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        SecondFrameId = Guid.NewGuid();
+        ForeignFrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+        SecondObjectId = Guid.NewGuid();
+        ForeignObjectId = Guid.NewGuid();
+
+        await SeedVideoAsync(VideoId,
+        [
+            CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 1)]),
+            CreateFrame(SecondFrameId, VideoId, [CreateObject(SecondObjectId, SecondFrameId, trackId: 2)])
+        ]);
+        await SeedVideoAsync(OtherVideoId, [CreateFrame(ForeignFrameId, OtherVideoId, [CreateObject(ForeignObjectId, ForeignFrameId, trackId: 9)])]);
+    }
+
+    [When("a bulk edit includes a face from the other video")]
+    public async Task WhenABulkEditIncludesAFaceFromTheOtherVideo()
+    {
+        LastResult = await CreateDetectedObjectsController().BulkUpdateDetectedObjects(VideoId,
+        [
+            CreateObjectDto(ExistingObjectId, FrameId, trackId: 20),
+            CreateObjectDto(ForeignObjectId, ForeignFrameId, trackId: 20)
+        ]);
+    }
+
+    [Then("no face in the reviewed video is partially changed")]
+    public async Task ThenNoFaceInTheReviewedVideoIsPartiallyChanged()
+    {
+        LastResult.Should().BeOfType<NotFoundResult>();
+        await AssertDetectedObjectAsync(ExistingObjectId, obj => obj.TrackId.Should().Be(1));
+    }
+
+    [When("the reviewer bulk edits only faces from the reviewed video")]
+    public async Task WhenTheReviewerBulkEditsOnlyFacesFromTheReviewedVideo()
+    {
+        LastResult = await CreateDetectedObjectsController().BulkUpdateDetectedObjects(VideoId,
+        [
+            CreateObjectDto(ExistingObjectId, FrameId, trackId: 20, selected: false),
+            CreateObjectDto(SecondObjectId, SecondFrameId, trackId: 20, selected: false)
+        ]);
+    }
+
+    [Then("all reviewed video faces are saved together")]
+    public async Task ThenAllReviewedVideoFacesAreSavedTogether()
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        await AssertDetectedObjectAsync(ExistingObjectId, obj =>
+        {
+            obj.TrackId.Should().Be(20);
+            obj.Selected.Should().BeFalse();
+        });
+        await AssertDetectedObjectAsync(SecondObjectId, obj =>
+        {
+            obj.TrackId.Should().Be(20);
+            obj.Selected.Should().BeFalse();
+        });
+    }
+
+    [When("object changes use mismatched route and body identifiers")]
+    public async Task WhenObjectChangesUseMismatchedRouteAndBodyIdentifiers()
+    {
+        var controller = CreateDetectedObjectsController();
+
+        var mismatchedAdd = await controller.AddDetectedObject(
+            VideoId,
+            FrameId,
+            CreateObjectDto(Guid.NewGuid(), Guid.NewGuid(), trackId: 1));
+
+        var mismatchedUpdate = await controller.UpdateDetectedObject(
+            VideoId,
+            FrameId,
+            Guid.NewGuid(),
+            CreateObjectDto(ExistingObjectId, FrameId, trackId: 3));
+
+        var wrongVideo = await controller.UpdateDetectedObject(
+            Guid.NewGuid(),
+            FrameId,
+            ExistingObjectId,
+            CreateObjectDto(ExistingObjectId, FrameId, trackId: 3));
+
+        mismatchedAdd.Should().BeOfType<BadRequestObjectResult>();
+        mismatchedUpdate.Should().BeOfType<BadRequestObjectResult>();
+        wrongVideo.Should().BeOfType<NotFoundResult>();
+    }
+
+    [Then("the object changes are rejected")]
+    public async Task ThenTheObjectChangesAreRejected()
+    {
+        await AssertDetectedObjectAsync(ExistingObjectId, obj => obj.TrackId.Should().Be(1));
+    }
+
+    [Given("a saved video has original and anonymized file paths")]
+    public async Task GivenASavedVideoHasOriginalAndAnonymizedFilePaths()
+    {
+        VideoId = Guid.NewGuid();
+        OriginalPath = WriteVideoFile("source.mp4");
+        AnonymizedPath = WriteVideoFile("source_anonymized.mp4");
+        await SeedVideoAsync(VideoId, sourcePath: OriginalPath, anonymizedPath: AnonymizedPath);
+    }
+
+    [When("the viewer requests the original and anonymized files")]
+    public async Task WhenTheViewerRequestsTheOriginalAndAnonymizedFiles()
+    {
+        var controller = CreateVideosController();
+        LastOriginalFileResult = await controller.GetOriginalVideo(VideoId);
+        LastAnonymizedFileResult = await controller.GetAnonymizedVideo(VideoId);
+    }
+
+    [Then("the API streams both persisted video files")]
+    public void ThenTheApiStreamsBothPersistedVideoFiles()
+    {
+        var originalFile = LastOriginalFileResult.Should().BeOfType<PhysicalFileResult>().Subject;
+        originalFile.FileName.Should().Be(OriginalPath);
+        originalFile.FileDownloadName.Should().Be("source.mp4");
+        originalFile.ContentType.Should().StartWith("video/");
+
+        var anonymizedFile = LastAnonymizedFileResult.Should().BeOfType<PhysicalFileResult>().Subject;
+        anonymizedFile.FileName.Should().Be(AnonymizedPath);
+        anonymizedFile.FileDownloadName.Should().Be("source_anonymized.mp4");
+        anonymizedFile.ContentType.Should().StartWith("video/");
+    }
+
+    [Given("a file-backed local database contains a reviewed video")]
+    public async Task GivenAFileBackedLocalDatabaseContainsAReviewedVideo()
+    {
+        var dbPath = Path.Combine(ContentRoot, "restart-proof.db");
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+
+        await using var firstProvider = CreateFileBackedSqliteProvider(dbPath);
+        var dbFactory = firstProvider.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
+        await using var db = await dbFactory.CreateDbContextAsync();
+        await db.Database.MigrateAsync();
+        db.Videos.Add(CreateVideo(VideoId,
+            originalFileName: "after-restart.mp4",
+            frames: [CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 12)])],
+            blurSizePercent: 190,
+            timeBufferMs: 700));
+        await db.SaveChangesAsync();
+    }
+
+    [When("the API services are recreated")]
+    public void WhenTheApiServicesAreRecreated()
+    {
+        var dbPath = Path.Combine(ContentRoot, "restart-proof.db");
+        RestartedServices = CreateFileBackedSqliteProvider(dbPath);
+    }
+
+    [Then("the saved video, settings, frame and face are still available")]
+    public async Task ThenTheSavedVideoSettingsFrameAndFaceAreStillAvailable()
+    {
+        var restartedFactory = RestartedServices.GetRequiredService<IDbContextFactory<VideoAnonymizerDbContext>>();
+        var videoDataService = new VideoDataService(restartedFactory);
+
+        var videos = await videoDataService.GetVideos();
+        videos.Should().ContainSingle(video =>
+            video.Id == VideoId
+            && video.OriginalFileName == "after-restart.mp4"
+            && video.BlurSizePercent == 190
+            && video.TimeBufferMs == 700);
+
+        var frames = await videoDataService.GetAnalyzedVideo(VideoId);
+        frames.Should().ContainSingle(frame =>
+            frame.Id == FrameId
+            && frame.DetectedObjects.Single().Id == ExistingObjectId
+            && frame.DetectedObjects.Single().TrackId == 12);
+    }
+
+    private VideosController CreateVideosController(RecordingMessagePublisher? publisher = null) =>
+        new(
+            publisher ?? new RecordingMessagePublisher(),
+            new TestWebHostEnvironment(ContentRoot),
+            new VideoDataService(DbFactory));
+
+    private DetectedObjectsController CreateDetectedObjectsController() =>
+        new(new DetectedObjectDataService(DbFactory));
+
+    private async Task<Guid> SeedVideoAsync(
+        string originalFileName = "sample.mp4",
+        string? sourcePath = null,
+        string? anonymizedPath = null)
+    {
+        var videoId = Guid.NewGuid();
+        await SeedVideoAsync(videoId, sourcePath: sourcePath, anonymizedPath: anonymizedPath, originalFileName: originalFileName);
+        return videoId;
+    }
+
+    private async Task SeedVideoAsync(
+        Guid videoId,
+        IReadOnlyList<AnalyzedFrame>? frames = null,
+        string? sourcePath = null,
+        string? anonymizedPath = null,
+        string originalFileName = "sample.mp4")
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Videos.Add(CreateVideo(videoId, originalFileName, frames, sourcePath, anonymizedPath));
+        await db.SaveChangesAsync();
+    }
+
+    private Video CreateVideo(
+        Guid videoId,
+        string originalFileName = "sample.mp4",
+        IReadOnlyList<AnalyzedFrame>? frames = null,
+        string? sourcePath = null,
+        string? anonymizedPath = null,
+        int blurSizePercent = 120,
+        int timeBufferMs = 300)
+    {
+        return new Video
+        {
+            Id = videoId,
+            SourcePath = sourcePath ?? WriteVideoFile($"{videoId}.mp4"),
+            AnonomizedPath = anonymizedPath,
+            OriginalFileName = originalFileName,
+            BlurSizePercent = blurSizePercent,
+            TimeBufferMs = timeBufferMs,
+            AnalyzedFrames = frames?.ToList() ?? []
+        };
+    }
+
+    private static AnalyzedFrame CreateFrame(Guid frameId, Guid videoId, IReadOnlyList<DetectedObject> objects) =>
+        new()
+        {
+            Id = frameId,
+            VideoId = videoId,
+            TimeSeconds = 1.25,
+            DetectedObjects = objects.ToList()
+        };
+
+    private static DetectedObject CreateObject(Guid objectId, Guid frameId, int trackId, bool selected = true) =>
+        new()
+        {
+            Id = objectId,
+            AnalyzedFrameId = frameId,
+            Confidence = 0.95,
+            ClassName = "face",
+            Selected = selected,
+            TrackId = trackId,
+            X = 10,
+            Y = 20,
+            Width = 30,
+            Height = 40
+        };
+
+    private static DetectedObjectDto CreateObjectDto(
+        Guid objectId,
+        Guid frameId,
+        int trackId,
+        bool selected = true,
+        int x = 10,
+        int y = 20,
+        int width = 30,
+        int height = 40) =>
+        new()
+        {
+            Id = objectId,
+            AnalyzedFrameId = frameId,
+            Confidence = 0.95,
+            ClassName = "face",
+            Selected = selected,
+            TrackId = trackId,
+            X = x,
+            Y = y,
+            Width = width,
+            Height = height
+        };
+
+    private static T GetOkPayload<T>(IActionResult result)
+    {
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = ok.Value.Should().BeAssignableTo<ApiResponse<T>>().Subject;
+        response.Payload.Should().NotBeNull();
+        return response.Payload!;
+    }
+
+    private async Task AssertDetectedObjectAsync(Guid objectId, Action<DetectedObject> assertion)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var entity = await db.DetectedObjects.SingleAsync(o => o.Id == objectId);
+        assertion(entity);
+    }
+
+    private FormFile CreateVideoUpload(string fileName)
+    {
+        var bytes = new byte[] { 0, 1, 2, 3, 4, 5 };
+        var stream = new MemoryStream(bytes);
+        return new FormFile(stream, 0, bytes.Length, "video", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "video/mp4"
+        };
+    }
+
+    private string WriteVideoFile(string fileName)
+    {
+        var path = Path.Combine(ContentRoot, fileName);
+        File.WriteAllBytes(path, [0, 1, 2, 3, 4, 5]);
+        return path;
+    }
+
+    private static ServiceProvider CreateFileBackedSqliteProvider(string dbPath)
+    {
+        var services = new ServiceCollection();
+        services.AddDbContextFactory<VideoAnonymizerDbContext>(options =>
+            options.UseSqlite($"Data Source={dbPath}", sqlite => sqlite.MigrationsAssembly("VideoAnonymizer.Database.SQLite")));
+        return services.BuildServiceProvider();
+    }
+
+    private sealed class RecordingMessagePublisher : IMessagePublisher
+    {
+        public List<(string RoutingKey, object? Payload)> Messages { get; } = [];
+
+        public Task PublishAsync<T>(string routingKey, T message, CancellationToken cancellationToken = default)
+        {
+            Messages.Add((routingKey, message));
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class TestWebHostEnvironment(string contentRootPath) : IWebHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = "Test";
+        public string ApplicationName { get; set; } = "VideoAnonymizer.ApiService.Tests";
+        public string WebRootPath { get; set; } = contentRootPath;
+        public IFileProvider WebRootFileProvider { get; set; } = new NullFileProvider();
+        public string ContentRootPath { get; set; } = contentRootPath;
+        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
+    }
+}
