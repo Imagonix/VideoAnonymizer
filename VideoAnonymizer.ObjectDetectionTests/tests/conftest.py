@@ -4,12 +4,22 @@ from PIL import Image
 import io
 import base64
 import os
+import runpy
 import sys
 from pathlib import Path
 
 root_dir = Path(__file__).resolve().parent.parent.parent
 object_detection_path = root_dir / "VideoAnonymizer.ObjectDetection"
+object_detection_tests_path = root_dir / "VideoAnonymizer.ObjectDetectionTests"
 test_model_path = root_dir / "VideoAnonymizer.ObjectDetectionTests" / "models" / "FaceDetector.onnx"
+
+if not test_model_path.exists():
+    current_directory = Path.cwd()
+    try:
+        os.chdir(object_detection_tests_path)
+        runpy.run_path(str(object_detection_tests_path / "create_dummy_model.py"), run_name="__main__")
+    finally:
+        os.chdir(current_directory)
 
 os.environ["FACE_DETECTOR_MODEL_PATH"] = str(test_model_path)
 
