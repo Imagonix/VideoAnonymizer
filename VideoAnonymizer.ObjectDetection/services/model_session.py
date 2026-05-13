@@ -31,7 +31,10 @@ def cuda_in_use() -> bool:
     return "CUDAExecutionProvider" in ACTIVE_PROVIDERS
 
 def runtime_status() -> dict:
-    nvidia_gpu_detected, gpu_names, driver_version = _detect_nvidia_gpus()
+    nvidia_gpu_detected, gpu_infos, driver_version = _detect_nvidia_gpus()
+    gpu_names = [gpu["name"] for gpu in gpu_infos]
+    primary_gpu_memory_total_mb = gpu_infos[0].get("memory_total_mb") if gpu_infos else None
+    primary_gpu_memory_free_mb = gpu_infos[0].get("memory_free_mb") if gpu_infos else None
     missing_dependencies = _missing_cuda_dependencies()
     cuda_provider_available = cuda_available()
     cuda_execution_provider_active = cuda_in_use()
@@ -52,22 +55,27 @@ def runtime_status() -> dict:
         severity = "warning"
         summary = "No active CUDA execution provider was detected. Object detection will run on CPU."
 
-    return {
+    status = {
         "severity": severity,
         "summary": summary,
         "nvidia_gpu_detected": nvidia_gpu_detected,
+        "gpus": gpu_infos,
         "gpu_names": gpu_names,
+        "gpu_memory_total_mb": primary_gpu_memory_total_mb,
+        "gpu_memory_free_mb": primary_gpu_memory_free_mb,
         "nvidia_driver_version": driver_version,
         "onnxruntime_version": ort.__version__,
         "available_providers": AVAILABLE_PROVIDERS,
         "active_providers": ACTIVE_PROVIDERS,
         "cuda_provider_available": cuda_provider_available,
         "cuda_execution_provider_active": cuda_execution_provider_active,
-        "runs_on_cpu": "CPUExecutionProvider" in ACTIVE_PROVIDERS,
         "initialization_error": SESSION_INITIALIZATION_ERROR,
         "missing_dependencies": missing_dependencies,
-        "recommendation": _recommendation(cuda_execution_provider_active),
-        "installation_hint": [
+    }
+
+    if not cuda_execution_provider_active:
+        status["recommendation"] = _recommendation(cuda_execution_provider_active)
+        status["installation_hint"] = [
             "Install CUDA Toolkit 12.x.",
             "Install cuDNN 9.x for CUDA 12.",
             "Copy or extract cuDNN files into the matching CUDA toolkit folders.",
@@ -75,8 +83,9 @@ def runtime_status() -> dict:
             "Restart the terminal, IDE, or standalone app.",
             "Verify with: where.exe cublasLt64_12.dll",
             "Verify with: where.exe cudnn*.dll",
-        ],
-    }
+        ]
+
+    return status
 
 def _recommendation(cuda_execution_provider_active: bool) -> str:
     if cuda_execution_provider_active:
@@ -87,7 +96,7 @@ def _recommendation(cuda_execution_provider_active: bool) -> str:
         "For this package, install CUDA Toolkit 12.x and cuDNN 9.x for CUDA 12."
     )
 
-def _detect_nvidia_gpus() -> tuple[bool, list[str], str | None]:
+def _detect_nvidia_gpus() -> tuple[bool, list[dict], str | None]:
     candidates = ["nvidia-smi"]
 
     if os.name == "nt":
@@ -99,8 +108,8 @@ def _detect_nvidia_gpus() -> tuple[bool, list[str], str | None]:
             result = subprocess.run(
                 [
                     candidate,
-                    "--query-gpu=name,driver_version",
-                    "--format=csv,noheader",
+                    "--query-gpu=name,driver_version,memory.total,memory.free",
+                    "--format=csv,noheader,nounits",
                 ],
                 capture_output=True,
                 check=False,
@@ -113,22 +122,34 @@ def _detect_nvidia_gpus() -> tuple[bool, list[str], str | None]:
         if result.returncode != 0:
             continue
 
-        gpu_names: list[str] = []
+        gpus: list[dict] = []
         driver_version: str | None = None
 
         for line in result.stdout.splitlines():
-            parts = [part.strip() for part in line.split(",", maxsplit=1)]
+            parts = [part.strip() for part in line.split(",")]
             if not parts or not parts[0]:
                 continue
 
-            gpu_names.append(parts[0])
+            gpu = {
+                "name": parts[0],
+                "memory_total_mb": _parse_int(parts[2]) if len(parts) > 2 else None,
+                "memory_free_mb": _parse_int(parts[3]) if len(parts) > 3 else None,
+            }
+            gpus.append(gpu)
+
             if len(parts) > 1 and parts[1]:
                 driver_version = parts[1]
 
-        if gpu_names:
-            return True, gpu_names, driver_version
+        if gpus:
+            return True, gpus, driver_version
 
     return False, [], None
+
+def _parse_int(value: str) -> int | None:
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 def _missing_cuda_dependencies() -> list[str]:
     if os.name != "nt":

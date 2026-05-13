@@ -22,7 +22,13 @@ internal sealed class VideoAnalysisPipeline(
         int lastReportedProgress,
         CancellationToken cancellationToken)
     {
-        var options = VideoAnalysisPipelineOptions.FromConfiguration(configuration);
+        using var scope = serviceProvider.CreateScope();
+        var objectDetectionClient = scope.ServiceProvider.GetRequiredService<ObjectDetectionClient.ObjectDetectionClient>();
+        var options = await VideoAnalysisPipelineOptions.FromConfigurationAsync(
+            configuration,
+            objectDetectionClient,
+            logger,
+            cancellationToken);
 
         logger.LogInformation(
             "Processing video {VideoPath} with FPS {Fps}. Detection workers: {WorkerCount}, batch size: {BatchSize}, queue capacity: {QueueCapacity}",
@@ -31,9 +37,6 @@ internal sealed class VideoAnalysisPipeline(
             options.WorkerCount,
             options.BatchSize,
             options.QueueCapacity);
-
-        using var scope = serviceProvider.CreateScope();
-        var objectDetectionClient = scope.ServiceProvider.GetRequiredService<ObjectDetectionClient.ObjectDetectionClient>();
 
         using var pipelineCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pipelineToken = pipelineCts.Token;
