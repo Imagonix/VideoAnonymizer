@@ -1,4 +1,4 @@
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis;
 
 internal sealed record ObjectTrackingPipelineOptions(int SaveBatchSize)
 {

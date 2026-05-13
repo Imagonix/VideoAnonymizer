@@ -1,7 +1,7 @@
 using OpenCvSharp;
 using VideoAnonymizer.Database;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Anonymization;
 
 public static class RelevantDetectedObjectSelector
 {

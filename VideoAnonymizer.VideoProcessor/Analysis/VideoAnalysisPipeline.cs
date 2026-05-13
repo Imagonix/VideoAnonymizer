@@ -5,7 +5,7 @@ using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis;
 
 internal sealed class VideoAnalysisPipeline(
     ILogger<VideoAnalysisPipeline> logger,

@@ -3,6 +3,7 @@ using FluentAssertions;
 using Reqnroll;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.VideoProcessor;
+using VideoAnonymizer.VideoProcessor.Anonymization;
 
 namespace VideoAnonymizer.ApiService.Tests.Steps;
 

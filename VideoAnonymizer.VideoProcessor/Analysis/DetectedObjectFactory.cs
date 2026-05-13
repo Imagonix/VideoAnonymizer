@@ -1,7 +1,7 @@
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis;
 
 internal static class DetectedObjectFactory
 {

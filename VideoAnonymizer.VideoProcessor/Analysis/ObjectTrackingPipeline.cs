@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis;
 
 internal sealed class ObjectTrackingPipeline(
     ILogger<ObjectTrackingPipeline> logger,
