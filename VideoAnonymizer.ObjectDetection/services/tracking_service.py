@@ -10,8 +10,7 @@ def track_objects(request: TrackRequest) -> List[DetectionResult]:
     return tracker_manager.track_detections(
         detections_list=request.detections,
         session_id=request.sessionId,
-        fps=request.fps,
-        class_name="face"
+        fps=request.fps
     )
 
 

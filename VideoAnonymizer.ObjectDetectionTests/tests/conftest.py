@@ -3,11 +3,15 @@ from fastapi.testclient import TestClient
 from PIL import Image
 import io
 import base64
+import os
 import sys
 from pathlib import Path
 
 root_dir = Path(__file__).resolve().parent.parent.parent
 object_detection_path = root_dir / "VideoAnonymizer.ObjectDetection"
+test_model_path = root_dir / "VideoAnonymizer.ObjectDetectionTests" / "models" / "FaceDetector.onnx"
+
+os.environ["FACE_DETECTOR_MODEL_PATH"] = str(test_model_path)
 
 if str(object_detection_path) not in sys.path:
     sys.path.insert(0, str(object_detection_path))
