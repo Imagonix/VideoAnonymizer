@@ -134,8 +134,9 @@ defineExpose({
 <style scoped>
 .video-player-video {
   display: block;
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
   background: #000;
 }
 </style>

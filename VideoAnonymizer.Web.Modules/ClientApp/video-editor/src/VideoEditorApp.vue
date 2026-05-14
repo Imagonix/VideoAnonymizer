@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
 import type { VideoDimensions } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
@@ -33,6 +33,72 @@ const videoPlayerRef = ref<{
 } | null>(null);
 
 const videoDimensions = computed(() => videoPlayerRef.value?.videoDimensions ?? null);
+
+const topLayoutRef = ref<HTMLElement | null>(null);
+const rightPanelRef = ref<HTMLElement | null>(null);
+const stageWidth = ref(0);
+const stageHeight = ref(0);
+const videoNaturalWidth = ref(640);
+const videoNaturalHeight = ref(480);
+
+const stageStyle = computed(() => {
+    const w = stageWidth.value;
+    const h = stageHeight.value;
+    return w > 0 && h > 0 ? { width: w + 'px', height: h + 'px' } : undefined;
+});
+
+watch(videoDimensions, (dims) => {
+    if (dims && dims.videoWidth > 0 && dims.videoHeight > 0) {
+        videoNaturalWidth.value = dims.videoWidth;
+        videoNaturalHeight.value = dims.videoHeight;
+        scheduleStageSizeUpdate();
+    }
+});
+
+let resizeObserver: ResizeObserver | null = null;
+
+function scheduleStageSizeUpdate() {
+    requestAnimationFrame(() => requestAnimationFrame(updateStageSize));
+}
+
+function updateStageSize() {
+    const top = topLayoutRef.value;
+    const right = rightPanelRef.value;
+    if (!top || !right) return;
+
+    const topRect = top.getBoundingClientRect();
+    const rightRect = right.getBoundingClientRect();
+
+    const gap = 16;
+    const paddingY = 32;
+
+    const maxWidth = rightRect.left - topRect.left - gap;
+    const maxHeight = topRect.height - paddingY;
+
+    if (maxWidth <= 0 || maxHeight <= 0) return;
+
+    const aspect = videoNaturalWidth.value / videoNaturalHeight.value;
+    let w = maxWidth;
+    let h = w / aspect;
+    if (h > maxHeight) {
+        h = maxHeight;
+        w = h * aspect;
+    }
+
+    stageWidth.value = Math.round(w);
+    stageHeight.value = Math.round(h);
+}
+
+onMounted(() => {
+    scheduleStageSizeUpdate();
+    resizeObserver = new ResizeObserver(updateStageSize);
+    if (topLayoutRef.value) resizeObserver.observe(topLayoutRef.value);
+    if (rightPanelRef.value) resizeObserver.observe(rightPanelRef.value);
+});
+
+onUnmounted(() => {
+    resizeObserver?.disconnect();
+});
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const hoveredTimelineKey = ref<string | null>(null);
@@ -121,8 +187,8 @@ function setVideoVolume(volume: number) {
 
 <template>
     <div class="video-editor" data-testid="video-editor">
-        <div class="top-layout">
-            <div class="video-stage">
+        <div ref="topLayoutRef" class="top-layout">
+            <div class="video-stage" :style="stageStyle">
                 <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded"
                     @play-state-change="onVideoPlayStateChange" @volume-change="onVideoVolumeChange" />
@@ -135,7 +201,7 @@ function setVideoVolume(volume: number) {
                     :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()" />
             </div>
 
-            <div class="right-panel">
+            <div ref="rightPanelRef" class="right-panel">
                 <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects"
                   @toggle="toggleObject"
                   @hover-row="hoveredObjectKey = $event"
@@ -234,13 +300,11 @@ function setVideoVolume(volume: number) {
 
 .video-stage {
     position: relative;
-    display: inline-block;
-    justify-self: start;
-    align-self: start;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     line-height: 0;
     overflow: hidden;
-    max-width: 1200px;
-    max-height: 100%;
 }
 
 .right-panel {
