@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, computed } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
+import type { VideoDimensions } from './types';
 
 const props = defineProps<{
   videoSourceUrl: string;
   currentTime: number;
 }>();
 
+let resizeObserver: ResizeObserver | null = null;
+
 onMounted(() => {
-  videoRef.value?.requestVideoFrameCallback(onFrame)
+  const video = videoRef.value;
+  video?.requestVideoFrameCallback(onFrame);
+  if (!video) return;
+
+  updateVideoDimensions();
+  resizeObserver = new ResizeObserver(updateVideoDimensions);
+  resizeObserver.observe(video);
 })
 
 let stopped = false;
 onUnmounted(() => {
   stopped = true;
+  resizeObserver?.disconnect();
 });
 
 function onFrame(_: number, metadata: VideoFrameCallbackMetadata) {
@@ -32,19 +42,26 @@ const emit = defineEmits<{
 
 const videoRef = ref<HTMLVideoElement | null>(null);
 const isPlaying = ref(false);
+const videoDimensions = ref<VideoDimensions | null>(null);
 
-const videoDimensions = computed(() => {
+function updateVideoDimensions() {
   const el = videoRef.value;
-  if (!el || !el.videoWidth) return null;
-  return {
+  if (!el || !el.videoWidth || !el.videoHeight) {
+    videoDimensions.value = null;
+    return;
+  }
+
+  const rect = el.getBoundingClientRect();
+  videoDimensions.value = {
     videoWidth: el.videoWidth,
     videoHeight: el.videoHeight,
-    displayWidth: el.offsetWidth,
-    displayHeight: el.offsetHeight
+    displayWidth: rect.width,
+    displayHeight: rect.height
   };
-});
+}
 
 function onLoaded() {
+  updateVideoDimensions();
   if (videoRef.value) emit('loaded', videoRef.value.duration);
 }
 

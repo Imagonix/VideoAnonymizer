@@ -35,10 +35,11 @@ function getBlurEllipseStyle(obj: PreviewObject) {
   const centerY = obj.detectedObject.y + obj.detectedObject.height / 2;
   const fillAlpha = obj.activation === 'detected' ? 0.3 : 0.12;
   return {
-    left: `${centerX - expandedWidth / 2}px`,
-    top: `${centerY - expandedHeight / 2}px`,
-    width: `${expandedWidth}px`,
-    height: `${expandedHeight}px`,
+    ...toOverlayRect(
+      centerX - expandedWidth / 2,
+      centerY - expandedHeight / 2,
+      expandedWidth,
+      expandedHeight),
     borderColor: color,
     backgroundColor: color.replace('hsl(', 'hsla(').replace(')', `, ${fillAlpha})`)
   };
@@ -47,12 +48,32 @@ function getBlurEllipseStyle(obj: PreviewObject) {
 function getBoxStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
   return {
-    left: `${obj.detectedObject.x}px`,
-    top: `${obj.detectedObject.y}px`,
-    width: `${obj.detectedObject.width}px`,
-    height: `${obj.detectedObject.height}px`,
+    ...toOverlayRect(
+      obj.detectedObject.x,
+      obj.detectedObject.y,
+      obj.detectedObject.width,
+      obj.detectedObject.height),
     borderColor: color,
     opacity: obj.activation === 'detected' ? 1 : 0.4
+  };
+}
+
+function toOverlayRect(x: number, y: number, width: number, height: number) {
+  const dimensions = props.videoDimensions;
+  if (!dimensions?.videoWidth || !dimensions.videoHeight) {
+    return {
+      left: `${x}px`,
+      top: `${y}px`,
+      width: `${width}px`,
+      height: `${height}px`
+    };
+  }
+
+  return {
+    left: `${(x / dimensions.videoWidth) * 100}%`,
+    top: `${(y / dimensions.videoHeight) * 100}%`,
+    width: `${(width / dimensions.videoWidth) * 100}%`,
+    height: `${(height / dimensions.videoHeight) * 100}%`
   };
 }
 </script>
