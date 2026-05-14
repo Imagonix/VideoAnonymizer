@@ -135,6 +135,7 @@ defineExpose({
 .video-player-video {
   display: block;
   max-width: 100%;
+  max-height: 100%;
   background: #000;
 }
 </style>

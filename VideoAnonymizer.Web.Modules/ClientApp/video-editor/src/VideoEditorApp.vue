@@ -225,7 +225,10 @@ function setVideoVolume(volume: number) {
     grid-template-columns: max-content auto;
     gap: 16px;
     align-items: start;
-    flex: 0 0 auto;
+    flex: 1 1 50%;
+    max-height: 50%;
+    min-height: 0;
+    overflow: hidden;
     padding: 16px;
 }
 
@@ -237,6 +240,7 @@ function setVideoVolume(volume: number) {
     line-height: 0;
     overflow: hidden;
     max-width: 1200px;
+    max-height: 100%;
 }
 
 .right-panel {
@@ -249,7 +253,8 @@ function setVideoVolume(volume: number) {
 .timeline-wrapper {
     display: grid;
     grid-template-columns: 170px 1fr;
-    flex: 1 1 auto;
+    flex: 1 1 50%;
+    max-height: 50%;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
@@ -274,17 +279,17 @@ function setVideoVolume(volume: number) {
 }
 
 .timeline-header-spacer {
+    height: 34px;
+    margin-bottom: 12px;
+}
+
+.timeline-overview-spacer {
     position: sticky;
     top: 60px;
     z-index: 20;
     background: var(--mud-palette-surface);
-    height: 34px;
-    margin-bottom: 12px;
-    isolation: isolate;
-}
-
-.timeline-overview-spacer {
     height: 36px;
     margin-bottom: 8px;
+    isolation: isolate;
 }
 </style>

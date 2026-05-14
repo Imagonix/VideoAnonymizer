@@ -85,7 +85,9 @@ function onClick(e: MouseEvent) {
 <style scoped>
 .timeline-overview {
   margin-right: 9px;
-  position: relative;
+  position: sticky;
+  top: 60px;
+  z-index: 119;
   height: 36px;
   margin-bottom: 8px;
   border: 1px solid var(--mud-palette-lines-default);
