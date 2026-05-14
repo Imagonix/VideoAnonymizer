@@ -24,9 +24,12 @@
                 <SelectedTemplate />
             </MudFileUpload>
 
-            <MudText Typo="Typo.body1">
-                Choose a video file.
-            </MudText>
+            @if (string.IsNullOrWhiteSpace(SelectedFileName))
+            {
+                <MudText Typo="Typo.body1">
+                    Choose a video file.
+                </MudText>
+            }
 
             @if (!string.IsNullOrWhiteSpace(SelectedFileName))
             {
