@@ -38,17 +38,4 @@ internal static class DetectedObjectFactory
         };
     }
 
-    public static DetectionResult ToDetectionResult(DetectedObject detectedObject)
-    {
-        return new DetectionResult
-        {
-            ClassName = detectedObject.ClassName ?? "face",
-            Confidence = detectedObject.Confidence,
-            X = detectedObject.X,
-            Y = detectedObject.Y,
-            Width = detectedObject.Width,
-            Height = detectedObject.Height,
-            TrackId = detectedObject.TrackId
-        };
-    }
 }

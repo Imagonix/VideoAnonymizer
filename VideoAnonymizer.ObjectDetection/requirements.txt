@@ -1,8 +1,7 @@
 fastapi
 uvicorn[standard]
 onnxruntime-gpu
-opencv-python 
-numpy 
+opencv-python
+numpy
 pydantic
-supervision
 debugpy
