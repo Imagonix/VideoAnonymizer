@@ -1,6 +1,6 @@
 using System.Numerics;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Tracking.Appearance;
 
 internal sealed record AppearanceFeature(
     double[] Histogram,

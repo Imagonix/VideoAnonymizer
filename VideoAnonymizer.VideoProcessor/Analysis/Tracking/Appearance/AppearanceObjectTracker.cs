@@ -1,4 +1,4 @@
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Tracking.Appearance;
 
 internal sealed class AppearanceObjectTracker(AppearanceObjectTrackingOptions options)
 {
@@ -151,66 +151,4 @@ internal sealed class AppearanceObjectTracker(AppearanceObjectTrackingOptions op
             sizeSimilarity * options.SizeScoreWeight +
             recencyScore * options.RecencyScoreWeight) / totalWeight;
     }
-
-    private sealed record AssignmentCandidate(
-        int DetectionIndex,
-        AppearanceTrack Track,
-        double Score);
 }
-
-internal sealed class AppearanceTrack(
-    int id,
-    string className,
-    int maxSamplesPerTrack)
-{
-    private readonly Queue<AppearanceTrackSample> _samples = [];
-
-    public int Id { get; } = id;
-    public string ClassName { get; } = className;
-    public TrackBox LastBox { get; private set; }
-    public int LastFrameIndex { get; private set; } = -1;
-    public double LastTimeSeconds { get; private set; }
-
-    public double CalculateBestAppearanceSimilarity(AppearanceFeature feature)
-    {
-        return _samples
-            .Select(sample => AppearanceFeature.Compare(sample.Feature, feature))
-            .DefaultIfEmpty(0)
-            .Max();
-    }
-
-    public void Update(
-        int frameIndex,
-        double timeSeconds,
-        AppearanceDetection detection)
-    {
-        LastFrameIndex = frameIndex;
-        LastTimeSeconds = timeSeconds;
-        LastBox = detection.Box;
-
-        if (detection.AppearanceFeature is null)
-            return;
-
-        _samples.Enqueue(new AppearanceTrackSample(detection.AppearanceFeature));
-        while (_samples.Count > maxSamplesPerTrack)
-            _samples.Dequeue();
-    }
-}
-
-internal sealed record AppearanceTrackSample(AppearanceFeature Feature);
-
-internal sealed record AppearanceDetection(
-    Guid DetectedObjectId,
-    string ClassName,
-    double Confidence,
-    TrackBox Box,
-    AppearanceFeature? AppearanceFeature);
-
-internal readonly record struct TrackBox(int X, int Y, int Width, int Height)
-{
-    public double Area => Math.Max(0, (double)Width) * Math.Max(0, Height);
-    public double Diagonal => Math.Sqrt((double)Width * Width + (double)Height * Height);
-    public TrackPoint Center => new(X + Width / 2.0, Y + Height / 2.0);
-}
-
-internal readonly record struct TrackPoint(double X, double Y);

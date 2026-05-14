@@ -2,7 +2,7 @@ using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Progress;
 
 internal sealed class VideoAnalysisProgressReporter(IMessagePublisher messagePublisher)
 {

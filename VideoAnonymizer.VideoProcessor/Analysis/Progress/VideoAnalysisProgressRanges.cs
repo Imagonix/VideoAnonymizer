@@ -1,4 +1,4 @@
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Progress;
 
 internal static class VideoAnalysisProgressRanges
 {

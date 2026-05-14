@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Detection;
 
 internal sealed record VideoAnalysisPipelineOptions(
     int WorkerCount,
@@ -171,7 +171,4 @@ internal sealed record VideoAnalysisPipelineOptions(
             && bool.TryParse(property.GetString(), out value);
     }
 
-    private sealed record GpuRuntimeInfo(
-        bool CudaExecutionProviderActive,
-        int? GpuMemoryTotalMb);
 }

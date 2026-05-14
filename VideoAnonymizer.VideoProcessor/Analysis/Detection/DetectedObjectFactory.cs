@@ -1,7 +1,7 @@
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Detection;
 
 internal static class DetectedObjectFactory
 {
@@ -52,8 +52,3 @@ internal static class DetectedObjectFactory
         };
     }
 }
-
-internal sealed record FrameDetectionResult(
-    int FrameIndex,
-    double TimeSeconds,
-    IReadOnlyList<DetectionResult> Detections);

@@ -1,6 +1,6 @@
 using OpenCvSharp;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Tracking.Appearance;
 
 internal static class AppearanceFeatureExtractor
 {

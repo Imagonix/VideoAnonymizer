@@ -6,6 +6,10 @@ using System.Text;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.VideoProcessor.Analysis;
+using VideoAnonymizer.VideoProcessor.Analysis.Detection;
+using VideoAnonymizer.VideoProcessor.Analysis.Messaging;
+using VideoAnonymizer.VideoProcessor.Analysis.Progress;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking;
 using VideoAnonymizer.VideoProcessor.Anonymization;
 using VideoAnonymizerWorker = global::VideoAnonymizer.VideoProcessor.Anonymization.VideoAnonymizer;
 

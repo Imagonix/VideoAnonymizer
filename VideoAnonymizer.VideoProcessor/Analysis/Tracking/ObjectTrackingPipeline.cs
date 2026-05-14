@@ -2,8 +2,11 @@ using Microsoft.EntityFrameworkCore;
 using OpenCvSharp;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
+using VideoAnonymizer.VideoProcessor.Analysis.Detection;
+using VideoAnonymizer.VideoProcessor.Analysis.Progress;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking.Appearance;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Tracking;
 
 internal sealed class ObjectTrackingPipeline(
     ILogger<ObjectTrackingPipeline> logger,
@@ -242,7 +245,3 @@ internal sealed class ObjectTrackingPipeline(
         }
     }
 }
-
-internal sealed record ObjectTrackingPipelineResult(
-    int TrackedFrameCount,
-    int LastReportedProgress);

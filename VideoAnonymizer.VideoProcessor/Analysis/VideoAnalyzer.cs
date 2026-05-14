@@ -4,6 +4,9 @@ using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.VideoProcessor;
+using VideoAnonymizer.VideoProcessor.Analysis.Detection;
+using VideoAnonymizer.VideoProcessor.Analysis.Progress;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking;
 
 namespace VideoAnonymizer.VideoProcessor.Analysis;
 

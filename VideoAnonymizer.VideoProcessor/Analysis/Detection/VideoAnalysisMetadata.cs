@@ -1,6 +1,6 @@
 using OpenCvSharp;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Detection;
 
 internal sealed record VideoAnalysisMetadata(
     double Fps,

@@ -4,8 +4,9 @@ using OpenCvSharp;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
+using VideoAnonymizer.VideoProcessor.Analysis.Progress;
 
-namespace VideoAnonymizer.VideoProcessor.Analysis;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Detection;
 
 internal sealed class VideoAnalysisPipeline(
     ILogger<VideoAnalysisPipeline> logger,
@@ -374,12 +375,4 @@ internal sealed class VideoAnalysisPipeline(
         return Convert.ToBase64String(imageBytes);
     }
 
-    private sealed record FrameDetectionJob(
-        int FrameIndex,
-        double TimeSeconds,
-        string ImageBase64);
 }
-
-internal sealed record VideoAnalysisPipelineResult(
-    int SavedFrameCount,
-    int LastReportedProgress);

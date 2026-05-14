@@ -1,6 +1,6 @@
 using FluentAssertions;
 using Reqnroll;
-using VideoAnonymizer.VideoProcessor.Analysis;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking.Appearance;
 
 namespace VideoAnonymizer.ApiService.Tests.Steps;
 
