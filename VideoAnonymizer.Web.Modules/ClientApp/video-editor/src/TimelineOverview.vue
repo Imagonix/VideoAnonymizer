@@ -86,7 +86,7 @@ function onClick(e: MouseEvent) {
 .timeline-overview {
   margin-right: 9px;
   position: sticky;
-  top: 60px;
+  top: 48px;
   z-index: 119;
   height: 36px;
   margin-bottom: 8px;
@@ -94,7 +94,7 @@ function onClick(e: MouseEvent) {
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
+  background: var(--mud-palette-surface);
 }
 
 .timeline-overview-highlight {

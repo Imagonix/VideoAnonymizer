@@ -262,10 +262,12 @@ function setVideoVolume(volume: number) {
 
 .timeline-labels {
     padding: 16px;
+    background: var(--mud-palette-surface);
 }
 
 .timeline-content {
     min-width: 0;
+    background: var(--mud-palette-surface);
 }
 
 .timeline-toolbar-spacer {
@@ -274,7 +276,6 @@ function setVideoVolume(volume: number) {
     z-index: 20;
     background: var(--mud-palette-surface);
     height: 48px;
-    margin-bottom: 12px;
     isolation: isolate;
 }
 
@@ -285,7 +286,7 @@ function setVideoVolume(volume: number) {
 
 .timeline-overview-spacer {
     position: sticky;
-    top: 60px;
+    top: 48px;
     z-index: 20;
     background: var(--mud-palette-surface);
     height: 36px;
