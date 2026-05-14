@@ -144,16 +144,19 @@ internal sealed class ObjectTrackingPipeline(
                 throw;
             }
 
-            lastReportedProgress = await progressReporter.ReportRangeAsync(
-                videoId,
-                videoId,
-                trackedFrameCount,
-                totalFramesToAnalyze,
-                VideoAnalysisProgressRanges.TrackingStart,
-                VideoAnalysisProgressRanges.TrackingEnd,
-                lastReportedProgress,
-                $"Assigned tracks for {trackedFrameCount} of {totalFramesToAnalyze} analyzed frames...",
-                cancellationToken);
+            if (detectionTask.IsCompleted)
+            {
+                lastReportedProgress = await progressReporter.ReportRangeAsync(
+                    videoId,
+                    videoId,
+                    trackedFrameCount,
+                    totalFramesToAnalyze,
+                    VideoAnalysisProgressRanges.TrackingStart,
+                    VideoAnalysisProgressRanges.TrackingEnd,
+                    lastReportedProgress,
+                    $"Assigned tracks for {trackedFrameCount} of {totalFramesToAnalyze} analyzed frames...",
+                    cancellationToken);
+            }
         }
 
         return new ObjectTrackingPipelineResult(trackedFrameCount, lastReportedProgress);

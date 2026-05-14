@@ -48,14 +48,6 @@ internal sealed class VideoAnalyzer(
 
         var consecutiveFrames = new ConsecutiveFrameTracker(videoMetadata.FrameStep);
 
-        lastReportedProgress = await progressReporter.ReportAsync(
-            job.VideoId,
-            job.VideoId,
-            VideoAnalysisProgressRanges.TrackingStart,
-            lastReportedProgress,
-            "Assigning object tracks...",
-            stoppingToken);
-
         var detectionTask = videoAnalysisPipeline.RunAsync(
             job, videoMetadata, lastReportedProgress, consecutiveFrames, stoppingToken);
 
