@@ -22,6 +22,7 @@ internal sealed class VideoAnalysisPipeline(
         AnalyzeVideo job,
         VideoAnalysisMetadata videoMetadata,
         int lastReportedProgress,
+        ConsecutiveFrameTracker consecutiveFrames,
         CancellationToken cancellationToken)
     {
         using var scope = serviceProvider.CreateScope();
@@ -81,6 +82,7 @@ internal sealed class VideoAnalysisPipeline(
             options.SaveBatchSize,
             videoMetadata.TotalFramesToAnalyze,
             lastReportedProgress,
+            consecutiveFrames,
             pipelineToken);
 
         var workersCompletionTask = CompleteResultWriterWhenWorkersCompleteAsync(workerTasks, detectionResults.Writer);
@@ -324,6 +326,7 @@ internal sealed class VideoAnalysisPipeline(
         int batchSize,
         int totalFramesToAnalyze,
         int lastReportedProgress,
+        ConsecutiveFrameTracker consecutiveFrames,
         CancellationToken cancellationToken)
     {
         var batch = new List<FrameDetectionResult>(batchSize);
@@ -352,6 +355,7 @@ internal sealed class VideoAnalysisPipeline(
 
             await db.BulkInsertAsync(frames, new BulkConfig { IncludeGraph = true }, cancellationToken: cancellationToken);
 
+            consecutiveFrames.ReportSaved(batch.Select(r => r.FrameIndex));
             savedFrameCount += batch.Count;
             lastReportedProgress = await progressReporter.ReportRangeAsync(
                 videoId,

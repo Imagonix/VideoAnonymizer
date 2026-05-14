@@ -46,14 +46,7 @@ internal sealed class VideoAnalyzer(
             "Preparing frame analysis...",
             stoppingToken);
 
-        var detectionResult = await videoAnalysisPipeline.RunAsync(
-            job,
-            videoMetadata,
-            lastReportedProgress,
-            stoppingToken);
-        lastReportedProgress = detectionResult.LastReportedProgress;
-
-        stoppingToken.ThrowIfCancellationRequested();
+        var consecutiveFrames = new ConsecutiveFrameTracker(videoMetadata.FrameStep);
 
         lastReportedProgress = await progressReporter.ReportAsync(
             job.VideoId,
@@ -63,15 +56,19 @@ internal sealed class VideoAnalyzer(
             "Assigning object tracks...",
             stoppingToken);
 
-        var trackingResult = await objectTrackingPipeline.RunAsync(
-            job.VideoId,
-            job.Path,
-            videoMetadata.TotalFramesToAnalyze,
-            lastReportedProgress,
-            stoppingToken);
-        lastReportedProgress = trackingResult.LastReportedProgress;
+        var detectionTask = videoAnalysisPipeline.RunAsync(
+            job, videoMetadata, lastReportedProgress, consecutiveFrames, stoppingToken);
 
+        var trackingTask = objectTrackingPipeline.RunAsync(
+            job.VideoId, job.Path, videoMetadata.TotalFramesToAnalyze,
+            lastReportedProgress, consecutiveFrames, detectionTask, stoppingToken);
+
+        await Task.WhenAll(detectionTask, trackingTask);
         stoppingToken.ThrowIfCancellationRequested();
+
+        var detectionResult = await detectionTask;
+        var trackingResult = await trackingTask;
+
         logger.LogInformation(
             "Finished processing video {VideoPath}. Analyzed frames: {ProcessedFrameCount}, tracked frames: {TrackedFrameCount}",
             job.Path,
@@ -82,7 +79,7 @@ internal sealed class VideoAnalyzer(
             job.VideoId,
             job.VideoId,
             VideoAnalysisProgressRanges.TrackingEnd,
-            lastReportedProgress,
+            trackingResult.LastReportedProgress,
             "Finalizing analysis...",
             stoppingToken);
 

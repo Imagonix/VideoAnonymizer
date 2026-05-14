@@ -18,6 +18,8 @@ internal sealed class ObjectTrackingPipeline(
         string videoPath,
         int totalFramesToAnalyze,
         int lastReportedProgress,
+        ConsecutiveFrameTracker consecutiveFrames,
+        Task detectionTask,
         CancellationToken cancellationToken)
     {
         var options = ObjectTrackingPipelineOptions.FromConfiguration(configuration);
@@ -27,6 +29,8 @@ internal sealed class ObjectTrackingPipeline(
             totalFramesToAnalyze,
             options,
             lastReportedProgress,
+            consecutiveFrames,
+            detectionTask,
             cancellationToken);
     }
 
@@ -36,6 +40,8 @@ internal sealed class ObjectTrackingPipeline(
         int totalFramesToAnalyze,
         ObjectTrackingPipelineOptions options,
         int lastReportedProgress,
+        ConsecutiveFrameTracker consecutiveFrames,
+        Task detectionTask,
         CancellationToken cancellationToken)
     {
         if (!File.Exists(videoPath))
@@ -51,16 +57,32 @@ internal sealed class ObjectTrackingPipeline(
 
         while (true)
         {
+            var maxConsecutive = consecutiveFrames.MaxConsecutive;
+            if (maxConsecutive <= lastFrameIndex && detectionTask.IsCompleted)
+                break;
+
+            if (maxConsecutive <= lastFrameIndex)
+            {
+                await Task.Delay(200, cancellationToken);
+                continue;
+            }
+
             await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
             var frames = await db.AnalyzedFrames
                 .Include(frame => frame.DetectedObjects)
-                .Where(frame => frame.VideoId == videoId && frame.FrameIndex > lastFrameIndex)
+                .Where(frame => frame.VideoId == videoId && frame.FrameIndex > lastFrameIndex && frame.FrameIndex <= maxConsecutive)
                 .OrderBy(frame => frame.FrameIndex)
                 .Take(options.SaveBatchSize)
                 .ToListAsync(cancellationToken);
 
             if (frames.Count == 0)
-                break;
+            {
+                if (detectionTask.IsCompleted)
+                    break;
+
+                await Task.Delay(200, cancellationToken);
+                continue;
+            }
 
             var objectLookup = frames
                 .SelectMany(f => f.DetectedObjects)
