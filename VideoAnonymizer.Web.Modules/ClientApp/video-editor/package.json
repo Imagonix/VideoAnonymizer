@@ -16,6 +16,7 @@
     "vue": "^3.0.0"
   },
   "dependencies": {
+    "@rollup/rollup-linux-x64-gnu": "^4.60.3",
     "esbuild": "^0.28.0"
   }
 }

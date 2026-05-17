@@ -120,7 +120,6 @@ function onVolumeInput(e: Event) {
   justify-content: space-between;
   gap: 16px;
   min-height: 48px;
-  margin-bottom: 12px;
   background: var(--mud-palette-surface);
   color: var(--mud-palette-text-primary);
   font-family: var(--mud-typography-default-family);

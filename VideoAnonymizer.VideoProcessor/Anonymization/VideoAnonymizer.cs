@@ -6,8 +6,9 @@ using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.VideoProcessor;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Anonymization;
 
 public class VideoAnonymizer(
     ILogger<VideoAnonymizer> logger,

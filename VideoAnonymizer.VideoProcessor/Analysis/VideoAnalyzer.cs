@@ -3,8 +3,12 @@ using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.VideoProcessor;
+using VideoAnonymizer.VideoProcessor.Analysis.Detection;
+using VideoAnonymizer.VideoProcessor.Analysis.Progress;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis;
 
 internal sealed class VideoAnalyzer(
     ILogger<VideoAnalyzer> logger,
@@ -42,32 +46,21 @@ internal sealed class VideoAnalyzer(
             "Preparing frame analysis...",
             stoppingToken);
 
-        var detectionResult = await videoAnalysisPipeline.RunAsync(
-            job,
-            videoMetadata,
-            lastReportedProgress,
-            stoppingToken);
-        lastReportedProgress = detectionResult.LastReportedProgress;
+        var consecutiveFrames = new ConsecutiveFrameTracker(videoMetadata.FrameStep);
 
+        var detectionTask = videoAnalysisPipeline.RunAsync(
+            job, videoMetadata, lastReportedProgress, consecutiveFrames, stoppingToken);
+
+        var trackingTask = objectTrackingPipeline.RunAsync(
+            job.VideoId, job.Path, videoMetadata.TotalFramesToAnalyze,
+            lastReportedProgress, consecutiveFrames, detectionTask, stoppingToken);
+
+        await Task.WhenAll(detectionTask, trackingTask);
         stoppingToken.ThrowIfCancellationRequested();
 
-        lastReportedProgress = await progressReporter.ReportAsync(
-            job.VideoId,
-            job.VideoId,
-            VideoAnalysisProgressRanges.TrackingStart,
-            lastReportedProgress,
-            "Assigning object tracks...",
-            stoppingToken);
+        var detectionResult = await detectionTask;
+        var trackingResult = await trackingTask;
 
-        var trackingResult = await objectTrackingPipeline.RunAsync(
-            job.VideoId,
-            videoMetadata.Fps,
-            videoMetadata.TotalFramesToAnalyze,
-            lastReportedProgress,
-            stoppingToken);
-        lastReportedProgress = trackingResult.LastReportedProgress;
-
-        stoppingToken.ThrowIfCancellationRequested();
         logger.LogInformation(
             "Finished processing video {VideoPath}. Analyzed frames: {ProcessedFrameCount}, tracked frames: {TrackedFrameCount}",
             job.Path,
@@ -78,7 +71,7 @@ internal sealed class VideoAnalyzer(
             job.VideoId,
             job.VideoId,
             VideoAnalysisProgressRanges.TrackingEnd,
-            lastReportedProgress,
+            trackingResult.LastReportedProgress,
             "Finalizing analysis...",
             stoppingToken);
 

@@ -1,7 +1,7 @@
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Detection;
 
 internal static class DetectedObjectFactory
 {
@@ -38,22 +38,4 @@ internal static class DetectedObjectFactory
         };
     }
 
-    public static DetectionResult ToDetectionResult(DetectedObject detectedObject)
-    {
-        return new DetectionResult
-        {
-            ClassName = detectedObject.ClassName ?? "face",
-            Confidence = detectedObject.Confidence,
-            X = detectedObject.X,
-            Y = detectedObject.Y,
-            Width = detectedObject.Width,
-            Height = detectedObject.Height,
-            TrackId = detectedObject.TrackId
-        };
-    }
 }
-
-internal sealed record FrameDetectionResult(
-    int FrameIndex,
-    double TimeSeconds,
-    IReadOnlyList<DetectionResult> Detections);
