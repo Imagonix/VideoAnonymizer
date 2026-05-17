@@ -18,6 +18,15 @@ internal static class AppearanceFeatureExtractor
         TrackBox box,
         double cropPaddingPercent)
     {
+        using var crop = CreatePaddedCrop(frame, box, cropPaddingPercent);
+        return crop is null ? null : ExtractFromCrop(crop);
+    }
+
+    public static Mat? CreatePaddedCrop(
+        Mat frame,
+        TrackBox box,
+        double cropPaddingPercent)
+    {
         if (frame.Empty())
             return null;
 
@@ -25,7 +34,15 @@ internal static class AppearanceFeatureExtractor
         if (cropRect.Width <= 0 || cropRect.Height <= 0)
             return null;
 
-        using var crop = new Mat(frame, cropRect);
+        using var cropView = new Mat(frame, cropRect);
+        return cropView.Clone();
+    }
+
+    public static AppearanceFeature? ExtractFromCrop(Mat crop)
+    {
+        if (crop.Empty())
+            return null;
+
         using var resized = new Mat();
         Cv2.Resize(crop, resized, new Size(FeatureImageSize, FeatureImageSize));
 
