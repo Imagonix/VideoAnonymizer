@@ -1,7 +1,7 @@
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Anonymization;
 
 public sealed class AnonymizeVideoHandler(VideoAnonymizer worker) : IMessageHandler<AnonymizeVideo>
 {

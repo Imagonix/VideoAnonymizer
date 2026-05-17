@@ -4,7 +4,7 @@ using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Messaging;
 
 internal sealed class AnalyzeVideoConsumer : MessageConsumer<AnalyzeVideo>
 {

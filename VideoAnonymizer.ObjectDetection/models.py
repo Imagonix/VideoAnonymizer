@@ -31,9 +31,3 @@ class DetectionResult(BaseModel):
 class BatchDetectionResult(BaseModel):
     frameIndex: int
     detections: list[DetectionResult]
-
-
-class TrackRequest(BaseModel):
-    detections: list[DetectionResult]
-    sessionId: str
-    fps: float = 25.0

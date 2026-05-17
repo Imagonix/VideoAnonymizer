@@ -132,32 +132,32 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table1 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table4 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table1.AddRow(new string[] {
+                table4.AddRow(new string[] {
                             "0.0",
                             "7",
                             "10"});
-                table1.AddRow(new string[] {
+                table4.AddRow(new string[] {
                             "1.0",
                             "7",
                             "100"});
 #line 8
-    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table1, "Given ");
+    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table4, "Given ");
 #line hidden
 #line 12
     await testRunner.WhenAsync("the processor asks for objects at 0.5 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table2 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table5 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x"});
-                table2.AddRow(new string[] {
+                table5.AddRow(new string[] {
                             "7",
                             "10"});
 #line 13
-    await testRunner.ThenAsync("the relevant objects are", ((string)(null)), table2, "Then ");
+    await testRunner.ThenAsync("the relevant objects are", ((string)(null)), table5, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -183,32 +183,32 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table3 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table6 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table3.AddRow(new string[] {
+                table6.AddRow(new string[] {
                             "0.0",
                             "7",
                             "10"});
-                table3.AddRow(new string[] {
+                table6.AddRow(new string[] {
                             "1.0",
                             "7",
                             "100"});
 #line 18
-    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table3, "Given ");
+    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table6, "Given ");
 #line hidden
 #line 22
     await testRunner.WhenAsync("the processor asks for objects at 1.25 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table4 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table7 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x"});
-                table4.AddRow(new string[] {
+                table7.AddRow(new string[] {
                             "7",
                             "100"});
 #line 23
-    await testRunner.ThenAsync("the relevant objects are", ((string)(null)), table4, "Then ");
+    await testRunner.ThenAsync("the relevant objects are", ((string)(null)), table7, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -234,20 +234,20 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table5 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table8 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table5.AddRow(new string[] {
+                table8.AddRow(new string[] {
                             "0.0",
                             "1",
                             "10"});
-                table5.AddRow(new string[] {
+                table8.AddRow(new string[] {
                             "1.0",
                             "2",
                             "100"});
 #line 28
-    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table5, "Given ");
+    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table8, "Given ");
 #line hidden
 #line 32
     await testRunner.WhenAsync("the processor asks for objects at 1.15 seconds with a 0.25 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
@@ -279,20 +279,20 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table6 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table9 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table6.AddRow(new string[] {
+                table9.AddRow(new string[] {
                             "0.0",
                             "1",
                             "10"});
-                table6.AddRow(new string[] {
+                table9.AddRow(new string[] {
                             "1.0",
                             "2",
                             "100"});
 #line 36
-    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table6, "Given ");
+    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table9, "Given ");
 #line hidden
 #line 40
     await testRunner.WhenAsync("the processor asks for objects at 1.30 seconds with a 0.25 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
@@ -324,20 +324,20 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table7 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table10 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table7.AddRow(new string[] {
+                table10.AddRow(new string[] {
                             "0.0",
                             "1",
                             "10"});
-                table7.AddRow(new string[] {
+                table10.AddRow(new string[] {
                             "1.0",
                             "2",
                             "100"});
 #line 44
-    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table7, "Given ");
+    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table10, "Given ");
 #line hidden
 #line 48
     await testRunner.WhenAsync("the processor asks for objects at -0.10 seconds with a 0.25 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
@@ -369,36 +369,36 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table8 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table11 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table8.AddRow(new string[] {
+                table11.AddRow(new string[] {
                             "0.0",
                             "5",
                             "10"});
-                table8.AddRow(new string[] {
+                table11.AddRow(new string[] {
                             "0.5",
                             "5",
                             "50"});
-                table8.AddRow(new string[] {
+                table11.AddRow(new string[] {
                             "1.0",
                             "5",
                             "100"});
 #line 52
-    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table8, "Given ");
+    await testRunner.GivenAsync("analyzed detections", ((string)(null)), table11, "Given ");
 #line hidden
 #line 57
     await testRunner.WhenAsync("the processor asks for objects at 0.75 seconds with a 0.75 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table9 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table12 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x"});
-                table9.AddRow(new string[] {
+                table12.AddRow(new string[] {
                             "5",
                             "50"});
 #line 58
-    await testRunner.ThenAsync("the relevant objects are", ((string)(null)), table9, "Then ");
+    await testRunner.ThenAsync("the relevant objects are", ((string)(null)), table12, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

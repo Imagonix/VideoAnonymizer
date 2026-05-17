@@ -6,12 +6,12 @@
 @inject IHttpClientFactory HttpClientFactory
 @inject ISnackbar Snackbar
 
-<MudPaper Class="pa-6">
-    <MudStack Spacing="2">
+<MudPaper Class="pa-6" Style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+    <MudStack Spacing="2" Style="flex: 1; min-height: 0;">
         <ReviewExportSettings BlurSizePercent="BlurSizePercent"
-                              BlurSizePercentChanged="OnBlurSizeChanged"
-                              TimeBufferMs="TimeBufferMs"
-                              TimeBufferMsChanged="OnTimeBufferChanged">
+                               BlurSizePercentChanged="OnBlurSizeChanged"
+                               TimeBufferMs="TimeBufferMs"
+                               TimeBufferMsChanged="OnTimeBufferChanged">
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
                 <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
                                       HasErrors="_hasErrors"
@@ -28,7 +28,7 @@
 
         @if (ShowEditor && VideoId.HasValue && !string.IsNullOrWhiteSpace(VideoSourceUrl))
         {
-            <div style="position: relative;">
+            <div style="position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column;">
                 <VideoEditor @ref="_videoEditor"
                              VideoId="@VideoId.Value"
                              VideoSourceUrl="@VideoSourceUrl"

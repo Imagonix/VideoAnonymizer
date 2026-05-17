@@ -1,7 +1,8 @@
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
+using VideoAnonymizer.VideoProcessor.Analysis;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Messaging;
 
 internal sealed class AnalyzeVideoHandler(VideoAnalyzer worker) : IMessageHandler<AnalyzeVideo>
 {

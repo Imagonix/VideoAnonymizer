@@ -18,7 +18,7 @@ hiddenimports = [
     "uvicorn.lifespan.on",
 ]
 
-for package_name in ("onnxruntime", "cv2", "numpy", "fastapi", "pydantic", "supervision"):
+for package_name in ("onnxruntime", "cv2", "numpy", "fastapi", "pydantic"):
     hiddenimports += collect_submodules(package_name)
     datas += collect_data_files(package_name)
     binaries += collect_dynamic_libs(package_name)

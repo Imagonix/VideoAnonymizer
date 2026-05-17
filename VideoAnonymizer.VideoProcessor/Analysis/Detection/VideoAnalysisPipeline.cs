@@ -4,8 +4,9 @@ using OpenCvSharp;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
+using VideoAnonymizer.VideoProcessor.Analysis.Progress;
 
-namespace VideoAnonymizer.VideoProcessor;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Detection;
 
 internal sealed class VideoAnalysisPipeline(
     ILogger<VideoAnalysisPipeline> logger,
@@ -20,6 +21,7 @@ internal sealed class VideoAnalysisPipeline(
         AnalyzeVideo job,
         VideoAnalysisMetadata videoMetadata,
         int lastReportedProgress,
+        ConsecutiveFrameTracker consecutiveFrames,
         CancellationToken cancellationToken)
     {
         using var scope = serviceProvider.CreateScope();
@@ -79,6 +81,7 @@ internal sealed class VideoAnalysisPipeline(
             options.SaveBatchSize,
             videoMetadata.TotalFramesToAnalyze,
             lastReportedProgress,
+            consecutiveFrames,
             pipelineToken);
 
         var workersCompletionTask = CompleteResultWriterWhenWorkersCompleteAsync(workerTasks, detectionResults.Writer);
@@ -322,6 +325,7 @@ internal sealed class VideoAnalysisPipeline(
         int batchSize,
         int totalFramesToAnalyze,
         int lastReportedProgress,
+        ConsecutiveFrameTracker consecutiveFrames,
         CancellationToken cancellationToken)
     {
         var batch = new List<FrameDetectionResult>(batchSize);
@@ -352,6 +356,7 @@ internal sealed class VideoAnalysisPipeline(
             await db.SaveChangesAsync(cancellationToken);
             db.ChangeTracker.Clear();
 
+            consecutiveFrames.ReportSaved(batch.Select(r => r.FrameIndex));
             savedFrameCount += batch.Count;
             lastReportedProgress = await progressReporter.ReportRangeAsync(
                 videoId,
@@ -374,12 +379,4 @@ internal sealed class VideoAnalysisPipeline(
         return Convert.ToBase64String(imageBytes);
     }
 
-    private sealed record FrameDetectionJob(
-        int FrameIndex,
-        double TimeSeconds,
-        string ImageBase64);
 }
-
-internal sealed record VideoAnalysisPipelineResult(
-    int SavedFrameCount,
-    int LastReportedProgress);

@@ -27,14 +27,12 @@
     <Compile Include="core\debugging.py" />
     <Compile Include="main.py" />
     <Compile Include="models.py" />
-    <Compile Include="object_tracker_manager.py" />
     <Compile Include="standalone_entry.py" />
     <Compile Include="services\detection_service.py" />
     <Compile Include="services\image_decoder.py" />
     <Compile Include="services\model_session.py" />
     <Compile Include="services\postprocessing.py" />
     <Compile Include="services\preprocessing.py" />
-    <Compile Include="services\tracking_service.py" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="models\" />

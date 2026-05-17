@@ -85,14 +85,16 @@ function onClick(e: MouseEvent) {
 <style scoped>
 .timeline-overview {
   margin-right: 9px;
-  position: relative;
+  position: sticky;
+  top: 48px;
+  z-index: 119;
   height: 36px;
   margin-bottom: 8px;
   border: 1px solid var(--mud-palette-lines-default);
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
+  background: var(--mud-palette-surface);
 }
 
 .timeline-overview-highlight {
