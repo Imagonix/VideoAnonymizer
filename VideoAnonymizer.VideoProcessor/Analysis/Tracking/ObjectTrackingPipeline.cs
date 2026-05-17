@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using OpenCvSharp;
 using VideoAnonymizer.Database;
@@ -132,9 +131,8 @@ internal sealed class ObjectTrackingPipeline(
                 trackedFrameCount += collectorTask.Result;
                 lastFrameIndex = frames[^1].FrameIndex;
 
-                await db.BulkUpdateAsync(
-                    frames.SelectMany(f => f.DetectedObjects).ToList(),
-                    cancellationToken: cancellationToken);
+                await db.SaveChangesAsync(cancellationToken);
+                db.ChangeTracker.Clear();
             }
             catch
             {

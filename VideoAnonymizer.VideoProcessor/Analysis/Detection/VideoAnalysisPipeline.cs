@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using EFCore.BulkExtensions;
 using Microsoft.EntityFrameworkCore;
 using OpenCvSharp;
 using VideoAnonymizer.Contracts;
@@ -353,7 +352,9 @@ internal sealed class VideoAnalysisPipeline(
                 .Select(result => DetectedObjectFactory.CreateAnalyzedFrame(videoId, result))
                 .ToList();
 
-            await db.BulkInsertAsync(frames, new BulkConfig { IncludeGraph = true }, cancellationToken: cancellationToken);
+            await db.AnalyzedFrames.AddRangeAsync(frames, cancellationToken);
+            await db.SaveChangesAsync(cancellationToken);
+            db.ChangeTracker.Clear();
 
             consecutiveFrames.ReportSaved(batch.Select(r => r.FrameIndex));
             savedFrameCount += batch.Count;
