@@ -12,7 +12,10 @@ internal sealed class ObjectTrackingPipeline(
     IConfiguration configuration,
     VideoAnalysisProgressReporter progressReporter)
 {
+    private const int SaveBatchSize = 16;
     private static readonly TimeSpan FramePollingDelay = TimeSpan.FromMilliseconds(200);
+    private static readonly int FeatureWorkerCount = Math.Max(1, Math.Min(4, Environment.ProcessorCount / 2));
+    private static readonly int QueueCapacity = FeatureWorkerCount * 4;
 
     public async Task<ObjectTrackingPipelineResult> RunAsync(
         Guid videoId,
@@ -23,12 +26,12 @@ internal sealed class ObjectTrackingPipeline(
         Task detectionTask,
         CancellationToken cancellationToken)
     {
-        var options = ObjectTrackingPipelineOptions.FromConfiguration(configuration);
+        var appearanceOptions = AppearanceObjectTrackingOptions.FromConfiguration(configuration);
         return await TrackPersistedFramesByAppearanceAsync(
             videoId,
             videoPath,
             totalFramesToAnalyze,
-            options,
+            appearanceOptions,
             lastReportedProgress,
             consecutiveFrames,
             detectionTask,
@@ -39,7 +42,7 @@ internal sealed class ObjectTrackingPipeline(
         Guid videoId,
         string videoPath,
         int totalFramesToAnalyze,
-        ObjectTrackingPipelineOptions options,
+        AppearanceObjectTrackingOptions appearanceOptions,
         int lastReportedProgress,
         ConsecutiveFrameTracker consecutiveFrames,
         Task detectionTask,
@@ -49,7 +52,7 @@ internal sealed class ObjectTrackingPipeline(
             throw new FileNotFoundException("Video file not found for appearance tracking.", videoPath);
 
         var frameQueue = Channel.CreateBounded<PersistedFrameToTrack>(
-            new BoundedChannelOptions(options.QueueCapacity)
+            new BoundedChannelOptions(QueueCapacity)
             {
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
@@ -57,7 +60,7 @@ internal sealed class ObjectTrackingPipeline(
             });
 
         var featureJobs = Channel.CreateBounded<FeatureExtractionFrameJob>(
-            new BoundedChannelOptions(options.QueueCapacity)
+            new BoundedChannelOptions(QueueCapacity)
             {
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = false,
@@ -65,7 +68,7 @@ internal sealed class ObjectTrackingPipeline(
             });
 
         var trackingResults = Channel.CreateBounded<TrackingFrameResult>(
-            new BoundedChannelOptions(options.QueueCapacity)
+            new BoundedChannelOptions(QueueCapacity)
             {
                 FullMode = BoundedChannelFullMode.Wait,
                 SingleReader = true,
@@ -74,12 +77,11 @@ internal sealed class ObjectTrackingPipeline(
 
         using var pipelineCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pipelineToken = pipelineCts.Token;
-        var tracker = new AppearanceObjectTracker(options.AppearanceTracking);
+        var tracker = new AppearanceObjectTracker(appearanceOptions);
 
         var feederTask = Task.Run(
             () => FeedPersistedFramesAsync(
                 videoId,
-                options,
                 consecutiveFrames,
                 detectionTask,
                 frameQueue.Writer,
@@ -91,11 +93,11 @@ internal sealed class ObjectTrackingPipeline(
                 videoPath,
                 frameQueue.Reader,
                 featureJobs.Writer,
-                options,
+                appearanceOptions,
                 pipelineToken),
             pipelineToken);
 
-        var workerTasks = Enumerable.Range(0, options.FeatureWorkerCount)
+        var workerTasks = Enumerable.Range(0, FeatureWorkerCount)
             .Select(_ => Task.Run(
                 () => ExtractFeaturesFromFramesAsync(
                     featureJobs.Reader,
@@ -110,7 +112,6 @@ internal sealed class ObjectTrackingPipeline(
             videoId,
             trackingResults.Reader,
             tracker,
-            options,
             totalFramesToAnalyze,
             lastReportedProgress,
             detectionTask,
@@ -138,7 +139,6 @@ internal sealed class ObjectTrackingPipeline(
 
     private async Task FeedPersistedFramesAsync(
         Guid videoId,
-        ObjectTrackingPipelineOptions options,
         ConsecutiveFrameTracker consecutiveFrames,
         Task detectionTask,
         ChannelWriter<PersistedFrameToTrack> writer,
@@ -165,7 +165,7 @@ internal sealed class ObjectTrackingPipeline(
                     videoId,
                     lastQueuedFrameIndex,
                     maxFrameIndex,
-                    options.SaveBatchSize,
+                    SaveBatchSize,
                     cancellationToken);
 
                 if (frames.Count == 0)
@@ -252,7 +252,7 @@ internal sealed class ObjectTrackingPipeline(
         string videoPath,
         ChannelReader<PersistedFrameToTrack> reader,
         ChannelWriter<FeatureExtractionFrameJob> writer,
-        ObjectTrackingPipelineOptions options,
+        AppearanceObjectTrackingOptions appearanceOptions,
         CancellationToken cancellationToken)
     {
         Mat? currentFrame = null;
@@ -282,7 +282,7 @@ internal sealed class ObjectTrackingPipeline(
                 var job = CreateFeatureExtractionFrameJob(
                     frame,
                     frameAvailable ? currentFrame : null,
-                    options.AppearanceTracking.CropPaddingPercent);
+                    appearanceOptions.CropPaddingPercent);
 
                 try
                 {
@@ -406,7 +406,6 @@ internal sealed class ObjectTrackingPipeline(
         Guid videoId,
         ChannelReader<TrackingFrameResult> reader,
         AppearanceObjectTracker tracker,
-        ObjectTrackingPipelineOptions options,
         int totalFramesToAnalyze,
         int lastReportedProgress,
         Task detectionTask,
@@ -431,7 +430,7 @@ internal sealed class ObjectTrackingPipeline(
                 trackedFrameCount++;
                 framesSinceSave++;
 
-                if (framesSinceSave >= options.SaveBatchSize)
+                if (framesSinceSave >= SaveBatchSize)
                     await SaveAndReportAsync();
             }
         }
