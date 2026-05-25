@@ -12,8 +12,9 @@ root_dir = Path(__file__).resolve().parent.parent.parent
 object_detection_path = root_dir / "VideoAnonymizer.ObjectDetection"
 object_detection_tests_path = root_dir / "VideoAnonymizer.ObjectDetectionTests"
 test_model_path = root_dir / "VideoAnonymizer.ObjectDetectionTests" / "models" / "FaceDetector.onnx"
+test_model_config_path = test_model_path.with_suffix(".detector.json")
 
-if not test_model_path.exists():
+if not test_model_path.exists() or not test_model_config_path.exists():
     current_directory = Path.cwd()
     try:
         os.chdir(object_detection_tests_path)

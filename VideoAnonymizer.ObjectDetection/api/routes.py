@@ -3,6 +3,7 @@ from typing import List
 from models import BatchDetectRequest, BatchDetectionResult, DetectRequest, DetectionResult
 from services.detection_service import detect_objects, detect_objects_batch
 from services.model_session import cuda_available
+from services.model_session import registry
 from services.model_session import runtime_status
 
 router = APIRouter()
@@ -12,6 +13,7 @@ def health():
     return {
         "status": "running",
         "cuda_available": cuda_available(),
+        "detectors": [detector.config.name for detector in registry.detectors],
         "cuda": runtime_status(),
     }
 
