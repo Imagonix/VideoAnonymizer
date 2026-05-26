@@ -65,17 +65,57 @@ public sealed class RelevantDetectedObjectSelectorInterpolationTests
     }
 
     [Test]
-    public void DoesNotProjectBeforeFirstAnalyzedSample()
+    public void UsesUpcomingTrackWithinBufferBeforeFirstSample()
     {
         var analyzedFrames = new Dictionary<double, List<DetectedObject>>
         {
-            [0.0] = [CreateObject(trackId: 1, x: 10)]
+            [1.0] = [CreateObject(trackId: 1, x: 100, blurShape: "rectangle")]
         };
 
         var result = GetPredictedObjectsAt(
-            timeSeconds: -0.10,
+            timeSeconds: 0.85,
             analyzedFrames,
             timeBufferSeconds: 0.25);
+
+        result.Should().ContainSingle();
+        result[0].Should().BeEquivalentTo(
+            new
+            {
+                TrackId = 1,
+                X = 100,
+                BlurShape = "rectangle"
+            },
+            options => options.ExcludingMissingMembers());
+    }
+
+    [Test]
+    public void DoesNotUseUpcomingTrackOutsideBufferBeforeFirstSample()
+    {
+        var analyzedFrames = new Dictionary<double, List<DetectedObject>>
+        {
+            [1.0] = [CreateObject(trackId: 1, x: 100)]
+        };
+
+        var result = GetPredictedObjectsAt(
+            timeSeconds: 0.70,
+            analyzedFrames,
+            timeBufferSeconds: 0.25);
+
+        result.Should().BeEmpty();
+    }
+
+    [Test]
+    public void DoesNotUseUpcomingTrackWhenBufferIsDisabled()
+    {
+        var analyzedFrames = new Dictionary<double, List<DetectedObject>>
+        {
+            [1.0] = [CreateObject(trackId: 1, x: 100)]
+        };
+
+        var result = GetPredictedObjectsAt(
+            timeSeconds: 0.85,
+            analyzedFrames,
+            timeBufferSeconds: 0);
 
         result.Should().BeEmpty();
     }

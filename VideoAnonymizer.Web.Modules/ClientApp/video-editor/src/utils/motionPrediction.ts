@@ -33,7 +33,17 @@ export function getPredictedBlurPreviewObjects(
     for (const samples of samplesByKey.values()) {
         const orderedSamples = [...samples].sort((a, b) => a.timeSeconds - b.timeSeconds);
         const previous = findPreviousSample(orderedSamples, currentTimeSeconds);
-        if (!previous) continue;
+        if (!previous) {
+            const upcoming = orderedSamples.find(sample => sample.timeSeconds > currentTimeSeconds);
+            if (upcoming && isWithinPreBuffer(currentTimeSeconds, upcoming.timeSeconds, timeBufferSeconds)) {
+                result.push({
+                    detectedObject: { ...upcoming.detectedObject },
+                    activation: 'pre',
+                });
+            }
+
+            continue;
+        }
 
         const next = orderedSamples.find(sample => sample.timeSeconds > currentTimeSeconds);
         if (next && previous.detectedObject.trackId != null) {
@@ -83,6 +93,16 @@ function getCoverageEnd(
     return nextAnalyzedTime == null
         ? Number.POSITIVE_INFINITY
         : nextAnalyzedTime + timeBufferSeconds;
+}
+
+function isWithinPreBuffer(
+    currentTimeSeconds: number,
+    analyzedTimeSeconds: number,
+    timeBufferSeconds: number
+) {
+    return timeBufferSeconds > 0
+        && currentTimeSeconds >= analyzedTimeSeconds - timeBufferSeconds
+        && currentTimeSeconds < analyzedTimeSeconds;
 }
 
 function interpolateObject(

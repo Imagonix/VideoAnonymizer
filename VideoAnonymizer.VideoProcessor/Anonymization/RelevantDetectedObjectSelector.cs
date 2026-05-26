@@ -102,7 +102,15 @@ public static class RelevantDetectedObjectSelector
 
             var previous = orderedSamples.LastOrDefault(sample => sample.TimeSeconds <= currentTime);
             if (previous is null)
+            {
+                var upcoming = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > currentTime);
+                if (upcoming is not null && IsWithinPreBuffer(currentTime, upcoming.TimeSeconds, timeBufferSeconds))
+                {
+                    result.Add(CopyObject(upcoming.DetectedObject));
+                }
+
                 continue;
+            }
 
             var next = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > currentTime);
             if (next is not null && previous.DetectedObject.TrackId is not null)
@@ -189,6 +197,16 @@ public static class RelevantDetectedObjectSelector
         }
 
         return double.MaxValue;
+    }
+
+    private static bool IsWithinPreBuffer(
+        double currentTime,
+        double analyzedTime,
+        double timeBufferSeconds)
+    {
+        return timeBufferSeconds > 0
+            && currentTime >= analyzedTime - timeBufferSeconds
+            && currentTime < analyzedTime;
     }
 
     private static DetectedObject InterpolateObject(

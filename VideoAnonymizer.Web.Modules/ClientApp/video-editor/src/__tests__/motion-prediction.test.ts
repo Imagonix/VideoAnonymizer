@@ -51,12 +51,38 @@ describe('motionPrediction', () => {
         expect(result.map(obj => obj.detectedObject.trackId).sort()).toEqual([1, 2]);
     });
 
-    it('does not project before the first analyzed sample', () => {
+    it('uses upcoming track within buffer before the first sample', () => {
         const frames = [
-            createFrame('f1', 0, [createObject({ trackId: 1, x: 10 })]),
+            createFrame('f1', 1, [createObject({ trackId: 1, x: 100, blurShape: 'rectangle' })]),
         ];
 
-        const result = getPredictedBlurPreviewObjects(frames, -0.1, 0.25);
+        const result = getPredictedBlurPreviewObjects(frames, 0.85, 0.25);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].activation).toBe('pre');
+        expect(result[0].detectedObject).toMatchObject({
+            trackId: 1,
+            x: 100,
+            blurShape: 'rectangle',
+        });
+    });
+
+    it('does not use upcoming track outside buffer before the first sample', () => {
+        const frames = [
+            createFrame('f1', 1, [createObject({ trackId: 1, x: 100 })]),
+        ];
+
+        const result = getPredictedBlurPreviewObjects(frames, 0.7, 0.25);
+
+        expect(result).toHaveLength(0);
+    });
+
+    it('does not use upcoming track when buffer is disabled', () => {
+        const frames = [
+            createFrame('f1', 1, [createObject({ trackId: 1, x: 100 })]),
+        ];
+
+        const result = getPredictedBlurPreviewObjects(frames, 0.85, 0);
 
         expect(result).toHaveLength(0);
     });
