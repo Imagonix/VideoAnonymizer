@@ -53,6 +53,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.Property<Guid>("AnalyzedFrameId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BlurShape")
+                        .HasColumnType("text");
+
                     b.Property<string>("ClassName")
                         .HasColumnType("text");
 

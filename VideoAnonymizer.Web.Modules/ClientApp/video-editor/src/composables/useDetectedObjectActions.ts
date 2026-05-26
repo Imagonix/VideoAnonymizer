@@ -72,15 +72,30 @@ export function useDetectedObjectActions(
         state.onDetectedObjectDeleted?.(state.videoId, obj.analyzedFrameId, obj);
     }
 
+    function getBlurShapeForTrack(trackId: number): string | null {
+        for (const frame of frames.value) {
+            const detectedObject = frame.detectedObjects.find(o => o.trackId === trackId && o.blurShape);
+            if (detectedObject?.blurShape) return detectedObject.blurShape;
+        }
+
+        return null;
+    }
+
     function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
         if (!currentFrame.value) return;
 
         const frame = currentFrame.value;
         const nextTrackId = frames.value.flatMap(f => f.detectedObjects).reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1;
         const frameTrackIds = new Set(frame.detectedObjects.flatMap(o => o.trackId == null ? [] : [o.trackId]));
+        const selectedExistingTrackId = trackId !== 'new' && !frameTrackIds.has(trackId)
+            ? trackId
+            : null;
         const resolvedTrackId = trackId === 'new' || frameTrackIds.has(trackId)
             ? nextTrackId
             : trackId;
+        const blurShape = selectedExistingTrackId == null
+            ? null
+            : getBlurShapeForTrack(selectedExistingTrackId);
         const newObj: DetectedObjectDto = {
             id: crypto.randomUUID(),
             confidence: 1,
@@ -93,6 +108,10 @@ export function useDetectedObjectActions(
             height,
             analyzedFrameId: frame.id,
         };
+
+        if (blurShape) {
+            newObj.blurShape = blurShape;
+        }
 
         frame.detectedObjects.push(newObj);
         state.onDetectedObjectAdded?.(state.videoId, frame.id, newObj);

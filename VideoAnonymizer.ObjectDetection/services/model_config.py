@@ -37,6 +37,7 @@ class DetectorConfig:
     name: str
     model_path: Path
     detector_type: str
+    blur_shape: str
     classes: dict[int, str]
     enabled: bool
     input_size: tuple[int, int]
@@ -121,6 +122,7 @@ def _read_detector_config(model_path: Path, config_path: Path) -> DetectorConfig
         name=name,
         model_path=model_path,
         detector_type=detector_type,
+        blur_shape=_parse_blur_shape(data.get("blurShape"), config_path),
         classes=classes,
         enabled=bool(data.get("enabled", True)),
         input_size=input_size,
@@ -167,6 +169,19 @@ def _parse_input_size(value: Any, config_path: Path) -> tuple[int, int]:
         raise ValueError(f"Detector config {config_path} inputSize values must be positive.")
 
     return (width, height)
+
+
+def _parse_blur_shape(value: Any, config_path: Path) -> str:
+    blur_shape = str(value or "ellipse").strip().lower()
+    if blur_shape == "ellipsis":
+        blur_shape = "ellipse"
+
+    if blur_shape not in {"ellipse", "rectangle"}:
+        raise ValueError(
+            f"Detector config {config_path} blurShape must be 'ellipse' or 'rectangle'."
+        )
+
+    return blur_shape
 
 
 def _parse_optional_positive_int(value: Any, config_path: Path) -> int | None:

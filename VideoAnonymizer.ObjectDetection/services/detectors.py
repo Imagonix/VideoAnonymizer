@@ -139,6 +139,7 @@ class ObjectDetector:
         return {
             "name": self.config.name,
             "type": self.config.detector_type,
+            "blur_shape": self.config.blur_shape,
             "classes": self.config.classes,
             "input": {
                 "name": self.input.name,
@@ -281,6 +282,7 @@ class ObjectDetector:
             self.config.nms_threshold,
             frame.original_width,
             frame.original_height,
+            self.config.blur_shape,
         )
 
     def _postprocess_yolo(
@@ -332,6 +334,7 @@ class ObjectDetector:
             self.config.nms_threshold,
             frame.original_width,
             frame.original_height,
+            self.config.blur_shape,
         )
 
     def _postprocess_yolox(
@@ -403,6 +406,7 @@ class ObjectDetector:
             self.config.nms_threshold,
             frame.original_width,
             frame.original_height,
+            self.config.blur_shape,
         )
 
     def _get_priors(self) -> np.ndarray:
@@ -605,6 +609,7 @@ def _nms_results(
     nms_threshold: float,
     original_width: int,
     original_height: int,
+    blur_shape: str,
 ) -> list[DetectionResult]:
     results: list[DetectionResult] = []
 
@@ -648,6 +653,7 @@ def _nms_results(
                     y=y,
                     width=width,
                     height=height,
+                    blurShape=blur_shape,
                 )
             )
 

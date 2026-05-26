@@ -39,6 +39,7 @@ def test_detectObjects_valid_image(client, detect_request):
         assert "y" in detection
         assert "width" in detection
         assert "height" in detection
+        assert detection["blurShape"] == "ellipse"
         assert "trackId" in detection
 
 def test_detectObjects_empty_image(client):

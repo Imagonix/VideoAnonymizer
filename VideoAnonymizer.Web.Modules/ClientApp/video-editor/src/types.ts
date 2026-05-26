@@ -2,6 +2,7 @@ export type DetectedObjectDto = {
   id: string;
   confidence: number;
   className: string | null;
+  blurShape?: string | null;
   selected: boolean;
   trackId: number | null;
   x: number;

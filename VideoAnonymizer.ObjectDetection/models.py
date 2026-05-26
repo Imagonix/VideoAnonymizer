@@ -22,6 +22,7 @@ class DetectionResult(BaseModel):
     y: int
     width: int
     height: int
+    blurShape: str = "ellipse"
     trackId: Optional[int] = Field(
         default=None,
         json_schema_extra={"type": "integer", "nullable": True}

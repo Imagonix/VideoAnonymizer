@@ -33,6 +33,7 @@ internal static class DetectedObjectFactory
             X = detection.X,
             Y = detection.Y,
             ClassName = detection.ClassName,
+            BlurShape = detection.BlurShape,
             Confidence = detection.Confidence,
             TrackId = detection.TrackId
         };

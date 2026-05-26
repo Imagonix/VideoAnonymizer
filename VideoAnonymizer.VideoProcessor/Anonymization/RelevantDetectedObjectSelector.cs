@@ -63,6 +63,7 @@ public static class RelevantDetectedObjectSelector
                 {
                     Id = obj.Id,
                     TrackId = obj.TrackId,
+                    BlurShape = obj.BlurShape,
                     X = rect.X,
                     Y = rect.Y,
                     Width = rect.Width,

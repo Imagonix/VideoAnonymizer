@@ -26,7 +26,7 @@ function shouldDim(key: string): boolean {
   return true;
 }
 
-function getBlurEllipseStyle(obj: PreviewObject) {
+function getBlurAreaStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
   const scale = props.anonymizationSettings.blurSizePercent / 100;
   const expandedWidth = obj.detectedObject.width * scale;
@@ -43,6 +43,10 @@ function getBlurEllipseStyle(obj: PreviewObject) {
     borderColor: color,
     backgroundColor: color.replace('hsl(', 'hsla(').replace(')', `, ${fillAlpha})`)
   };
+}
+
+function usesRectangleBlur(obj: PreviewObject): boolean {
+  return obj.detectedObject.blurShape?.toLowerCase() === 'rectangle';
 }
 
 function getBoxStyle(obj: PreviewObject) {
@@ -88,7 +92,8 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
         <div
           data-testid="blur-area-outline"
           class="blur-area-outline"
-          :style="getBlurEllipseStyle(obj)"
+          :class="{ 'blur-area-outline--rectangle': usesRectangleBlur(obj) }"
+          :style="getBlurAreaStyle(obj)"
         />
         <div
           data-testid="bounding-box"
@@ -126,5 +131,9 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
   border: 2px solid;
   border-radius: 50%;
   box-sizing: border-box;
+}
+
+.blur-area-outline--rectangle {
+  border-radius: 0;
 }
 </style>

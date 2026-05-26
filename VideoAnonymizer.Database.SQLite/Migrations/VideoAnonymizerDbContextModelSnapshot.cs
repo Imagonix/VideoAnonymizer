@@ -48,6 +48,9 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                     b.Property<Guid>("AnalyzedFrameId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BlurShape")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ClassName")
                         .HasColumnType("TEXT");
 

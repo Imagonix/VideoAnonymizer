@@ -38,6 +38,7 @@ with open("models/FaceDetector.detector.json", "w", encoding="utf-8") as config_
             "name": "face",
             "enabled": True,
             "detectorType": "retinaface",
+            "blurShape": "ellipse",
             "classes": {
                 "0": "face"
             },
