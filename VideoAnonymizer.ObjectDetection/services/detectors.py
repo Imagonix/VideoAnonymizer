@@ -26,6 +26,7 @@ class PreparedFrame:
     input_tensor: np.ndarray
     scale_x: float
     scale_y: float
+    resize_ratio: float
     original_width: int
     original_height: int
 
@@ -138,7 +139,6 @@ class ObjectDetector:
         return {
             "name": self.config.name,
             "type": self.config.detector_type,
-            "model_path": str(self.config.model_path),
             "classes": self.config.classes,
             "input": {
                 "name": self.input.name,
@@ -172,7 +172,25 @@ class ObjectDetector:
         image = frame.image
         original_height, original_width = image.shape[:2]
         input_width, input_height = self.config.input_size
-        resized = cv2.resize(image, (input_width, input_height))
+        resize_ratio = min(input_width / original_width, input_height / original_height)
+
+        if self.config.preprocessing.resize_mode == "letterbox":
+            resized_width = int(original_width * resize_ratio)
+            resized_height = int(original_height * resize_ratio)
+            resized_image = cv2.resize(image, (resized_width, resized_height))
+            resized = np.full(
+                (input_height, input_width, image.shape[2]),
+                self.config.preprocessing.pad_value,
+                dtype=image.dtype,
+            )
+            resized[:resized_height, :resized_width] = resized_image
+        elif self.config.preprocessing.resize_mode == "stretch":
+            resized = cv2.resize(image, (input_width, input_height))
+        else:
+            raise ValueError(
+                f"Unsupported resizeMode '{self.config.preprocessing.resize_mode}' "
+                f"for detector {self.config.name}."
+            )
 
         if self.config.preprocessing.color_format == "rgb":
             resized = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
@@ -200,6 +218,7 @@ class ObjectDetector:
             input_tensor=blob,
             scale_x=original_width / input_width,
             scale_y=original_height / input_height,
+            resize_ratio=resize_ratio,
             original_width=original_width,
             original_height=original_height,
         )
@@ -215,6 +234,9 @@ class ObjectDetector:
 
         if self.config.detector_type == "yolo":
             return self._postprocess_yolo(outputs, frame, batch_index)
+
+        if self.config.detector_type == "yolox":
+            return self._postprocess_yolox(outputs, frame, batch_index)
 
         raise ValueError(f"Unsupported detector type '{self.config.detector_type}'.")
 
@@ -305,6 +327,77 @@ class ObjectDetector:
             boxes[mask],
             scores[mask],
             class_ids[mask],
+            self.config.classes,
+            self.config.confidence_threshold,
+            self.config.nms_threshold,
+            frame.original_width,
+            frame.original_height,
+        )
+
+    def _postprocess_yolox(
+        self,
+        outputs: list[np.ndarray],
+        frame: PreparedFrame,
+        batch_index: int,
+    ) -> list[DetectionResult]:
+        predictions = outputs[0][batch_index]
+        output_config = self.config.yolo_output
+
+        if output_config.layout == "columns":
+            predictions = predictions.transpose()
+        elif output_config.layout != "rows":
+            raise ValueError(
+                f"Unsupported YOLOX output layout '{output_config.layout}' "
+                f"for detector {self.config.name}."
+            )
+
+        if predictions.ndim != 2 or predictions.shape[1] < 5:
+            logger.warning(
+                "Detector %s returned unsupported YOLOX output shape %s.",
+                self.config.name,
+                predictions.shape,
+            )
+            return []
+
+        grids, expanded_strides = _make_yolox_grids_strides(
+            self.config.input_size,
+            output_config.strides,
+        )
+        if grids.shape[0] != predictions.shape[0]:
+            raise ValueError(
+                f"Grid count does not match prediction count for detector {self.config.name}. "
+                f"grids={grids.shape[0]}, predictions={predictions.shape[0]}."
+            )
+
+        raw_boxes = predictions[:, :4].astype(np.float32)
+        decoded_boxes = np.empty_like(raw_boxes)
+        decoded_boxes[:, 0:2] = (raw_boxes[:, 0:2] + grids) * expanded_strides
+        decoded_boxes[:, 2:4] = np.exp(raw_boxes[:, 2:4]) * expanded_strides
+
+        scores, class_ids = _extract_yolox_scores(
+            predictions,
+            output_config,
+            self.config.classes,
+        )
+        mask = scores >= self.config.confidence_threshold
+        if not np.any(mask):
+            return []
+
+        decoded_boxes = decoded_boxes[mask]
+        scores = scores[mask]
+        class_ids = class_ids[mask]
+
+        boxes = np.zeros_like(decoded_boxes)
+        boxes[:, 0] = decoded_boxes[:, 0] - decoded_boxes[:, 2] / 2
+        boxes[:, 1] = decoded_boxes[:, 1] - decoded_boxes[:, 3] / 2
+        boxes[:, 2] = decoded_boxes[:, 0] + decoded_boxes[:, 2] / 2
+        boxes[:, 3] = decoded_boxes[:, 1] + decoded_boxes[:, 3] / 2
+        boxes /= frame.resize_ratio
+
+        return _nms_results(
+            boxes,
+            scores,
+            class_ids,
             self.config.classes,
             self.config.confidence_threshold,
             self.config.nms_threshold,
@@ -448,6 +541,59 @@ def _extract_yolo_scores(
         raise ValueError(f"Unsupported YOLO scoreActivation '{output_config.score_activation}'.")
 
     return scores.astype(np.float32), class_ids
+
+
+def _make_yolox_grids_strides(
+    input_size: tuple[int, int],
+    strides: tuple[int, ...],
+) -> tuple[np.ndarray, np.ndarray]:
+    input_width, input_height = input_size
+    grids: list[np.ndarray] = []
+    expanded_strides: list[np.ndarray] = []
+
+    for stride in strides:
+        grid_height = input_height // stride
+        grid_width = input_width // stride
+        xv, yv = np.meshgrid(np.arange(grid_width), np.arange(grid_height))
+        grid = np.stack((xv, yv), axis=2).reshape(-1, 2)
+        grids.append(grid)
+        expanded_strides.append(np.full((grid.shape[0], 1), stride))
+
+    return (
+        np.concatenate(grids, axis=0).astype(np.float32),
+        np.concatenate(expanded_strides, axis=0).astype(np.float32),
+    )
+
+
+def _extract_yolox_scores(
+    predictions: np.ndarray,
+    output_config: YoloOutputConfig,
+    classes: dict[int, str],
+) -> tuple[np.ndarray, np.ndarray]:
+    objectness = _sigmoid_if_needed(predictions[:, output_config.score_index].astype(np.float32))
+
+    if predictions.shape[1] == 5:
+        scores = objectness
+        class_ids = np.full(len(scores), min(classes.keys()), dtype=np.int32)
+        return scores, class_ids
+
+    class_scores_start = output_config.class_scores_start_index or 5
+    class_scores = _sigmoid_if_needed(predictions[:, class_scores_start:].astype(np.float32))
+    relative_class_ids = np.argmax(class_scores, axis=1)
+    best_class_scores = class_scores[np.arange(class_scores.shape[0]), relative_class_ids]
+
+    scores = objectness * best_class_scores
+    return scores.astype(np.float32), relative_class_ids.astype(np.int32)
+
+
+def _sigmoid_if_needed(values: np.ndarray) -> np.ndarray:
+    if values.size == 0:
+        return values
+
+    if values.min() < 0 or values.max() > 1:
+        return 1 / (1 + np.exp(-values))
+
+    return values
 
 
 def _nms_results(

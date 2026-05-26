@@ -14,6 +14,8 @@ DEFAULT_MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
 class PreprocessingConfig:
     color_format: str = "rgb"
     scale: float = 1.0
+    resize_mode: str = "stretch"
+    pad_value: int = 114
     mean: tuple[float, float, float] | None = None
     std: tuple[float, float, float] | None = None
 
@@ -27,6 +29,7 @@ class YoloOutputConfig:
     class_scores_start_index: int | None = None
     coordinate_scale: str = "auto"
     score_activation: str = "none"
+    strides: tuple[int, ...] = (8, 16, 32)
 
 
 @dataclass(frozen=True)
@@ -102,7 +105,7 @@ def _read_detector_config(model_path: Path, config_path: Path) -> DetectorConfig
         data = json.load(file)
 
     detector_type = str(data.get("detectorType") or data.get("type") or "").strip().lower()
-    if detector_type not in {"retinaface", "yolo"}:
+    if detector_type not in {"retinaface", "yolo", "yolox"}:
         raise ValueError(
             f"Detector config {config_path} has unsupported detectorType '{detector_type}'."
         )
@@ -183,6 +186,8 @@ def _parse_preprocessing(value: dict[str, Any]) -> PreprocessingConfig:
     return PreprocessingConfig(
         color_format=str(value.get("colorFormat", "rgb")).strip().lower(),
         scale=float(value.get("scale", 1.0)),
+        resize_mode=str(value.get("resizeMode", "stretch")).strip().lower(),
+        pad_value=int(value.get("padValue", 114)),
         mean=mean,
         std=std,
     )
@@ -197,6 +202,7 @@ def _parse_yolo_output(value: dict[str, Any]) -> YoloOutputConfig:
         class_scores_start_index=_parse_nullable_int(value.get("classScoresStartIndex")),
         coordinate_scale=str(value.get("coordinateScale", "auto")).strip().lower(),
         score_activation=str(value.get("scoreActivation", "none")).strip().lower(),
+        strides=_parse_strides(value.get("strides")),
     )
 
 
@@ -212,3 +218,17 @@ def _parse_optional_float_triplet(value: Any) -> tuple[float, float, float] | No
         raise ValueError("Expected a three-value numeric array.")
 
     return (float(value[0]), float(value[1]), float(value[2]))
+
+
+def _parse_strides(value: Any) -> tuple[int, ...]:
+    if value is None:
+        return (8, 16, 32)
+
+    if not isinstance(value, list) or not value:
+        raise ValueError("Expected strides to be a non-empty numeric array.")
+
+    strides = tuple(int(stride) for stride in value)
+    if any(stride <= 0 for stride in strides):
+        raise ValueError("Expected strides to contain positive values.")
+
+    return strides
