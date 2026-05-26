@@ -67,7 +67,7 @@ export type TimelineObjectCount = {
 
 export type PreviewObject = {
   detectedObject: DetectedObjectDto;
-  activation: 'detected' | 'pre' | 'post';
+  activation: 'detected' | 'interpolated' | 'pre' | 'post';
 };
 
 export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add';

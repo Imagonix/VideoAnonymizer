@@ -33,7 +33,7 @@ function getBlurAreaStyle(obj: PreviewObject) {
   const expandedHeight = obj.detectedObject.height * scale;
   const centerX = obj.detectedObject.x + obj.detectedObject.width / 2;
   const centerY = obj.detectedObject.y + obj.detectedObject.height / 2;
-  const fillAlpha = obj.activation === 'detected' ? 0.3 : 0.12;
+  const fillAlpha = isPrimaryActivation(obj) ? 0.3 : 0.12;
   return {
     ...toOverlayRect(
       centerX - expandedWidth / 2,
@@ -49,6 +49,10 @@ function usesRectangleBlur(obj: PreviewObject): boolean {
   return obj.detectedObject.blurShape?.toLowerCase() === 'rectangle';
 }
 
+function isPrimaryActivation(obj: PreviewObject): boolean {
+  return obj.activation === 'detected' || obj.activation === 'interpolated';
+}
+
 function getBoxStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
   return {
@@ -58,7 +62,7 @@ function getBoxStyle(obj: PreviewObject) {
       obj.detectedObject.width,
       obj.detectedObject.height),
     borderColor: color,
-    opacity: obj.activation === 'detected' ? 1 : 0.4
+    opacity: isPrimaryActivation(obj) ? 1 : 0.4
   };
 }
 
