@@ -190,7 +190,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 |---|---|
 | `Dockerfile` | Multi-stage build: Vue editor → OpenCvSharpExtern native bridge → .NET publish → runtime |
 | `docker-compose.yml` | Single service, mounts `./docker-data:/data`, exposes port 5117 |
-| `docker/docker-entrypoint.sh` | Starts .NET app (model download), waits for model, then waits for .NET process |
+| `docker/docker-entrypoint.sh` | Seeds bundled detector models, starts .NET app, then waits for .NET process |
 | `docker/appsettings.Docker.json` | Docker config: headless, absolute paths on `/data` volume |
 | `docker/object-detection-wrapper.sh` | Prevents port conflict when .NET app's `ObjectDetectionProcessHostedService` runs |
 | `.dockerignore` | Optimized build context (only source files + project dirs) |
@@ -198,7 +198,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 ### Build & Run
 
 ```bash
-docker compose build     # first build: ~30-60 min (native bridge compilation + model download)
+docker compose build     # first build: ~30-60 min (native bridge compilation)
 docker compose up -d     # start container
 docker compose logs -f   # follow logs
 # Open http://localhost:5117
@@ -213,7 +213,7 @@ Rebuild with `docker compose build` after code changes. The native bridge layer 
 ```
 docker-data/
   App_Data/Uploads/    # uploaded + anonymized videos
-  models/              # downloaded FaceDetector.onnx (persistent)
+  models/              # bundled model copy + additional local detector models
 ```
 
 Symlinked into `/app/` so existing code finds paths without changes. To reset, delete files in `./docker-data/`.
@@ -221,7 +221,7 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 ### Architecture Differences from Standalone
 
 - **OpenCvSharp**: Native bridge (`libOpenCvSharpExtern.so`) built from source via CMake against system OpenCV from apt (not the NuGet `runtime.win` package, which is removed via `sed` in the Dockerfile)
-- **Detection Service**: Launched by .NET's `ObjectDetectionProcessHostedService` (via the wrapper script) after model download completes
+- **Detection Service**: Launched by .NET's `ObjectDetectionProcessHostedService` (via the wrapper script) after bundled model files are available
 - **No browser launch**: `Standalone.OpenBrowser` set to `false`
 - **GPU acceleration**: Runtime based on `nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04` with `onnxruntime-gpu`; requires NVIDIA Container Toolkit and `deploy.resources.reservations.devices` with GPU capabilities in docker-compose
 - **Data directory**: Absolutized to `/data` via `appsettings.Docker.json`; symlinks bridge into `/app/App_Data` and `/app/data`
@@ -238,8 +238,8 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 ### Start-up Order (Container Runtime)
 
 1. Entrypoint creates symlinks: `/app/App_Data` → `/data/App_Data`, `/app/data` → `/data`
-2. `.NET` app starts in background → `StandaloneModelDownloadHostedService` downloads `FaceDetector.onnx` to `/data/models/`
-3. Entrypoint polls for model file (up to 4 min)
+2. Entrypoint copies bundled detector model/config files to `/data/models/` when missing; user-added detector pairs in that folder are preserved
+3. `.NET` app starts in background
 4. `.NET` app's `ObjectDetectionProcessHostedService` starts Python detection service via wrapper script on port 8765
 5. App is ready at `http://localhost:5117`
 

@@ -22,7 +22,7 @@ if not test_model_path.exists() or not test_model_config_path.exists():
     finally:
         os.chdir(current_directory)
 
-os.environ["FACE_DETECTOR_MODEL_PATH"] = str(test_model_path)
+os.environ["MODELS_PATH"] = str(test_model_path.parent)
 
 if str(object_detection_path) not in sys.path:
     sys.path.insert(0, str(object_detection_path))

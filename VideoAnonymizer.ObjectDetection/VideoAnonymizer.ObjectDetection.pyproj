@@ -43,7 +43,8 @@
     <Folder Include="services\" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="models\FaceDetector.onnx" />
+    <Content Include="models\*.detector.json" />
+    <Content Include="models\*.onnx" />
     <Content Include="requirements.txt" />
     <Content Include="requirements-standalone.txt" />
     <Content Include="VideoAnonymizer.ObjectDetection.spec" />

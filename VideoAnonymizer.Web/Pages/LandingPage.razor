@@ -31,8 +31,7 @@ else
     private bool IsReady =>
         _appState is
         {
-            ObjectDetectionApiRunning: true,
-            ModelAvailable: true
+            ObjectDetectionApiRunning: true
         };
 
     protected override async Task OnInitializedAsync()
@@ -92,11 +91,6 @@ else
 
     private string GetLoadingMessage()
     {
-        if (!_appState.ModelAvailable)
-        {
-            return "Preparing Face Recognition Model ...";
-        }
-
         return "Starting AI Service ...";
     }
 

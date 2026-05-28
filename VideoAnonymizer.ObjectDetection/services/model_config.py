@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from core.config import MODELS_PATH
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODELS_DIR = Path(__file__).resolve().parent.parent / "models"
@@ -79,9 +81,13 @@ def load_detector_configs() -> list[DetectorConfig]:
 
 
 def get_models_directory() -> Path:
-    face_model_path = os.getenv("FACE_DETECTOR_MODEL_PATH")
-    if face_model_path:
-        return Path(face_model_path).expanduser().resolve().parent
+    model_path_anchor = os.getenv(MODELS_PATH)
+    if model_path_anchor:
+        resolved_anchor = Path(model_path_anchor).expanduser().resolve()
+        if resolved_anchor.suffix.lower() == ".onnx" or resolved_anchor.is_file():
+            return resolved_anchor.parent
+
+        return resolved_anchor
 
     return DEFAULT_MODELS_DIR.resolve()
 

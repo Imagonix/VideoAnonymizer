@@ -11,19 +11,19 @@ public sealed class ObjectDetectionProcessHostedService(
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var port = configuration.GetValue("ObjectDetection:Port", 8765);
-        var modelPath = ResolvePath(configuration["ObjectDetection:ModelPath"] ?? "data/models/FaceDetector.onnx");
+        var modelPathAnchor = ResolvePath(configuration["ObjectDetection:ModelsPath"] ?? "data/models");
 
-        await WaitForModelAsync(modelPath, stoppingToken);
+        await WaitForDetectorModelsAsync(modelPathAnchor, stoppingToken);
 
         var configuredExecutable = configuration["ObjectDetection:ExecutablePath"] ?? "ObjectDetection/VideoAnonymizer.ObjectDetection.exe";
         var executablePath = ResolvePath(configuredExecutable);
         var workingDirectory = ResolvePath(configuration["ObjectDetection:WorkingDirectory"] ?? Path.GetDirectoryName(executablePath) ?? ".");
 
         var startInfo = File.Exists(executablePath)
-            ? CreateExecutableStartInfo(executablePath, workingDirectory, port, modelPath)
-            : CreateDevelopmentFallbackStartInfo(port, modelPath);
+            ? CreateExecutableStartInfo(executablePath, workingDirectory, port, modelPathAnchor)
+            : CreateDevelopmentFallbackStartInfo(port, modelPathAnchor);
 
-        startInfo.Environment["FACE_DETECTOR_MODEL_PATH"] = modelPath;
+        startInfo.Environment["MODELS_PATH"] = modelPathAnchor;
         startInfo.Environment["PORT"] = port.ToString();
         startInfo.Environment["PYTHON_ENV"] = "Standalone";
         startInfo.Environment["PYTHONUNBUFFERED"] = "1";
@@ -67,19 +67,25 @@ public sealed class ObjectDetectionProcessHostedService(
         base.Dispose();
     }
 
-    private async Task WaitForModelAsync(string modelPath, CancellationToken cancellationToken)
+    private async Task WaitForDetectorModelsAsync(string modelPathAnchor, CancellationToken cancellationToken)
     {
+        var modelsDirectory = ResolveModelsDirectory(modelPathAnchor);
+
         while (!cancellationToken.IsCancellationRequested)
         {
-            if (IsValidModelFile(modelPath))
+            var modelPath = FindFirstValidDetectorModel(modelsDirectory);
+            if (modelPath is not null)
             {
-                logger.LogInformation("Object detection model is available at {ModelPath}.", modelPath);
+                logger.LogInformation(
+                    "Object detection models are available in {ModelsDirectory}. Found detector model {DetectorModelPath}.",
+                    modelsDirectory,
+                    modelPath);
                 return;
             }
 
             logger.LogInformation(
-                "Object detection model is not available yet at {ModelPath}. Waiting for standalone model download.",
-                modelPath);
+                "No valid object detector model/config pair is available yet in {ModelsDirectory}. Waiting for bundled or user-provided model files.",
+                modelsDirectory);
 
             await Task.Delay(TimeSpan.FromSeconds(5), cancellationToken);
         }
@@ -94,7 +100,7 @@ public sealed class ObjectDetectionProcessHostedService(
         return new ProcessStartInfo
         {
             FileName = executablePath,
-            Arguments = $"--host 127.0.0.1 --port {port} --model-path \"{modelPath}\"",
+            Arguments = $"--host 127.0.0.1 --port {port} --models-path \"{modelPath}\"",
             WorkingDirectory = workingDirectory,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -149,6 +155,29 @@ public sealed class ObjectDetectionProcessHostedService(
         return Path.IsPathRooted(path)
             ? path
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, path));
+    }
+
+    private static string ResolveModelsDirectory(string modelPathAnchor)
+    {
+        return string.Equals(Path.GetExtension(modelPathAnchor), ".onnx", StringComparison.OrdinalIgnoreCase)
+            ? Path.GetDirectoryName(modelPathAnchor) ?? modelPathAnchor
+            : modelPathAnchor;
+    }
+
+    private static string? FindFirstValidDetectorModel(string modelsDirectory)
+    {
+        if (!Directory.Exists(modelsDirectory))
+        {
+            return null;
+        }
+
+        return Directory.EnumerateFiles(modelsDirectory, "*.onnx")
+            .OrderBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(modelPath =>
+            {
+                var configPath = Path.ChangeExtension(modelPath, ".detector.json");
+                return IsValidModelFile(modelPath) && IsValidModelFile(configPath);
+            });
     }
 
     private static bool IsValidModelFile(string modelPath)
