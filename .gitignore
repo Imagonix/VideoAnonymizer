@@ -8,7 +8,6 @@ bin
 /VideoAnonymizer.ObjectDetectionTests/models/FaceDetector.onnx
 /data
 /**/__pycache__
-/VideoAnonymizer.ObjectDetection/models
 /**/.bin
 /**/node_modules
 /**/.vite
