@@ -5,7 +5,6 @@ obj
 bin
 /VideoAnonymizer.ObjectDetection/.venv
 /VideoAnonymizer.ApiService/App_Data/Uploads
-/VideoAnonymizer.ObjectDetection/models/FaceDetector.onnx
 /VideoAnonymizer.ObjectDetectionTests/models/FaceDetector.onnx
 /data
 /**/__pycache__
