@@ -109,7 +109,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/RelevantDetectedObjectInterpolation.feature.ndjson", 9);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/RelevantDetectedObjectInterpolation.feature.ndjson", 10);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -132,7 +132,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table13 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table1 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x",
@@ -140,7 +140,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                             "width",
                             "height",
                             "blurShape"});
-                table13.AddRow(new string[] {
+                table1.AddRow(new string[] {
                             "0.0",
                             "7",
                             "10",
@@ -148,7 +148,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                             "30",
                             "40",
                             "rectangle"});
-                table13.AddRow(new string[] {
+                table1.AddRow(new string[] {
                             "1.0",
                             "7",
                             "100",
@@ -157,19 +157,19 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                             "20",
                             "rectangle"});
 #line 8
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table13, "Given ");
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table1, "Given ");
 #line hidden
 #line 12
     await testRunner.WhenAsync("the processor predicts objects at 0.5 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table14 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table2 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x",
                             "y",
                             "width",
                             "height",
                             "blurShape"});
-                table14.AddRow(new string[] {
+                table2.AddRow(new string[] {
                             "7",
                             "55",
                             "40",
@@ -177,7 +177,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                             "30",
                             "rectangle"});
 #line 13
-    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table14, "Then ");
+    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table2, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -203,45 +203,45 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table15 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table3 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table15.AddRow(new string[] {
+                table3.AddRow(new string[] {
                             "0.0",
                             "7",
                             "10"});
-                table15.AddRow(new string[] {
+                table3.AddRow(new string[] {
                             "1.0",
                             "7",
                             "100"});
 #line 18
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table15, "Given ");
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table3, "Given ");
 #line hidden
 #line 22
     await testRunner.WhenAsync("the processor predicts objects at 1.0 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table16 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table4 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x"});
-                table16.AddRow(new string[] {
+                table4.AddRow(new string[] {
                             "7",
                             "100"});
 #line 23
-    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table16, "Then ");
+    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table4, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("The previous track stays visible briefly when no matching next sample exists")]
-        public async global::System.Threading.Tasks.Task ThePreviousTrackStaysVisibleBrieflyWhenNoMatchingNextSampleExists()
+        [global::NUnit.Framework.DescriptionAttribute("Interpolation can be disabled while buffer coverage still applies")]
+        public async global::System.Threading.Tasks.Task InterpolationCanBeDisabledWhileBufferCoverageStillApplies()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "2";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The previous track stays visible briefly when no matching next sample exists", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Interpolation can be disabled while buffer coverage still applies", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 27
@@ -254,25 +254,79 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table17 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table5 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table17.AddRow(new string[] {
+                table5.AddRow(new string[] {
+                            "0.0",
+                            "7",
+                            "10"});
+                table5.AddRow(new string[] {
+                            "1.0",
+                            "7",
+                            "100"});
+#line 28
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table5, "Given ");
+#line hidden
+#line 32
+    await testRunner.AndAsync("object interpolation is disabled", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 33
+    await testRunner.WhenAsync("the processor predicts objects at 0.5 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+                global::Reqnroll.Table table6 = new global::Reqnroll.Table(new string[] {
+                            "trackId",
+                            "x"});
+                table6.AddRow(new string[] {
+                            "7",
+                            "10"});
+#line 34
+    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table6, "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("The previous track stays visible briefly when no matching next sample exists")]
+        public async global::System.Threading.Tasks.Task ThePreviousTrackStaysVisibleBrieflyWhenNoMatchingNextSampleExists()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "3";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The previous track stays visible briefly when no matching next sample exists", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 38
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+                global::Reqnroll.Table table7 = new global::Reqnroll.Table(new string[] {
+                            "timeSeconds",
+                            "trackId",
+                            "x"});
+                table7.AddRow(new string[] {
                             "0.0",
                             "1",
                             "10"});
-                table17.AddRow(new string[] {
+                table7.AddRow(new string[] {
                             "1.0",
                             "2",
                             "100"});
-#line 28
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table17, "Given ");
+#line 39
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table7, "Given ");
 #line hidden
-#line 32
+#line 43
     await testRunner.WhenAsync("the processor predicts objects at 1.15 seconds with a 0.25 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 33
+#line 44
     await testRunner.ThenAsync("the predicted tracks are 1, 2", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -285,11 +339,11 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "3";
+            string pickleIndex = "4";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An upcoming track is used shortly before its first analyzed sample", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 35
+#line 46
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -299,32 +353,32 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table18 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table8 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x",
                             "blurShape"});
-                table18.AddRow(new string[] {
+                table8.AddRow(new string[] {
                             "1.0",
                             "1",
                             "100",
                             "rectangle"});
-#line 36
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table18, "Given ");
+#line 47
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table8, "Given ");
 #line hidden
-#line 39
+#line 50
     await testRunner.WhenAsync("the processor predicts objects at 0.85 seconds with a 0.25 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table19 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table9 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x",
                             "blurShape"});
-                table19.AddRow(new string[] {
+                table9.AddRow(new string[] {
                             "1",
                             "100",
                             "rectangle"});
-#line 40
-    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table19, "Then ");
+#line 51
+    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table9, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -336,11 +390,11 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "4";
+            string pickleIndex = "5";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An upcoming track is not used outside the time buffer", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 44
+#line 55
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -350,21 +404,21 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table20 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table10 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table20.AddRow(new string[] {
+                table10.AddRow(new string[] {
                             "1.0",
                             "1",
                             "100"});
-#line 45
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table20, "Given ");
+#line 56
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table10, "Given ");
 #line hidden
-#line 48
+#line 59
     await testRunner.WhenAsync("the processor predicts objects at 0.70 seconds with a 0.25 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 49
+#line 60
     await testRunner.ThenAsync("no predicted objects are returned", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -377,11 +431,11 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "5";
+            string pickleIndex = "6";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("An upcoming track is not used when the time buffer is disabled", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 51
+#line 62
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -391,21 +445,21 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table21 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table11 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table21.AddRow(new string[] {
+                table11.AddRow(new string[] {
                             "1.0",
                             "1",
                             "100"});
-#line 52
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table21, "Given ");
+#line 63
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table11, "Given ");
 #line hidden
-#line 55
+#line 66
     await testRunner.WhenAsync("the processor predicts objects at 0.85 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 56
+#line 67
     await testRunner.ThenAsync("no predicted objects are returned", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -418,11 +472,11 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "6";
+            string pickleIndex = "7";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Untracked detections keep the latest analyzed box instead of interpolating", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 58
+#line 69
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -432,32 +486,32 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             else
             {
                 await this.ScenarioStartAsync();
-                global::Reqnroll.Table table22 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table12 = new global::Reqnroll.Table(new string[] {
                             "timeSeconds",
                             "trackId",
                             "x"});
-                table22.AddRow(new string[] {
+                table12.AddRow(new string[] {
                             "0.0",
                             "",
                             "10"});
-                table22.AddRow(new string[] {
+                table12.AddRow(new string[] {
                             "1.0",
                             "",
                             "100"});
-#line 59
-    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table22, "Given ");
+#line 70
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table12, "Given ");
 #line hidden
-#line 63
+#line 74
     await testRunner.WhenAsync("the processor predicts objects at 0.5 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-                global::Reqnroll.Table table23 = new global::Reqnroll.Table(new string[] {
+                global::Reqnroll.Table table13 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x"});
-                table23.AddRow(new string[] {
+                table13.AddRow(new string[] {
                             "",
                             "10"});
-#line 64
-    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table23, "Then ");
+#line 75
+    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table13, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

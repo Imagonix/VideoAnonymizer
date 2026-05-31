@@ -19,6 +19,7 @@ namespace VideoAnonymizer.ApiService.DataServices
                 IsStandalone = isStandalone,
                 IsDocker = isDocker,
                 ObjectDetectionApiRunning = pythonApiReadyState.IsReady,
+                InterpolateTrackedObjects = configuration.GetValue("Anonymization:InterpolateTrackedObjects", true),
             };
 
             if (pythonApiReadyState.IsReady)

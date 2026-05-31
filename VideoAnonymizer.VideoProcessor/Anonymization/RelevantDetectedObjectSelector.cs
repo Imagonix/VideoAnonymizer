@@ -40,13 +40,20 @@ public static class RelevantDetectedObjectSelector
         int frameWidth,
         int frameHeight,
         double fps,
-        double timeBufferSeconds)
+        double timeBufferSeconds,
+        bool interpolateTrackedObjects)
     {
-        var sourceObjects = GetPredictedObjectsFromRelevantAnalyzedFrames(
-            analyzedFrames,
-            currentFrameIndex,
-            fps,
-            timeBufferSeconds);
+        var sourceObjects = interpolateTrackedObjects
+            ? GetPredictedObjectsFromRelevantAnalyzedFrames(
+                analyzedFrames,
+                currentFrameIndex,
+                fps,
+                timeBufferSeconds)
+            : GetObjectsFromRelevantAnalyzedFrames(
+                analyzedFrames,
+                currentFrameIndex,
+                fps,
+                timeBufferSeconds);
 
         var result = new List<DetectedObject>();
 

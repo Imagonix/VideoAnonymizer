@@ -23,7 +23,8 @@ export function useBlurPreviewObjects(
         if (!isMove.value) return getPredictedBlurPreviewObjects(
             frames.value,
             currentTime.value,
-            bufferSeconds
+            bufferSeconds,
+            anonymizationSettings.value.interpolateTrackedObjects
         );
 
         return result;

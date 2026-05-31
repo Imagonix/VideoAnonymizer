@@ -24,6 +24,17 @@ Feature: Predicting object positions between analyzed frames
       | trackId | x   |
       | 7       | 100 |
 
+  Scenario: Interpolation can be disabled while buffer coverage still applies
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+    And object interpolation is disabled
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 10 |
+
   Scenario: The previous track stays visible briefly when no matching next sample exists
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   |

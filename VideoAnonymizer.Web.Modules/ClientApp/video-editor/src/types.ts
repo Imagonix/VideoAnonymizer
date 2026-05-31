@@ -42,6 +42,7 @@ export type DetectedObjectChangeSet = {
 export type AnonymizationSettings = {
   blurSizePercent: number;
   timeBufferMs: number;
+  interpolateTrackedObjects: boolean;
 }
 
 export type TimelineObjectBase = {

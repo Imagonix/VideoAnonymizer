@@ -36,6 +36,7 @@
                                  VideoSourceUrl="@_videoSourceUrl"
                                  Frames="@_analyzedFrames"
                                  ShowEditor="@_showEditor"
+                                 InterpolateTrackedObjects="@(InitialAppState?.InterpolateTrackedObjects ?? true)"
                                  @bind-BlurSizePercent="_blurSizePercent"
                                  @bind-TimeBufferMs="_timeBufferMs"
                                  StartAnonymization="StartAnonymizationAsync"/>

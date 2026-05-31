@@ -35,6 +35,7 @@
                              Frames="@Frames"
                              BlurSizePercent="@BlurSizePercent"
                              TimeBufferMs="@TimeBufferMs"
+                             InterpolateTrackedObjects="@InterpolateTrackedObjects"
                              OnAction="OnVideoEditorAction" />
 
                 @if (_editorInputBlocked)
@@ -77,6 +78,9 @@
 
     [Parameter]
     public bool ShowEditor { get; set; }
+
+    [Parameter]
+    public bool InterpolateTrackedObjects { get; set; } = true;
 
     [Parameter, EditorRequired]
     public EventCallback StartAnonymization { get; set; }

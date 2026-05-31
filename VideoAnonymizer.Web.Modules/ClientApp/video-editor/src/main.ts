@@ -13,6 +13,7 @@ type AppHandle = {
 type AnonymizationSettings = {
     blurSizePercent: number;
     timeBufferMs: number;
+    interpolateTrackedObjects: boolean;
 };
 
 declare global {
@@ -62,6 +63,7 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         updateSettings(settings: AnonymizationSettings) {
             state.anonymizationSettings.blurSizePercent = settings.blurSizePercent;
             state.anonymizationSettings.timeBufferMs = settings.timeBufferMs;
+            state.anonymizationSettings.interpolateTrackedObjects = settings.interpolateTrackedObjects;
         },
         applyChanges(changes: DetectedObjectChangeSet) {
             (vm as any)?.applyChanges?.(changes);

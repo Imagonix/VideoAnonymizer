@@ -23,6 +23,9 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     public int TimeBufferMs { get; set; } = 0;
 
     [Parameter]
+    public bool InterpolateTrackedObjects { get; set; } = true;
+
+    [Parameter]
     public EventCallback<VideoEditorAction> OnAction { get; set; }
 
     private ElementReference _hostElement;
@@ -31,6 +34,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private bool _loadFailed;
     private int _lastBlurSizePercent;
     private int _lastTimeBufferMs;
+    private bool _lastInterpolateTrackedObjects;
     private DotNetObjectReference<VideoEditor>? _dotNetRef;
 
     [JSInvokable]
@@ -136,6 +140,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
 
                 _lastBlurSizePercent = BlurSizePercent;
                 _lastTimeBufferMs = TimeBufferMs;
+                _lastInterpolateTrackedObjects = InterpolateTrackedObjects;
                 _mounted = true;
             }
             catch
@@ -150,15 +155,23 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         if (!_mounted || _hostModule is null)
             return;
 
-        if (BlurSizePercent != _lastBlurSizePercent || TimeBufferMs != _lastTimeBufferMs)
+        if (BlurSizePercent != _lastBlurSizePercent
+            || TimeBufferMs != _lastTimeBufferMs
+            || InterpolateTrackedObjects != _lastInterpolateTrackedObjects)
         {
             _lastBlurSizePercent = BlurSizePercent;
             _lastTimeBufferMs = TimeBufferMs;
+            _lastInterpolateTrackedObjects = InterpolateTrackedObjects;
 
             await _hostModule.InvokeVoidAsync(
                 "updateVideoEditorSettings",
                 _hostElement,
-                new { blurSizePercent = BlurSizePercent, timeBufferMs = TimeBufferMs });
+                new
+                {
+                    blurSizePercent = BlurSizePercent,
+                    timeBufferMs = TimeBufferMs,
+                    interpolateTrackedObjects = InterpolateTrackedObjects
+                });
         }
     }
 
@@ -172,7 +185,8 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
             anonymizationSettings = new
             {
                 blurSizePercent = BlurSizePercent,
-                timeBufferMs = TimeBufferMs
+                timeBufferMs = TimeBufferMs,
+                interpolateTrackedObjects = InterpolateTrackedObjects
             }
         };
     }

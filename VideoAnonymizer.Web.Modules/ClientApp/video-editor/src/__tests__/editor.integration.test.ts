@@ -47,7 +47,7 @@ function createMockState(): VideoEditorProps {
     return {
         videoId: 'v1',
         videoSourceUrl: 'http://example.com/v.mp4',
-        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300 },
+        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300, interpolateTrackedObjects: true },
         frames,
     };
 }
