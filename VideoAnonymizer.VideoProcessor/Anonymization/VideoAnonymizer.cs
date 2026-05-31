@@ -13,8 +13,7 @@ namespace VideoAnonymizer.VideoProcessor.Anonymization;
 public class VideoAnonymizer(
     ILogger<VideoAnonymizer> logger,
     IMessagePublisher messagePublisher,
-    IServiceProvider serviceProvider,
-    IConfiguration configuration)
+    IServiceProvider serviceProvider)
     : SingleJobQueingWorker<AnonymizeVideo>(logger)
 {
     protected override async Task HandleJob(AnonymizeVideo job, CancellationToken stoppingToken)
@@ -76,7 +75,6 @@ public class VideoAnonymizer(
 
         var blurSizePercent = video.BlurSizePercent > 0 ? video.BlurSizePercent : 120;
         var timeBufferSeconds = Math.Max(0, video.TimeBufferMs) / 1000.0;
-        var interpolateTrackedObjects = configuration.GetValue("Anonymization:InterpolateTrackedObjects", true);
 
         lastReportedProgress = await ReportProgressAsync(
             job.JobId,
@@ -107,7 +105,7 @@ public class VideoAnonymizer(
                     frameHeight,
                     fps,
                     timeBufferSeconds,
-                    interpolateTrackedObjects);
+                    job.InterpolateTrackedObjects);
 
                 foreach (var obj in objectsToBlur)
                 {

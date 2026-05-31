@@ -46,6 +46,18 @@ namespace VideoAnonymizer.Web.Pages
         [Parameter]
         public AppStateDto? InitialAppState { get; set; }
 
+        private AppStateDto CurrentAppState { get; set; } = new();
+        private AppStateDto? _appliedInitialAppState;
+
+        protected override void OnParametersSet()
+        {
+            if (!ReferenceEquals(InitialAppState, _appliedInitialAppState))
+            {
+                CurrentAppState = InitialAppState ?? new AppStateDto();
+                _appliedInitialAppState = InitialAppState;
+            }
+        }
+
         protected override async Task OnInitializedAsync()
         {
             await LoadExistingVideosAsync();
@@ -61,6 +73,7 @@ namespace VideoAnonymizer.Web.Pages
                 StatusText = "Video analyzed. Loading editor...";
                 await LoadAnalyzedFramesAsync(_currentVideoId);
                 await LoadExistingVideosAsync();
+                await RefreshAppStateAsync();
                 _showEditor = true;
                 _activeTabIndex = 1;
                 _selectedFile = null;
@@ -217,6 +230,7 @@ namespace VideoAnonymizer.Web.Pages
 
             if (_analyzedFrames.Count > 0)
             {
+                await RefreshAppStateAsync();
                 _showEditor = true;
                 _activeTabIndex = 1;
                 StatusText = "Video loaded. You can review detected objects.";
@@ -257,6 +271,20 @@ namespace VideoAnonymizer.Web.Pages
                 ProgressPercent = null;
                 StatusText = "Loading editor failed.";
                 Snackbar.Add($"Loading editor failed: {ex.Message}", Severity.Error);
+            }
+        }
+
+        private async Task RefreshAppStateAsync()
+        {
+            using var httpClient = HttpClientFactory.CreateClient("ApiService");
+
+            try
+            {
+                CurrentAppState = await httpClient.GetFromJsonAsync<AppStateDto>(
+                    $"/{SharedConstants.Paths.AppState}") ?? CurrentAppState;
+            }
+            catch
+            {
             }
         }
 

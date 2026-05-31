@@ -40,19 +40,6 @@ describe('motionPrediction', () => {
         expect(result[0].detectedObject.x).toBe(100);
     });
 
-    it('uses buffered analyzed boxes when interpolation is disabled', () => {
-        const frames = [
-            createFrame('f1', 0, [createObject({ trackId: 7, x: 10 })]),
-            createFrame('f2', 1, [createObject({ trackId: 7, x: 100 })]),
-        ];
-
-        const result = getPredictedBlurPreviewObjects(frames, 0.5, 0, false);
-
-        expect(result).toHaveLength(1);
-        expect(result[0].activation).toBe('post');
-        expect(result[0].detectedObject.x).toBe(10);
-    });
-
     it('holds previous track through buffer when no matching next sample exists', () => {
         const frames = [
             createFrame('f1', 0, [createObject({ trackId: 1, x: 10 })]),

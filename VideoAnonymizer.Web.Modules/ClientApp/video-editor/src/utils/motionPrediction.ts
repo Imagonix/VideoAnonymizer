@@ -9,17 +9,12 @@ type TimedDetectedObject = {
 export function getPredictedBlurPreviewObjects(
     frames: AnalyzedFrameDto[],
     currentTimeSeconds: number,
-    timeBufferSeconds: number,
-    interpolateTrackedObjects = true
+    timeBufferSeconds: number
 ): PreviewObject[] {
     if (frames.length === 0) return [];
 
     const sortedTimes = [...new Set(frames.map(frame => frame.timeSeconds))]
         .sort((a, b) => a - b);
-
-    if (!interpolateTrackedObjects) {
-        return getBufferedBlurPreviewObjects(frames, sortedTimes, currentTimeSeconds, timeBufferSeconds);
-    }
 
     const samplesByKey = new Map<string, TimedDetectedObject[]>();
 
@@ -74,53 +69,6 @@ export function getPredictedBlurPreviewObjects(
     }
 
     return result;
-}
-
-function getBufferedBlurPreviewObjects(
-    frames: AnalyzedFrameDto[],
-    sortedTimes: number[],
-    currentTimeSeconds: number,
-    timeBufferSeconds: number
-): PreviewObject[] {
-    const framesByTime = new Map<number, AnalyzedFrameDto[]>();
-    for (const frame of frames) {
-        const existing = framesByTime.get(frame.timeSeconds) ?? [];
-        existing.push(frame);
-        framesByTime.set(frame.timeSeconds, existing);
-    }
-
-    const result = new Map<string, PreviewObject>();
-
-    for (let index = sortedTimes.length - 1; index >= 0; index--) {
-        const analyzedTime = sortedTimes[index];
-        const nextTime = index + 1 < sortedTimes.length
-            ? sortedTimes[index + 1]
-            : Number.POSITIVE_INFINITY;
-        const coverageEnd = nextTime + timeBufferSeconds;
-
-        if (currentTimeSeconds < analyzedTime || currentTimeSeconds >= coverageEnd) {
-            continue;
-        }
-
-        const framesAtTime = framesByTime.get(analyzedTime) ?? [];
-        for (const frame of framesAtTime) {
-            for (const detectedObject of frame.detectedObjects) {
-                if (!detectedObject.selected) continue;
-
-                const key = buildObjectKey(detectedObject);
-                if (!result.has(key)) {
-                    result.set(key, {
-                        detectedObject: { ...detectedObject },
-                        activation: isAtSampleTime(analyzedTime, currentTimeSeconds)
-                            ? 'detected'
-                            : 'post',
-                    });
-                }
-            }
-        }
-    }
-
-    return [...result.values()];
 }
 
 function findPreviousSample(samples: TimedDetectedObject[], currentTimeSeconds: number) {

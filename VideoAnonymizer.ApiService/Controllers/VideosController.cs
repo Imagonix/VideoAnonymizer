@@ -15,7 +15,8 @@ namespace VideoAnonymizer.ApiService.Controllers;
 public sealed class VideosController(
     IMessagePublisher messagePublisher,
     IWebHostEnvironment environment,
-    VideoDataService videoDataService) : ControllerBase
+    VideoDataService videoDataService,
+    IConfiguration configuration) : ControllerBase
 {
     private static readonly string[] AllowedVideoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
 
@@ -127,9 +128,11 @@ public sealed class VideosController(
         try
         {
             var video = await videoDataService.UpdateFramesAndObjects(videoId, request);
+            var interpolateTrackedObjects = configuration.GetValue("Anonymization:InterpolateTrackedObjects", true);
+
             await messagePublisher.PublishAsync(
                 RabbitMQConstants.RoutingKeys.Anonymize,
-                new AnonymizeVideo(jobId, video.Id, DateTime.Now),
+                new AnonymizeVideo(jobId, video.Id, DateTime.Now, interpolateTrackedObjects),
                 cancellationToken);
 
             return Ok(new ApiResponse<Guid>

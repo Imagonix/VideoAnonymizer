@@ -16,7 +16,7 @@
     <MudStack Spacing="3" Style="flex: 1; min-height: 0;">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="gap: 16px;">
             <MudText Typo="Typo.h4">Video Anonymizer</MudText>
-            <LocalRuntimeFeedback AppState="InitialAppState" Mode="LocalRuntimeFeedbackMode.Header" />
+            <LocalRuntimeFeedback AppState="CurrentAppState" Mode="LocalRuntimeFeedbackMode.Header" />
         </MudStack>
 
         <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" @bind-ActivePanelIndex="_activeTabIndex" Style="flex: 1; min-height: 0;">
@@ -36,7 +36,7 @@
                                  VideoSourceUrl="@_videoSourceUrl"
                                  Frames="@_analyzedFrames"
                                  ShowEditor="@_showEditor"
-                                 InterpolateTrackedObjects="@(InitialAppState?.InterpolateTrackedObjects ?? true)"
+                                 InterpolateTrackedObjects="@CurrentAppState.InterpolateTrackedObjects"
                                  @bind-BlurSizePercent="_blurSizePercent"
                                  @bind-TimeBufferMs="_timeBufferMs"
                                  StartAnonymization="StartAnonymizationAsync"/>
