@@ -90,7 +90,6 @@ In standalone mode:
 - processing happens locally on the user's machine
 - user videos are not sent to a remote backend
 - metadata, detections, editor corrections, and blur settings are stored in a local SQLite database
-- the face detection model is downloaded on first start if missing
 - GPU acceleration is used when available, with CPU fallback supported
 - Docker runs this mode cross-platform; the standalone Windows package uses the same local-first architecture
 
@@ -104,7 +103,6 @@ The distributed variant keeps service boundaries explicit and is orchestrated wi
 - `objectDetection` - Python FastAPI computer vision service
 - `RabbitMQ` - asynchronous job queue
 - `PostgreSQL` - distributed metadata and processing state
-- `modeldownloader` - startup model provisioning
 - `database migration service` - schema migration on startup
 
 The two modes share the same application concepts while using different infrastructure adapters for persistence and messaging: SQLite/direct messaging in standalone and Docker mode, PostgreSQL/RabbitMQ in distributed mode.
@@ -160,7 +158,7 @@ cd ../../..
 dotnet run --project VideoAnonymizer.AppHost
 ```
 
-This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, workers, model downloader, and Python object detection.
+This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, workers, and Python object detection.
 
 ## Tech Stack
 
@@ -199,12 +197,12 @@ This starts the Aspire application with frontend, API, RabbitMQ, PostgreSQL, wor
 - PyInstaller for the Python object detection executable
 - GitHub Actions for standalone packaging and prerelease artifacts
 
-## AI Model
+## AI Models
 
-- Face detection uses an ONNX model.
-- The model file is not included in the repository.
-- It is downloaded automatically on startup when missing.
-- In standalone mode the model is stored locally under the standalone data folder.
+- Object detection uses ONNX models with sibling `*.detector.json` config files.
+- The default face detector is bundled with the app.
+- Additional detector models can be added by copying `<name>.onnx` and `<name>.detector.json` into the local models folder, then restarting the app.
+- Docker uses `./docker-data/models/`; standalone uses `data/models/` next to the app.
 
 ## Roadmap
 
@@ -233,19 +231,19 @@ It is intended to show:
 
 ## Data Control & Cleanup
 
-VideoAnonymizer is built local-first so you stay in full control of your data. Nothing is uploaded to any remote service — the only external request is the AI model download (no user data).
+VideoAnonymizer is built local-first so you stay in full control of your data. Nothing is uploaded to any remote service.
 
 ### Where data is stored
 
 | Mode | Storage location | What's there |
 |---|---|---|
-| **Docker** | `./docker-data/` on your host machine (mapped to `/data` in the container) | Source videos, anonymized exports, cached AI model, processing metadata, editor corrections, blur settings, and `videoanonymizer.db` |
+| **Docker** | `./docker-data/` on your host machine (mapped to `/data` in the container) | Source videos, anonymized exports, detector models, processing metadata, editor corrections, blur settings, and `videoanonymizer.db` |
 | **Standalone** | `App_Data/` folder next to `VideoAnonymizer.exe` | Source videos, anonymized exports, processing metadata, editor corrections, blur settings, and `videoanonymizer.db` |
-| **Development** | `VideoAnonymizer.ApiService/App_Data/Uploads/` and `/data` in the project directory | Videos and exports from local dev runs, downloaded AI model |
+| **Development** | `VideoAnonymizer.ApiService/App_Data/Uploads/` and `/data` in the project directory | Videos and exports from local dev runs, detector models |
 
 ### How to clean up
 
-- **Docker:** Stop the container, delete the `./docker-data/` directory (or just `./docker-data/App_Data/Uploads/` to keep the model cache), then restart. The folder structure is recreated automatically.
+- **Docker:** Stop the container, delete the `./docker-data/` directory (or just `./docker-data/App_Data/Uploads/` to keep local detector models), then restart. The folder structure is recreated automatically.
 - **Standalone:** Delete the `App_Data/` folder next to the executable.
 - **Development:** Delete `App_Data/` and `data/` from the repository root.
 

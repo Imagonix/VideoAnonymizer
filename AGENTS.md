@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Full-stack video anonymization app: upload a video, detect faces via AI, review detections in a visual editor, select which objects to blur, then export and download the anonymized result.
+Full-stack video anonymization app: upload a video, detect configured sensitive objects such as faces and license plates via AI, review detections in a visual editor, select which objects to blur, then export and download the anonymized result.
 
 ## Build Rules
 
@@ -18,7 +18,7 @@ Extension method files and classes are named after the type being extended. For 
 - **Video Editor**: Embedded Vue 3 SPA (compiled, served via Blazor JS interop)
 - **Backend**: ASP.NET Core minimal API
 - **Processing**: OpenCvSharp (OpenCV .NET bindings) background worker
-- **Detection**: Python FastAPI with ONNX Runtime / RetinaFace model
+- **Detection**: Python FastAPI with ONNX Runtime and configured ONNX detector models
 - **Messaging**: RabbitMQ (distributed) / Direct messaging abstraction (standalone)
 - **Database**: PostgreSQL via EF Core (distributed) / SQLite via EF Core (standalone)
 - **Real-time**: SignalR for job progress/completion notifications
@@ -34,7 +34,7 @@ Key projects under `VideoAnonymizer.slnx`:
 | `VideoAnonymizer.Web.Modules` | Razor Class Library hosting the Vue video editor component + action classes (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`, `UndoAction`, `RedoAction`) |
 | `VideoAnonymizer.ApiService` | ASP.NET Core API (analyze, anonymize, video serving endpoints + SignalR hub) |
 | `VideoAnonymizer.VideoProcessor` | Background worker: frame extraction, blur processing, export |
-| `VideoAnonymizer.ObjectDetection` | Python FastAPI face detection service |
+| `VideoAnonymizer.ObjectDetection` | Python FastAPI object detection service that loads detector configs from the models folder |
 | `VideoAnonymizer.ObjectDetectionClient` | .NET HTTP client for the Python detection API |
 | `VideoAnonymizer.Database` | EF Core entities (`Video`, `AnalyzedFrame`, `DetectedObject`) |
 | `VideoAnonymizer.Database.Postgres` | PostgreSQL provider — migrations + `AddPostgresVideoAnonymizerDbContext[Factory]()` |
@@ -67,7 +67,7 @@ Key projects under `VideoAnonymizer.slnx`:
 - `ReviewExportTab.OnStartAnonymizationClicked()` calls `_videoEditor.GetFramesAsync()` (JS interop) to get frame/selection state
 - `Home.StartAnonymizationAsync()` -> `POST /anonymize/{videoId}` with frames + settings
 - API updates frame/object selections in DB, publishes `video.anonymize` RabbitMQ message
-- `VideoAnonymizer` worker iterates all frames, applies elliptical Gaussian blur to selected object regions
+- `VideoAnonymizer` worker iterates all frames, applies the configured blur shape to selected object regions
 
 ### 4. Download
 - On completion: `video.anonymized` RabbitMQ message -> SignalR `videoAnonymized` event
@@ -118,7 +118,7 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.ApiService/DataServices/VideoDataService.cs` - Video DB access
 - `VideoAnonymizer.ApiService/DataServices/DetectedObjectDataService.cs` - Detected object DB access
 - `VideoAnonymizer.ApiService/Notifications/LongRunningJobsHub.cs` - SignalR hub
-- `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp)
+- `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying the configured blur shape for each detected object
 - `VideoAnonymizer.VideoProcessor/AnonymizeVideoConsumer.cs` / `AnonymizeVideoHandler.cs` - RabbitMQ consumer
 
 ### Shared Constants
@@ -168,6 +168,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 
 ### Test Conventions
 - Gherkin scenarios should describe user stories in human-readable language.
+- New .NET behavior and regression tests should be written as `.feature` scenarios with Reqnroll step definitions, so the tested behavior is readable in Gherkin. Avoid direct NUnit test classes unless the test is a very small technical helper test where Gherkin would make the intent less clear.
 - Prefer one `When` per scenario. Split scenarios when multiple user actions would otherwise require multiple `When` steps.
 - Reqnroll step definitions should store scenario state in `ScenarioContext`, following the pattern in `HomeStepDefinitions`, instead of keeping mutable instance fields.
 - Do not edit generated `.feature.cs` files directly. Edit `.feature` files and step definitions.
@@ -190,7 +191,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 |---|---|
 | `Dockerfile` | Multi-stage build: Vue editor → OpenCvSharpExtern native bridge → .NET publish → runtime |
 | `docker-compose.yml` | Single service, mounts `./docker-data:/data`, exposes port 5117 |
-| `docker/docker-entrypoint.sh` | Starts .NET app (model download), waits for model, then waits for .NET process |
+| `docker/docker-entrypoint.sh` | Seeds bundled detector models, starts .NET app, then waits for .NET process |
 | `docker/appsettings.Docker.json` | Docker config: headless, absolute paths on `/data` volume |
 | `docker/object-detection-wrapper.sh` | Prevents port conflict when .NET app's `ObjectDetectionProcessHostedService` runs |
 | `.dockerignore` | Optimized build context (only source files + project dirs) |
@@ -198,7 +199,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 ### Build & Run
 
 ```bash
-docker compose build     # first build: ~30-60 min (native bridge compilation + model download)
+docker compose build     # first build: ~30-60 min (native bridge compilation)
 docker compose up -d     # start container
 docker compose logs -f   # follow logs
 # Open http://localhost:5117
@@ -213,7 +214,7 @@ Rebuild with `docker compose build` after code changes. The native bridge layer 
 ```
 docker-data/
   App_Data/Uploads/    # uploaded + anonymized videos
-  models/              # downloaded FaceDetector.onnx (persistent)
+  models/              # bundled model copy + additional local detector models
 ```
 
 Symlinked into `/app/` so existing code finds paths without changes. To reset, delete files in `./docker-data/`.
@@ -221,7 +222,7 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 ### Architecture Differences from Standalone
 
 - **OpenCvSharp**: Native bridge (`libOpenCvSharpExtern.so`) built from source via CMake against system OpenCV from apt (not the NuGet `runtime.win` package, which is removed via `sed` in the Dockerfile)
-- **Detection Service**: Launched by .NET's `ObjectDetectionProcessHostedService` (via the wrapper script) after model download completes
+- **Detection Service**: Launched by .NET's `ObjectDetectionProcessHostedService` (via the wrapper script) after bundled model files are available
 - **No browser launch**: `Standalone.OpenBrowser` set to `false`
 - **GPU acceleration**: Runtime based on `nvidia/cuda:12.8.0-cudnn-runtime-ubuntu24.04` with `onnxruntime-gpu`; requires NVIDIA Container Toolkit and `deploy.resources.reservations.devices` with GPU capabilities in docker-compose
 - **Data directory**: Absolutized to `/data` via `appsettings.Docker.json`; symlinks bridge into `/app/App_Data` and `/app/data`
@@ -238,8 +239,8 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 ### Start-up Order (Container Runtime)
 
 1. Entrypoint creates symlinks: `/app/App_Data` → `/data/App_Data`, `/app/data` → `/data`
-2. `.NET` app starts in background → `StandaloneModelDownloadHostedService` downloads `FaceDetector.onnx` to `/data/models/`
-3. Entrypoint polls for model file (up to 4 min)
+2. Entrypoint copies bundled detector model/config files to `/data/models/` when missing; user-added detector pairs in that folder are preserved
+3. `.NET` app starts in background
 4. `.NET` app's `ObjectDetectionProcessHostedService` starts Python detection service via wrapper script on port 8765
 5. App is ready at `http://localhost:5117`
 

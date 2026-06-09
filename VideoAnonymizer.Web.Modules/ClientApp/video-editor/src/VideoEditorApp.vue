@@ -109,7 +109,7 @@ const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execu
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
 const { currentFrame, timelineObjects, timelineObjectCounts, orderedCurrentFrameObjects } = useTimelineObjects(frames, currentTime);
-const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, anonymizationSettings, isMove);
+const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isMove);
 const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onBoxUpdated } = useDetectedObjectActions(
     props.state,
     frames,

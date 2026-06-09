@@ -30,7 +30,6 @@
 !VideoAnonymizer.Web/**
 !VideoAnonymizer.ApiService/**
 !VideoAnonymizer.VideoProcessor/**
-!VideoAnonymizer.ModelDownloader/**
 !VideoAnonymizer.StandaloneHost/**
 !VideoAnonymizer.ObjectDetection/**
 **/node_modules

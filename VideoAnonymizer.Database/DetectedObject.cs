@@ -9,6 +9,7 @@ namespace VideoAnonymizer.Database
     {
         public double Confidence { get; set; }
         public string? ClassName { get; set; }
+        public string? BlurShape { get; set; }
         public bool Selected { get; set; }
         public int? TrackId { get; set; }
         public int X { get; set; }

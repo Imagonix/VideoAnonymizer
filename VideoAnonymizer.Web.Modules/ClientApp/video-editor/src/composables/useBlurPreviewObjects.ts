@@ -1,10 +1,11 @@
-import { computed, type ComputedRef } from 'vue';
+import { computed, type ComputedRef, type Ref } from 'vue';
 import type { AnalyzedFrameDto, AnonymizationSettings, PreviewObject } from '../types';
-import { buildObjectKey } from '../utils/keys';
+import { getPredictedBlurPreviewObjects } from '../utils/motionPrediction';
 
 export function useBlurPreviewObjects(
     frames: ComputedRef<AnalyzedFrameDto[]>,
     currentFrame: ComputedRef<AnalyzedFrameDto | null>,
+    currentTime: Ref<number>,
     anonymizationSettings: ComputedRef<AnonymizationSettings>,
     isMove: ComputedRef<boolean>
 ) {
@@ -19,18 +20,11 @@ export function useBlurPreviewObjects(
             result.push({ detectedObject: obj, activation: 'detected' });
         }
 
-        if (!isMove.value) for (const frame of [...frames.value].sort((a, b) =>
-            Math.abs(a.timeSeconds - current.timeSeconds) - Math.abs(b.timeSeconds - current.timeSeconds)
-        )) {
-            const delta = current.timeSeconds - frame.timeSeconds;
-            if (Math.abs(delta) > bufferSeconds) continue;
-            for (const obj of frame.detectedObjects) {
-                if (!obj.selected) continue;
-                const key = buildObjectKey(obj);
-                if (result.some(r => buildObjectKey(r.detectedObject) === key)) continue;
-                result.push({ detectedObject: obj, activation: delta < 0 ? 'pre' : 'post' });
-            }
-        }
+        if (!isMove.value) return getPredictedBlurPreviewObjects(
+            frames.value,
+            currentTime.value,
+            bufferSeconds
+        );
 
         return result;
     });

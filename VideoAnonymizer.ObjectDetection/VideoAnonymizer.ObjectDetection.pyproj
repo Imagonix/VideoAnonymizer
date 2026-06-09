@@ -29,7 +29,9 @@
     <Compile Include="models.py" />
     <Compile Include="standalone_entry.py" />
     <Compile Include="services\detection_service.py" />
+    <Compile Include="services\detectors.py" />
     <Compile Include="services\image_decoder.py" />
+    <Compile Include="services\model_config.py" />
     <Compile Include="services\model_session.py" />
     <Compile Include="services\postprocessing.py" />
     <Compile Include="services\preprocessing.py" />
@@ -41,7 +43,8 @@
     <Folder Include="services\" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="models\FaceDetector.onnx" />
+    <Content Include="models\*.detector.json" />
+    <Content Include="models\*.onnx" />
     <Content Include="requirements.txt" />
     <Content Include="requirements-standalone.txt" />
     <Content Include="VideoAnonymizer.ObjectDetection.spec" />

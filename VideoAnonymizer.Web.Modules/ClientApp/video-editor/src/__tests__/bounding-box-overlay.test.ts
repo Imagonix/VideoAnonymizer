@@ -44,4 +44,37 @@ describe('BoundingBoxOverlay', () => {
         expect(box.attributes('style')).toContain('width: 12.5%');
         expect(box.attributes('style')).toContain('height: 12.5%');
     });
+
+    it('renders rectangle blur outlines when requested by the detected object', () => {
+        const object: PreviewObject = {
+            activation: 'detected',
+            detectedObject: {
+                id: 'plate-1',
+                confidence: 0.9,
+                className: 'license_plate',
+                blurShape: 'rectangle',
+                selected: true,
+                trackId: 1,
+                x: 100,
+                y: 120,
+                width: 160,
+                height: 40,
+                analyzedFrameId: 'frame-1',
+            },
+        };
+
+        const wrapper = mount(BoundingBoxOverlay, {
+            props: {
+                objects: [object],
+                anonymizationSettings: { blurSizePercent: 100, timeBufferMs: 300 },
+                videoDimensions: null,
+                highlightedRowKey: null,
+                splitSourceKey: null,
+                alwaysShowKeys: new Set<string>(),
+            },
+        });
+
+        expect(wrapper.get('[data-testid="blur-area-outline"]').classes())
+            .toContain('blur-area-outline--rectangle');
+    });
 });

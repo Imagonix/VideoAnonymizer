@@ -31,6 +31,7 @@ namespace VideoAnonymizer.ApiService.DTO
                 Id = entity.Id,
                 Confidence = entity.Confidence,
                 ClassName = entity.ClassName,
+                BlurShape = entity.BlurShape,
                 Selected = entity.Selected,
                 TrackId = entity.TrackId,
                 X = entity.X,
@@ -74,6 +75,7 @@ namespace VideoAnonymizer.ApiService.DTO
                 Id = dto.Id,
                 Confidence = dto.Confidence,
                 ClassName = dto.ClassName,
+                BlurShape = dto.BlurShape,
                 Selected = dto.Selected,
                 TrackId = dto.TrackId,
                 X = dto.X,
@@ -135,6 +137,7 @@ namespace VideoAnonymizer.ApiService.DTO
 
             entity.Confidence = dto.Confidence;
             entity.ClassName = dto.ClassName;
+            entity.BlurShape = dto.BlurShape;
             entity.Selected = dto.Selected;
             entity.TrackId = dto.TrackId;
             entity.X = dto.X;

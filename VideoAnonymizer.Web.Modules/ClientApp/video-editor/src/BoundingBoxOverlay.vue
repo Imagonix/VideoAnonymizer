@@ -26,14 +26,14 @@ function shouldDim(key: string): boolean {
   return true;
 }
 
-function getBlurEllipseStyle(obj: PreviewObject) {
+function getBlurAreaStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
   const scale = props.anonymizationSettings.blurSizePercent / 100;
   const expandedWidth = obj.detectedObject.width * scale;
   const expandedHeight = obj.detectedObject.height * scale;
   const centerX = obj.detectedObject.x + obj.detectedObject.width / 2;
   const centerY = obj.detectedObject.y + obj.detectedObject.height / 2;
-  const fillAlpha = obj.activation === 'detected' ? 0.3 : 0.12;
+  const fillAlpha = isPrimaryActivation(obj) ? 0.3 : 0.12;
   return {
     ...toOverlayRect(
       centerX - expandedWidth / 2,
@@ -45,6 +45,14 @@ function getBlurEllipseStyle(obj: PreviewObject) {
   };
 }
 
+function usesRectangleBlur(obj: PreviewObject): boolean {
+  return obj.detectedObject.blurShape?.toLowerCase() === 'rectangle';
+}
+
+function isPrimaryActivation(obj: PreviewObject): boolean {
+  return obj.activation === 'detected' || obj.activation === 'interpolated';
+}
+
 function getBoxStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
   return {
@@ -54,7 +62,7 @@ function getBoxStyle(obj: PreviewObject) {
       obj.detectedObject.width,
       obj.detectedObject.height),
     borderColor: color,
-    opacity: obj.activation === 'detected' ? 1 : 0.4
+    opacity: isPrimaryActivation(obj) ? 1 : 0.4
   };
 }
 
@@ -88,7 +96,8 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
         <div
           data-testid="blur-area-outline"
           class="blur-area-outline"
-          :style="getBlurEllipseStyle(obj)"
+          :class="{ 'blur-area-outline--rectangle': usesRectangleBlur(obj) }"
+          :style="getBlurAreaStyle(obj)"
         />
         <div
           data-testid="bounding-box"
@@ -126,5 +135,9 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
   border: 2px solid;
   border-radius: 50%;
   box-sizing: border-box;
+}
+
+.blur-area-outline--rectangle {
+  border-radius: 0;
 }
 </style>

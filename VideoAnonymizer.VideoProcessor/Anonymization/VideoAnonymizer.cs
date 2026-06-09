@@ -336,6 +336,12 @@ public class VideoAnonymizer(
             new OpenCvSharp.Size(blurWidth, blurHeight),
             0);
 
+        if (UsesRectangleBlur(detectedObject))
+        {
+            blurred.CopyTo(roi);
+            return;
+        }
+
         using var mask = Mat.Zeros(rect.Height, rect.Width, MatType.CV_8UC1).ToMat();
 
         var center = new Point(rect.Width / 2, rect.Height / 2);
@@ -352,6 +358,11 @@ public class VideoAnonymizer(
             -1);
 
         blurred.CopyTo(roi, mask);
+    }
+
+    private static bool UsesRectangleBlur(DetectedObject detectedObject)
+    {
+        return string.Equals(detectedObject.BlurShape, "rectangle", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Rect ClampRect(Rect rect, int maxWidth, int maxHeight)

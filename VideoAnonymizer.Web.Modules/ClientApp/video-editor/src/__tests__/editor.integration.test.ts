@@ -17,6 +17,7 @@ function createFrame(
             id: o.id ?? `obj-${id}-${i}`,
             confidence: o.confidence ?? 0.9,
             className: o.className ?? 'face',
+            blurShape: o.blurShape,
             selected: o.selected ?? true,
             trackId: o.trackId ?? null,
             x: o.x ?? 0,
@@ -317,6 +318,25 @@ describe('VideoEditorApp integration', () => {
             const added = state.frames[0].detectedObjects[state.frames[0].detectedObjects.length - 1];
             expect(added.trackId).toBe(3);
             expect(added.className).toBe('other');
+        });
+
+        it('copies blur shape from the selected existing track', async () => {
+            const vm = wrapper.vm as any;
+            state.frames[1].detectedObjects.push({
+                ...state.frames[1].detectedObjects[0],
+                id: 'plate-track',
+                analyzedFrameId: 'f2',
+                trackId: 9,
+                blurShape: 'rectangle',
+            });
+
+            vm.addBox(100, 100, 50, 50, 'other', 9);
+            await wrapper.vm.$nextTick();
+
+            const added = state.frames[0].detectedObjects[state.frames[0].detectedObjects.length - 1];
+            expect(added.trackId).toBe(9);
+            expect(added.className).toBe('other');
+            expect(added.blurShape).toBe('rectangle');
         });
 
         it('existingTrackIds lists all unique trackIds', async () => {

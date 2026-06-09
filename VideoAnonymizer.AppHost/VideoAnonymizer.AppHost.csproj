@@ -11,7 +11,6 @@
 	<ItemGroup>
 		<ProjectReference Include="..\VideoAnonymizer.ApiService\VideoAnonymizer.ApiService.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Database.MigrationService\VideoAnonymizer.Database.MigrationService.csproj" />
-		<ProjectReference Include="..\VideoAnonymizer.ModelDownloader\VideoAnonymizer.ModelDownloader.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.VideoProcessor\VideoAnonymizer.VideoProcessor.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Web.Modules.Tests.Harness\VideoAnonymizer.Web.Modules.Tests.Harness\VideoAnonymizer.Web.Modules.Tests.Harness.csproj" />
 		<ProjectReference Include="..\VideoAnonymizer.Web\VideoAnonymizer.Web.csproj" />

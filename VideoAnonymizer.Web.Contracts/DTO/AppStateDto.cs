@@ -8,7 +8,6 @@ namespace VideoAnonymizer.Web.Shared.DTO
     {
         public bool IsStandalone { get; set; }
         public bool IsDocker { get; set; }
-        public bool ModelAvailable { get; set; }
         public bool ObjectDetectionApiRunning { get; set; }
         public CudaRuntimeStateDto? CudaRuntime { get; set; }
     }

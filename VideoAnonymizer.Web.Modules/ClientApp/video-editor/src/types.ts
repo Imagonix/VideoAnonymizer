@@ -2,6 +2,7 @@ export type DetectedObjectDto = {
   id: string;
   confidence: number;
   className: string | null;
+  blurShape?: string | null;
   selected: boolean;
   trackId: number | null;
   x: number;
@@ -66,7 +67,7 @@ export type TimelineObjectCount = {
 
 export type PreviewObject = {
   detectedObject: DetectedObjectDto;
-  activation: 'detected' | 'pre' | 'post';
+  activation: 'detected' | 'interpolated' | 'pre' | 'post';
 };
 
 export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add';
