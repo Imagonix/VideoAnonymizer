@@ -1,4 +1,3 @@
-using OpenCvSharp;
 using VideoAnonymizer.Database;
 
 namespace VideoAnonymizer.VideoProcessor.Anonymization;
@@ -55,31 +54,10 @@ public static class RelevantDetectedObjectSelector
                 fps,
                 timeBufferSeconds);
 
-        var result = new List<DetectedObject>();
-
-        foreach (var obj in sourceObjects)
-        {
-            var rect = ClampRect(
-                new Rect(obj.X, obj.Y, obj.Width, obj.Height),
-                frameWidth,
-                frameHeight);
-
-            if (rect.Width > 0 && rect.Height > 0)
-            {
-                result.Add(new DetectedObject
-                {
-                    Id = obj.Id,
-                    TrackId = obj.TrackId,
-                    BlurShape = obj.BlurShape,
-                    X = rect.X,
-                    Y = rect.Y,
-                    Width = rect.Width,
-                    Height = rect.Height
-                });
-            }
-        }
-
-        return result;
+        return sourceObjects
+            .Where(obj => obj.Width > 0 && obj.Height > 0)
+            .Select(CopyObject)
+            .ToList();
     }
 
     internal static List<DetectedObject> GetPredictedObjectsFromRelevantAnalyzedFrames(
@@ -113,7 +91,7 @@ public static class RelevantDetectedObjectSelector
                 var upcoming = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > currentTime);
                 if (upcoming is not null && IsWithinPreBuffer(currentTime, upcoming.TimeSeconds, timeBufferSeconds))
                 {
-                    result.Add(CopyObject(upcoming.DetectedObject));
+                    result.Add(ProjectPreBufferObject(orderedSamples, upcoming, currentTime));
                 }
 
                 continue;
@@ -122,14 +100,14 @@ public static class RelevantDetectedObjectSelector
             var next = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > currentTime);
             if (next is not null && previous.DetectedObject.TrackId is not null)
             {
-                result.Add(InterpolateObject(previous, next, currentTime));
+                result.Add(ProjectObject(previous, next, currentTime, clampAlpha: true));
                 continue;
             }
 
             var coverageEnd = GetCoverageEnd(sortedTimes, previous.TimeSeconds, timeBufferSeconds);
             if (currentTime >= previous.TimeSeconds && currentTime < coverageEnd)
             {
-                result.Add(CopyObject(previous.DetectedObject));
+                result.Add(ProjectPostBufferObject(orderedSamples, previous, currentTime, timeBufferSeconds));
             }
         }
 
@@ -173,20 +151,6 @@ public static class RelevantDetectedObjectSelector
         return result.Values.ToList();
     }
 
-    private static Rect ClampRect(Rect rect, int maxWidth, int maxHeight)
-    {
-        var x = Math.Max(0, rect.X);
-        var y = Math.Max(0, rect.Y);
-
-        var right = Math.Min(maxWidth, rect.X + rect.Width);
-        var bottom = Math.Min(maxHeight, rect.Y + rect.Height);
-
-        var width = Math.Max(0, right - x);
-        var height = Math.Max(0, bottom - y);
-
-        return new Rect(x, y, width, height);
-    }
-
     private static string GetObjectKey(DetectedObject obj)
     {
         return obj.TrackId is null ? $"object-{obj.Id}" : $"track-{obj.TrackId.Value}";
@@ -216,16 +180,55 @@ public static class RelevantDetectedObjectSelector
             && currentTime < analyzedTime;
     }
 
-    private static DetectedObject InterpolateObject(
+    private static DetectedObject ProjectPreBufferObject(
+        IReadOnlyList<TimedDetectedObject> orderedSamples,
+        TimedDetectedObject upcoming,
+        double currentTime)
+    {
+        if (upcoming.DetectedObject.TrackId is null)
+            return CopyObject(upcoming.DetectedObject);
+
+        var next = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > upcoming.TimeSeconds);
+        return next is null
+            ? CopyObject(upcoming.DetectedObject)
+            : ProjectObject(upcoming, next, currentTime, clampAlpha: false);
+    }
+
+    private static DetectedObject ProjectPostBufferObject(
+        IReadOnlyList<TimedDetectedObject> orderedSamples,
+        TimedDetectedObject previous,
+        double currentTime,
+        double timeBufferSeconds)
+    {
+        if (previous.DetectedObject.TrackId is null
+            || timeBufferSeconds <= 0
+            || currentTime > previous.TimeSeconds + timeBufferSeconds)
+        {
+            return CopyObject(previous.DetectedObject);
+        }
+
+        var prior = orderedSamples.LastOrDefault(sample => sample.TimeSeconds < previous.TimeSeconds);
+        return prior is null
+            ? CopyObject(previous.DetectedObject)
+            : ProjectObject(prior, previous, currentTime, clampAlpha: false);
+    }
+
+    private static DetectedObject ProjectObject(
         TimedDetectedObject previous,
         TimedDetectedObject next,
-        double currentTime)
+        double currentTime,
+        bool clampAlpha)
     {
         var duration = next.TimeSeconds - previous.TimeSeconds;
         if (duration <= 0)
             return CopyObject(previous.DetectedObject);
 
-        var alpha = Math.Clamp((currentTime - previous.TimeSeconds) / duration, 0, 1);
+        var alpha = (currentTime - previous.TimeSeconds) / duration;
+        if (clampAlpha)
+        {
+            alpha = Math.Clamp(alpha, 0, 1);
+        }
+
         var previousBox = previous.DetectedObject;
         var nextBox = next.DetectedObject;
 
@@ -243,7 +246,7 @@ public static class RelevantDetectedObjectSelector
         return new DetectedObject
         {
             Id = metadataSource.Id,
-            Confidence = Lerp(previousBox.Confidence, nextBox.Confidence, alpha),
+            Confidence = Math.Clamp(Lerp(previousBox.Confidence, nextBox.Confidence, alpha), 0, 1),
             ClassName = metadataSource.ClassName,
             BlurShape = string.IsNullOrWhiteSpace(metadataSource.BlurShape)
                 ? previousBox.BlurShape ?? nextBox.BlurShape

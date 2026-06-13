@@ -12,6 +12,10 @@ _inference_semaphore = threading.Semaphore(1)
 
 def detect_objects(request: DetectRequest) -> List[DetectionResult]:
     image = decode_base64_image(request.imageBase64)
+    return detect_image(image)
+
+
+def detect_image(image) -> List[DetectionResult]:
     with _inference_semaphore:
         return registry.detect(image)
 
@@ -52,8 +56,7 @@ def detect_objects_batch(request: BatchDetectRequest) -> List[BatchDetectionResu
 
 
 def _detect_prepared_frame(frame: DetectionFrame) -> BatchDetectionResult:
-    with _inference_semaphore:
-        detections = registry.detect(frame.image)
+    detections = detect_image(frame.image)
 
     return BatchDetectionResult(
         frameIndex=frame.frame_index,

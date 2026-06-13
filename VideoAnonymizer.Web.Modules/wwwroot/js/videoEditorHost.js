@@ -44,6 +44,8 @@ export async function mountVideoEditor(element, props, dotNetRef) {
             dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? '', beforeState),
         onDetectedObjectDeleted: (videoId, analyzedFrameId, dto) =>
             dotNetRef.invokeMethodAsync('OnDetectedObjectDeleted', videoId, analyzedFrameId, dto),
+        onTrackForward: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnTrackForward', videoId, analyzedFrameId, dto),
         onUndo: () =>
             dotNetRef.invokeMethodAsync('OnUndo'),
         onRedo: () =>

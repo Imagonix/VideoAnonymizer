@@ -18,6 +18,7 @@ const emit = defineEmits<{
     (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
     (e: 'add-box', x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number): void;
     (e: 'box-updated', obj: DetectedObjectDto, beforeState: DetectedObjectDto[]): void;
+    (e: 'track-forward', obj: DetectedObjectDto): void;
 }>();
 
 
@@ -235,6 +236,14 @@ function confirmAdd(label: string, selectedTrackId: 'new' | number) {
 function cancelAdd() {
     pendingLabel.value = null;
 }
+
+function getTrackButtonStyle(obj: DetectedObjectDto) {
+    const box = getBoxPct(obj);
+    return {
+        left: box.left,
+        top: box.top,
+    };
+}
 </script>
 
 <template>
@@ -267,6 +276,15 @@ function cancelAdd() {
                         @mouseleave="activeBoxId = null"
                         @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
                       />
+                      <button
+                        class="track-forward-btn"
+                        :style="getTrackButtonStyle(obj)"
+                        @mousedown.stop.prevent
+                        @click.stop.prevent="emit('track-forward', obj)"
+                        title="Track this object forward"
+                      >
+                        Track forward
+                      </button>
                       <template v-if="mode === 'resize'">
                         <div
                           v-for="pos in handlePositions"
@@ -420,6 +438,29 @@ function cancelAdd() {
 
 .move-boxes--add .move-blur {
     opacity: 0.3;
+}
+
+.track-forward-btn {
+    position: absolute;
+    z-index: 8;
+    transform: translateY(calc(-100% - 4px));
+    pointer-events: auto;
+    border: none;
+    border-radius: 4px;
+    background: var(--mud-palette-secondary);
+    color: var(--mud-palette-secondary-contrast-text);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 5px 8px;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+
+.track-forward-btn:hover {
+    background: color-mix(in srgb, var(--mud-palette-secondary) 88%, white);
 }
 .resize-handle--e { cursor: ew-resize; }
 </style>

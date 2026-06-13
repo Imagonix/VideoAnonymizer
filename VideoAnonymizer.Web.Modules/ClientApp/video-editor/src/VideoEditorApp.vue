@@ -110,7 +110,7 @@ const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOn
 const { splitSourceKey, execute: splitExecute } = useSplit();
 const { currentFrame, timelineObjects, timelineObjectCounts, orderedCurrentFrameObjects } = useTimelineObjects(frames, currentTime);
 const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isMove);
-const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onBoxUpdated } = useDetectedObjectActions(
+const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, trackForward, addBox, onBoxUpdated } = useDetectedObjectActions(
     props.state,
     frames,
     currentFrame,
@@ -205,7 +205,8 @@ function setVideoVolume(volume: number) {
                 <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects"
                   @toggle="toggleObject"
                   @hover-row="hoveredObjectKey = $event"
-                  @delete-object="deleteObject" />
+                  @delete-object="deleteObject"
+                  @track-forward="trackForward" />
                 <EditorControls
                   :move-mode="isMove"
                   :resize-mode="isResize"
@@ -271,6 +272,7 @@ function setVideoVolume(volume: number) {
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"
       @box-updated="onBoxUpdated"
+      @track-forward="trackForward"
     />
 </template>
 

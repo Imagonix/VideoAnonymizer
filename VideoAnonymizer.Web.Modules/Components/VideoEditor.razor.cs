@@ -85,6 +85,17 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     }
 
     [JSInvokable]
+    public Task OnTrackForward(string videoId, string analyzedFrameId, DetectedObjectDto dto)
+    {
+        return OnAction.InvokeAsync(new TrackForwardAction
+        {
+            VideoId = videoId,
+            AnalyzedFrameId = analyzedFrameId,
+            Object = dto
+        });
+    }
+
+    [JSInvokable]
     public Task OnUndo()
     {
         return OnAction.InvokeAsync(new UndoAction());

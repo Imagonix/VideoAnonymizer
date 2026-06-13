@@ -52,6 +52,46 @@ Feature: Predicting object positions between analyzed frames
       | trackId | x   | blurShape |
       | 1       | 100 | rectangle |
 
+  Scenario: A tracked object keeps moving before its first analyzed sample during the buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 1.0         | 1       | 100 |
+      | 2.0         | 1       | 190 |
+    When the processor predicts objects at 0.8 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 1       | 82 |
+
+  Scenario: A tracked object keeps moving after its last analyzed sample during the buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+    When the processor predicts objects at 1.2 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x   |
+      | 7       | 118 |
+
+  Scenario: A tracked object uses the last analyzed box after the movement buffer has elapsed
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+    When the processor predicts objects at 1.4 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x   |
+      | 7       | 100 |
+
+  Scenario: A tracked object can move partly outside the frame during extrapolation
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 20  |
+      | 1.0         | 7       | -10 |
+    When the processor predicts objects at 1.2 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x   | width |
+      | 7       | -16 | 30    |
+
   Scenario: An upcoming track is not used outside the time buffer
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   |

@@ -141,9 +141,41 @@
                 await ApplyUndoRedoAsync(persister, isRedo: true);
                 break;
 
+            case TrackForwardAction a:
+                await ApplyTrackForwardAsync(persister, a);
+                break;
+
             default:
                 await PersistActionAsync(persister, action);
                 break;
+        }
+    }
+
+    private async Task ApplyTrackForwardAsync(VideoEditorActionPersister persister, TrackForwardAction action)
+    {
+        var item = AddAction(VideoEditorActionDescriptions.Get(action));
+
+        try
+        {
+            var result = await persister.TrackForwardAsync(action);
+            item.Status = ActionStatus.Success;
+
+            if (_videoEditor is not null)
+            {
+                await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                {
+                    ObjectsToUpdate = result.UpdatedObjects,
+                    ObjectsToRemove = [],
+                    ObjectsToAdd = result.CreatedObjects
+                });
+            }
+
+            Snackbar.Add(BuildTrackForwardSummary(result), Severity.Info);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            MarkActionFailed(item);
         }
     }
 
@@ -212,6 +244,19 @@
         _hasErrors = true;
         _ = InvokeAsync(StateHasChanged);
         Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
+    }
+
+    private static string BuildTrackForwardSummary(TrackForwardResponseDto result)
+    {
+        var summary = $"Track {result.TrackId}: created {result.CreatedDetections}, skipped {result.SkippedConflicts}";
+        if (result.ReacquiredCount > 0)
+        {
+            summary += $", reacquired {result.ReacquiredCount}";
+        }
+
+        return string.IsNullOrWhiteSpace(result.StoppedReason)
+            ? summary
+            : $"{summary}, stopped: {result.StoppedReason}";
     }
 
     private async Task OnStartAnonymizationClicked()

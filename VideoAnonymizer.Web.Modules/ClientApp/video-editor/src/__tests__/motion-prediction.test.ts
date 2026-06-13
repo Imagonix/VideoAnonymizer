@@ -67,6 +67,58 @@ describe('motionPrediction', () => {
         });
     });
 
+    it('extrapolates tracked boxes before the first sample through the buffer', () => {
+        const frames = [
+            createFrame('f1', 1, [createObject({ trackId: 1, x: 100 })]),
+            createFrame('f2', 2, [createObject({ trackId: 1, x: 190 })]),
+        ];
+
+        const result = getPredictedBlurPreviewObjects(frames, 0.8, 0.25);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].activation).toBe('pre');
+        expect(result[0].detectedObject.x).toBe(82);
+    });
+
+    it('extrapolates tracked boxes after the last sample through the buffer', () => {
+        const frames = [
+            createFrame('f1', 0, [createObject({ trackId: 7, x: 10 })]),
+            createFrame('f2', 1, [createObject({ trackId: 7, x: 100 })]),
+        ];
+
+        const result = getPredictedBlurPreviewObjects(frames, 1.2, 0.25);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].activation).toBe('post');
+        expect(result[0].detectedObject.x).toBe(118);
+    });
+
+    it('uses the last analyzed box after the movement buffer has elapsed', () => {
+        const frames = [
+            createFrame('f1', 0, [createObject({ trackId: 7, x: 10 })]),
+            createFrame('f2', 1, [createObject({ trackId: 7, x: 100 })]),
+        ];
+
+        const result = getPredictedBlurPreviewObjects(frames, 1.4, 0.25);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].activation).toBe('post');
+        expect(result[0].detectedObject.x).toBe(100);
+    });
+
+    it('allows extrapolated tracked boxes to move partly outside the frame', () => {
+        const frames = [
+            createFrame('f1', 0, [createObject({ trackId: 7, x: 20 })]),
+            createFrame('f2', 1, [createObject({ trackId: 7, x: -10 })]),
+        ];
+
+        const result = getPredictedBlurPreviewObjects(frames, 1.2, 0.25);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].detectedObject.x).toBe(-16);
+        expect(result[0].detectedObject.width).toBe(30);
+    });
+
     it('does not use upcoming track outside buffer before the first sample', () => {
         const frames = [
             createFrame('f1', 1, [createObject({ trackId: 1, x: 100 })]),

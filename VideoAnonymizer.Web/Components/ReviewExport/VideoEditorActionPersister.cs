@@ -38,6 +38,31 @@ public sealed class VideoEditorActionPersister(HttpClient client)
         }
     }
 
+    public async Task<TrackForwardResponseDto> TrackForwardAsync(TrackForwardAction action)
+    {
+        using var response = await client.PostAsJsonAsync(
+            $"/{SharedConstants.Paths.Analyzed}/{action.VideoId}/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}",
+            new TrackForwardRequestDto
+            {
+                SeedDetectionId = action.Object.Id,
+                BoundingBox = new TrackForwardBoundingBoxDto
+                {
+                    X = action.Object.X,
+                    Y = action.Object.Y,
+                    Width = action.Object.Width,
+                    Height = action.Object.Height
+                },
+                ObjectClass = action.Object.ClassName,
+                TrackId = action.Object.TrackId
+            });
+
+        response.EnsureSuccessStatusCode();
+
+        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<TrackForwardResponseDto>>();
+        return apiResponse?.Payload
+            ?? throw new InvalidOperationException("Track forward response did not include a payload.");
+    }
+
     public async Task ApplyUndoRedoAsync(
         VideoEditorAction action,
         bool isRedo,

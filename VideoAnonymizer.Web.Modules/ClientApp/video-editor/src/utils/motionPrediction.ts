@@ -38,7 +38,7 @@ export function getPredictedBlurPreviewObjects(
             const upcoming = orderedSamples.find(sample => sample.timeSeconds > currentTimeSeconds);
             if (upcoming && isWithinPreBuffer(currentTimeSeconds, upcoming.timeSeconds, timeBufferSeconds)) {
                 result.push({
-                    detectedObject: { ...upcoming.detectedObject },
+                    detectedObject: projectPreBufferObject(orderedSamples, upcoming, currentTimeSeconds),
                     activation: 'pre',
                 });
             }
@@ -49,7 +49,7 @@ export function getPredictedBlurPreviewObjects(
         const next = orderedSamples.find(sample => sample.timeSeconds > currentTimeSeconds);
         if (next && previous.detectedObject.trackId != null) {
             result.push({
-                detectedObject: interpolateObject(previous, next, currentTimeSeconds),
+                detectedObject: projectObject(previous, next, currentTimeSeconds, true),
                 activation: isAtSampleTime(previous.timeSeconds, currentTimeSeconds)
                     ? 'detected'
                     : 'interpolated',
@@ -60,7 +60,11 @@ export function getPredictedBlurPreviewObjects(
         const coverageEnd = getCoverageEnd(sortedTimes, previous.timeSeconds, timeBufferSeconds);
         if (currentTimeSeconds >= previous.timeSeconds && currentTimeSeconds < coverageEnd) {
             result.push({
-                detectedObject: { ...previous.detectedObject },
+                detectedObject: projectPostBufferObject(
+                    orderedSamples,
+                    previous,
+                    currentTimeSeconds,
+                    timeBufferSeconds),
                 activation: isAtSampleTime(previous.timeSeconds, currentTimeSeconds)
                     ? 'detected'
                     : 'post',
@@ -106,15 +110,67 @@ function isWithinPreBuffer(
         && currentTimeSeconds < analyzedTimeSeconds;
 }
 
-function interpolateObject(
+function projectPreBufferObject(
+    orderedSamples: TimedDetectedObject[],
+    upcoming: TimedDetectedObject,
+    currentTimeSeconds: number
+) {
+    if (upcoming.detectedObject.trackId == null) {
+        return { ...upcoming.detectedObject };
+    }
+
+    const next = orderedSamples.find(sample => sample.timeSeconds > upcoming.timeSeconds);
+    return next
+        ? projectObject(upcoming, next, currentTimeSeconds, false)
+        : { ...upcoming.detectedObject };
+}
+
+function projectPostBufferObject(
+    orderedSamples: TimedDetectedObject[],
+    previous: TimedDetectedObject,
+    currentTimeSeconds: number,
+    timeBufferSeconds: number
+) {
+    if (previous.detectedObject.trackId == null
+        || timeBufferSeconds <= 0
+        || currentTimeSeconds > previous.timeSeconds + timeBufferSeconds) {
+        return { ...previous.detectedObject };
+    }
+
+    const prior = findPriorSample(orderedSamples, previous.timeSeconds);
+    return prior
+        ? projectObject(prior, previous, currentTimeSeconds, false)
+        : { ...previous.detectedObject };
+}
+
+function findPriorSample(samples: TimedDetectedObject[], timeSeconds: number) {
+    let prior: TimedDetectedObject | null = null;
+    for (const sample of samples) {
+        if (sample.timeSeconds < timeSeconds) {
+            prior = sample;
+            continue;
+        }
+
+        break;
+    }
+
+    return prior;
+}
+
+function projectObject(
     previous: TimedDetectedObject,
     next: TimedDetectedObject,
-    currentTimeSeconds: number
+    currentTimeSeconds: number,
+    clampAlpha: boolean
 ): DetectedObjectDto {
     const duration = next.timeSeconds - previous.timeSeconds;
     if (duration <= 0) return { ...previous.detectedObject };
 
-    const alpha = clamp((currentTimeSeconds - previous.timeSeconds) / duration, 0, 1);
+    let alpha = (currentTimeSeconds - previous.timeSeconds) / duration;
+    if (clampAlpha) {
+        alpha = clamp(alpha, 0, 1);
+    }
+
     const previousBox = previous.detectedObject;
     const nextBox = next.detectedObject;
     const centerX = lerp(previousBox.x + previousBox.width / 2, nextBox.x + nextBox.width / 2, alpha);
@@ -129,7 +185,7 @@ function interpolateObject(
 
     return {
         ...metadataSource,
-        confidence: lerp(previousBox.confidence, nextBox.confidence, alpha),
+        confidence: clamp(lerp(previousBox.confidence, nextBox.confidence, alpha), 0, 1),
         selected: true,
         trackId: previousBox.trackId,
         blurShape: metadataSource.blurShape ?? previousBox.blurShape ?? nextBox.blurShape,

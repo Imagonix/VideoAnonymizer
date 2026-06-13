@@ -113,6 +113,7 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
 .overlay {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 

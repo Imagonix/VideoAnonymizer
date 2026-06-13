@@ -72,6 +72,10 @@ export function useDetectedObjectActions(
         state.onDetectedObjectDeleted?.(state.videoId, obj.analyzedFrameId, obj);
     }
 
+    function trackForward(obj: DetectedObjectDto) {
+        state.onTrackForward?.(state.videoId, obj.analyzedFrameId, obj);
+    }
+
     function getBlurShapeForTrack(trackId: number): string | null {
         for (const frame of frames.value) {
             const detectedObject = frame.detectedObjects.find(o => o.trackId === trackId && o.blurShape);
@@ -126,6 +130,7 @@ export function useDetectedObjectActions(
         toggleTrackedObject,
         setTrackId,
         deleteObject,
+        trackForward,
         addBox,
         onBoxUpdated,
     };

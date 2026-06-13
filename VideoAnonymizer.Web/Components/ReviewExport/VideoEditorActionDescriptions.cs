@@ -24,6 +24,7 @@ public static class VideoEditorActionDescriptions
             _ => $"Updated {a.Objects.Count} objects"
         },
         ObjectDeletedAction => "Deleted bounding box",
+        TrackForwardAction => "Tracked object forward",
         SettingsUpdatedAction a => GetSettingsDescription(a),
         _ => "Unknown action"
     };

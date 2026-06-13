@@ -12,6 +12,7 @@ const emit = defineEmits<{
     (e: 'toggle', key: string, checked: boolean): void;
     (e: 'hover-row', key: string | null): void;
     (e: 'delete-object', obj: DetectedObjectDto): void;
+    (e: 'track-forward', obj: DetectedObjectDto): void;
 }>();
 
 const confirmDeleteId = ref<string | null>(null);
@@ -49,6 +50,9 @@ function cancelDelete() {
                 {{ getLabel(obj) }}
             </MudLikeCheckbox>
             <ColorDot :detected-object="obj" />
+            <button class="track-btn" @click.stop="emit('track-forward', obj)" title="Track forward">
+                Track
+            </button>
             <button class="delete-btn" @click.stop="requestDelete(obj)" title="Delete bounding box">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6" />
@@ -76,11 +80,11 @@ function cancelDelete() {
     margin-bottom: 12px;
 }
 
+.track-btn,
 .delete-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
     height: 22px;
     padding: 0;
     border: none;
@@ -91,11 +95,28 @@ function cancelDelete() {
     opacity: 0;
     transition: opacity 0.15s, background 0.15s, color 0.15s;
     flex-shrink: 0;
+}
+
+.track-btn {
+    width: auto;
+    padding: 0 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
     margin-left: auto;
 }
 
+.delete-btn {
+    width: 22px;
+}
+
+.object-row:hover .track-btn,
 .object-row:hover .delete-btn {
     opacity: 1;
+}
+
+.track-btn:hover {
+    background: color-mix(in srgb, var(--mud-palette-primary) 15%, transparent);
+    color: var(--mud-palette-primary);
 }
 
 .delete-btn:hover {
@@ -109,7 +130,7 @@ function cancelDelete() {
 }
 
 .object-list {
-    width: 120px;
+    width: 152px;
     min-height: 46px;
     flex-shrink: 0;
 }
