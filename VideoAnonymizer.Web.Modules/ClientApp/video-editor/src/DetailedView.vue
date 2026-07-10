@@ -402,12 +402,10 @@ function onBoxClick(obj: DetectedObjectDto) {
 
 .move-box--track {
     cursor: pointer;
-    border-color: var(--mud-palette-secondary) !important;
-    background: color-mix(in srgb, var(--mud-palette-secondary) 10%, transparent);
 }
 
 .move-box--track:hover {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-secondary) 28%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-primary) 28%, transparent);
 }
 
 .tracking-icon {
@@ -417,8 +415,8 @@ function onBoxClick(obj: DetectedObjectDto) {
     width: clamp(22px, 35%, 42px);
     aspect-ratio: 1;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--mud-palette-secondary) 88%, transparent);
-    color: var(--mud-palette-secondary-contrast-text);
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-contrast-text);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.32);
     pointer-events: none;
 }
