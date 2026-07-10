@@ -11,8 +11,10 @@ using Reqnroll;
 using VideoAnonymizer.Web.Components;
 using VideoAnonymizer.Web.Components.ReviewExport;
 using VideoAnonymizer.Web.Modules.Components;
+using VideoAnonymizer.Web.Services;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
+using VideoAnonymizer.Web.Tests.TestDoubles;
 
 namespace VideoAnonymizer.Web.Tests.Components;
 
@@ -39,6 +41,7 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
 
         _context.Services.AddMudServices();
         _context.Services.AddSingleton<IHttpClientFactory>(new RecordingHttpClientFactory(_http));
+        _context.Services.AddSingleton<IJobHubClient>(new FakeJobHubClient());
         _context.Render<MudBlazor.MudPopoverProvider>();
     }
 

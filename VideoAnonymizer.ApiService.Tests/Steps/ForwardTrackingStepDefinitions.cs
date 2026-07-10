@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using Reqnroll;
-using VideoAnonymizer.ApiService.Controllers;
 using VideoAnonymizer.ApiService.DataServices;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
@@ -199,23 +198,19 @@ public sealed class ForwardTrackingStepDefinitions
     [When("the reviewer tracks the seed face forward")]
     public async Task WhenTheReviewerTracksTheSeedFaceForward()
     {
-        LastResult = await CreateController().TrackForward(
-            VideoId,
-            new TrackForwardRequestDto { SeedDetectionId = SeedObjectId },
-            CancellationToken.None);
+        LastResult = await TrackForwardDirectlyAsync(
+            new TrackForwardRequestDto { SeedDetectionId = SeedObjectId });
     }
 
     [When("track forward is requested with replace conflicts")]
     public async Task WhenTrackForwardIsRequestedWithReplaceConflicts()
     {
-        LastResult = await CreateController().TrackForward(
-            VideoId,
+        LastResult = await TrackForwardDirectlyAsync(
             new TrackForwardRequestDto
             {
                 SeedDetectionId = SeedObjectId,
                 ConflictMode = "replace"
-            },
-            CancellationToken.None);
+            });
     }
 
     [Then("generated faces use the seed track id")]
@@ -279,8 +274,24 @@ public sealed class ForwardTrackingStepDefinitions
         response.CreatedObjects.Should().OnlyContain(obj => obj.TrackId == 7);
     }
 
-    private TracksController CreateController() =>
-        new(new ForwardTrackingService(DbFactory, FakeClient));
+    private async Task<IActionResult> TrackForwardDirectlyAsync(TrackForwardRequestDto request)
+    {
+        try
+        {
+            var result = await new ForwardTrackingService(DbFactory, FakeClient)
+                .TrackForwardAsync(VideoId, request, CancellationToken.None);
+
+            return new OkObjectResult(new ApiResponse<TrackForwardResponseDto>
+            {
+                IsSuccess = true,
+                Payload = result
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            return new BadRequestObjectResult(ex.Message);
+        }
+    }
 
     private static TrackForwardPythonResponse CreatePythonResponse(
         IReadOnlyList<TrackForwardPythonDetectionResult> detections,

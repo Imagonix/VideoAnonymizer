@@ -31,12 +31,14 @@ namespace VideoAnonymizer.Web.Shared
             {
                 public const string VideoAnalyzed = "videoAnalyzed";
                 public const string VideoAnonymized = "videoAnonymized";
+                public const string TrackForwardCompleted = "trackForwardCompleted";
                 public const string JobProgress = "jobProgress";
 
             }
             public static class Status
             {
                 public const string Completed = "completed";
+                public const string Failed = "failed";
             }
         }
     }

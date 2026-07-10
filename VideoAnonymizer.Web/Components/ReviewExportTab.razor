@@ -1,9 +1,12 @@
 @using VideoAnonymizer.Web.Components.ReviewExport
 @using VideoAnonymizer.Web.Modules.Actions
 @using VideoAnonymizer.Web.Modules.Components
+@using VideoAnonymizer.Web.Services
+@using VideoAnonymizer.Web.Shared
 @using VideoAnonymizer.Web.Shared.DTO
 @implements IAsyncDisposable
 @inject IHttpClientFactory HttpClientFactory
+@inject IJobHubClient JobHubClient
 @inject ISnackbar Snackbar
 
 <MudPaper Class="pa-6" Style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
@@ -13,7 +16,7 @@
                                TimeBufferMs="TimeBufferMs"
                                TimeBufferMsChanged="OnTimeBufferChanged">
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
+                <ActionHistoryPopover IsProcessing="_videoEditorProcessing || _trackForwardProcessing"
                                       HasErrors="_hasErrors"
                                       Items="_actionHistory" />
                 <MudButton Variant="Variant.Filled"
@@ -58,6 +61,9 @@
     private readonly VideoEditorActionQueue _actionQueue;
     private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
+    private IDisposable? _trackForwardCompletedSubscription;
+    private Guid? _pendingTrackForwardJobId;
+    private ActionHistoryItem? _pendingTrackForwardItem;
     private List<AnalyzedFrameDto> _capturedFrames = [];
     private bool _videoEditorProcessing;
     private bool _editorInputBlocked;
@@ -100,6 +106,11 @@
     public EventCallback<int> TimeBufferMsChanged { get; set; }
 
     public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
+
+    protected override void OnInitialized()
+    {
+        _trackForwardCompletedSubscription = JobHubClient.OnTrackForwardCompleted(OnTrackForwardCompletedAsync);
+    }
 
     private Task OnQueueProcessingChangedAsync(bool isProcessing) =>
         InvokeAsync(() =>
@@ -165,11 +176,63 @@
     private async Task ApplyTrackForwardAsync(VideoEditorActionPersister persister, TrackForwardAction action)
     {
         var item = AddAction(VideoEditorActionDescriptions.Get(action));
+        var jobId = Guid.NewGuid();
+        _pendingTrackForwardJobId = jobId;
+        _pendingTrackForwardItem = item;
 
         try
         {
-            var result = await persister.TrackForwardAsync(action);
-            item.Status = ActionStatus.Success;
+            var job = await persister.TrackForwardAsync(action, jobId);
+            _pendingTrackForwardJobId = job.JobId;
+            Snackbar.Add("Tracking started.", Severity.Info);
+            await InvokeAsync(StateHasChanged);
+        }
+        catch
+        {
+            _pendingTrackForwardJobId = null;
+            _pendingTrackForwardItem = null;
+            _trackForwardProcessing = false;
+            MarkActionFailed(item);
+        }
+    }
+
+    private Task OnTrackForwardCompletedAsync(TrackForwardCompletedMessage message) =>
+        InvokeAsync(async () =>
+        {
+            if (_pendingTrackForwardJobId is null || message.JobId != _pendingTrackForwardJobId)
+                return;
+
+            if (VideoId.HasValue && message.VideoId != VideoId.Value)
+                return;
+
+            var item = _pendingTrackForwardItem;
+            _pendingTrackForwardJobId = null;
+            _pendingTrackForwardItem = null;
+            _trackForwardProcessing = false;
+
+            if (!string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase)
+                || message.Result is null)
+            {
+                if (item is not null)
+                {
+                    item.Status = ActionStatus.Failed;
+                }
+
+                _hasErrors = true;
+                Snackbar.Add(
+                    string.IsNullOrWhiteSpace(message.Error)
+                        ? "Tracking failed."
+                        : $"Tracking failed: {message.Error}",
+                    Severity.Error);
+                StateHasChanged();
+                return;
+            }
+
+            var result = message.Result;
+            if (item is not null)
+            {
+                item.Status = ActionStatus.Success;
+            }
 
             if (_videoEditor is not null)
             {
@@ -182,18 +245,8 @@
             }
 
             Snackbar.Add(BuildTrackForwardSummary(result), Severity.Info);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            MarkActionFailed(item);
-        }
-        finally
-        {
-            _trackForwardProcessing = false;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
+            StateHasChanged();
+        });
 
     private async Task PersistActionAsync(VideoEditorActionPersister persister, VideoEditorAction action)
     {
@@ -318,6 +371,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        _trackForwardCompletedSubscription?.Dispose();
         await _actionQueue.DisposeAsync();
     }
 }

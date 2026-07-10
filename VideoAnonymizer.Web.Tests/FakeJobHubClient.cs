@@ -7,6 +7,7 @@ public sealed class FakeJobHubClient : IJobHubClient
 {
     private Func<LongRunningJobFinishedMessage, Task>? _videoAnalyzedHandler;
     private Func<LongRunningJobFinishedMessage, Task>? _videoAnonymizedHandler;
+    private Func<TrackForwardCompletedMessage, Task>? _trackForwardCompletedHandler;
     private Func<LongRunningJobProgressMessage, Task>? _jobProgressHandler;
 
     public bool StartCalled { get; private set; }
@@ -14,6 +15,7 @@ public sealed class FakeJobHubClient : IJobHubClient
 
     public int VideoAnalyzedSubscriptionCount { get; private set; }
     public int VideoAnonymizedSubscriptionCount { get; private set; }
+    public int TrackForwardCompletedSubscriptionCount { get; private set; }
     public int JobProgressSubscriptionCount { get; private set; }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -42,6 +44,13 @@ public sealed class FakeJobHubClient : IJobHubClient
         return new CallbackDisposable(() => _videoAnonymizedHandler = null);
     }
 
+    public IDisposable OnTrackForwardCompleted(Func<TrackForwardCompletedMessage, Task> handler)
+    {
+        TrackForwardCompletedSubscriptionCount++;
+        _trackForwardCompletedHandler = handler;
+        return new CallbackDisposable(() => _trackForwardCompletedHandler = null);
+    }
+
     public IDisposable OnJobProgress(Func<LongRunningJobProgressMessage, Task> handler)
     {
         JobProgressSubscriptionCount++;
@@ -62,6 +71,14 @@ public sealed class FakeJobHubClient : IJobHubClient
         if (_videoAnonymizedHandler is not null)
         {
             await _videoAnonymizedHandler(message);
+        }
+    }
+
+    public async Task RaiseTrackForwardCompletedAsync(TrackForwardCompletedMessage message)
+    {
+        if (_trackForwardCompletedHandler is not null)
+        {
+            await _trackForwardCompletedHandler(message);
         }
     }
 

@@ -1,13 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using VideoAnonymizer.ApiService.DataServices;
-using VideoAnonymizer.ObjectDetectionClient;
 using VideoAnonymizer.Web.Shared;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.Controllers;
 
 [ApiController]
-public sealed class TracksController(ForwardTrackingService forwardTrackingService) : ControllerBase
+public sealed class TracksController(TrackForwardJobQueue trackForwardJobQueue) : ControllerBase
 {
     [HttpPost($"/{SharedConstants.Paths.Analyzed}/{{videoId:guid}}/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}")]
     public async Task<IActionResult> TrackForward(
@@ -17,28 +16,22 @@ public sealed class TracksController(ForwardTrackingService forwardTrackingServi
     {
         try
         {
-            var result = await forwardTrackingService.TrackForwardAsync(videoId, request, cancellationToken);
-            return Ok(new ApiResponse<TrackForwardResponseDto>
+            var jobId = request.JobId ?? Guid.NewGuid();
+            request.JobId = jobId;
+
+            await trackForwardJobQueue.EnqueueAsync(
+                new TrackForwardJob(jobId, videoId, request),
+                cancellationToken);
+
+            return Accepted(new ApiResponse<TrackForwardJobDto>
             {
                 IsSuccess = true,
-                Payload = result
+                Payload = new TrackForwardJobDto { JobId = jobId }
             });
         }
-        catch (ArgumentException ex)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return BadRequest(ex.Message);
-        }
-        catch (FileNotFoundException)
-        {
-            return NotFound();
-        }
-        catch (NotFoundException)
-        {
-            return NotFound();
-        }
-        catch (ApiException ex)
-        {
-            return StatusCode(StatusCodes.Status502BadGateway, ex.Response);
+            return StatusCode(StatusCodes.Status499ClientClosedRequest);
         }
     }
 }

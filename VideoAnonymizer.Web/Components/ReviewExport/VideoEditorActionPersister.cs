@@ -38,12 +38,13 @@ public sealed class VideoEditorActionPersister(HttpClient client)
         }
     }
 
-    public async Task<TrackForwardResponseDto> TrackForwardAsync(TrackForwardAction action)
+    public async Task<TrackForwardJobDto> TrackForwardAsync(TrackForwardAction action, Guid jobId)
     {
         using var response = await client.PostAsJsonAsync(
             $"/{SharedConstants.Paths.Analyzed}/{action.VideoId}/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}",
             new TrackForwardRequestDto
             {
+                JobId = jobId,
                 SeedDetectionId = action.Object.Id,
                 BoundingBox = new TrackForwardBoundingBoxDto
                 {
@@ -58,9 +59,9 @@ public sealed class VideoEditorActionPersister(HttpClient client)
 
         response.EnsureSuccessStatusCode();
 
-        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<TrackForwardResponseDto>>();
+        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<TrackForwardJobDto>>();
         return apiResponse?.Payload
-            ?? throw new InvalidOperationException("Track forward response did not include a payload.");
+            ?? throw new InvalidOperationException("Track forward response did not include a job id.");
     }
 
     public async Task ApplyUndoRedoAsync(

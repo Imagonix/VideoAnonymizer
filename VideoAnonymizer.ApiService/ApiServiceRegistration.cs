@@ -25,6 +25,8 @@ public static class ApiServiceRegistration
         builder.Services.AddScoped<VideoDataService>();
         builder.Services.AddScoped<DetectedObjectDataService>();
         builder.Services.AddScoped<ForwardTrackingService>();
+        builder.Services.AddSingleton<TrackForwardJobQueue>();
+        builder.Services.AddHostedService<TrackForwardJobWorker>();
         builder.Services.AddScoped<StateDataService>();
         builder.Services.AddSingleton<IObjectDetectionApiReadyState, ObjectDetectionApiReadyState>();
         builder.Services.AddHostedService<ObjectDetectionApiStartupWaiter>();

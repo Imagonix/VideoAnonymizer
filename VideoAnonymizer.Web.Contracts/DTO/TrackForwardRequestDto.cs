@@ -2,6 +2,7 @@ namespace VideoAnonymizer.Web.Shared.DTO;
 
 public class TrackForwardRequestDto
 {
+    public Guid? JobId { get; set; }
     public Guid? SeedDetectionId { get; set; }
     public int SeedTimeMs { get; set; }
     public int? SeedFrameIndex { get; set; }
