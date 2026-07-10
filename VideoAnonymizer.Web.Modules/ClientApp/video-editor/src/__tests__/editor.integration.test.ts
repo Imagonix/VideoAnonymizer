@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { reactive } from 'vue';
 import VideoEditorApp from '../VideoEditorApp.vue';
@@ -356,7 +356,7 @@ describe('VideoEditorApp integration', () => {
             expect(wrapper.text()).toContain('✕');
 
             const modeBtns = wrapper.findAll('.mode-switch-btn');
-            expect(modeBtns.length).toBe(3);
+            expect(modeBtns.length).toBe(4);
 
             await modeBtns[0].trigger('click');
             expect(wrapper.text()).toContain('✕');
@@ -366,6 +366,28 @@ describe('VideoEditorApp integration', () => {
 
             await modeBtns[2].trigger('click');
             expect(wrapper.text()).toContain('✕');
+
+            await modeBtns[3].trigger('click');
+            expect(wrapper.text()).toContain('✕');
+        });
+    });
+
+    describe('track forward', () => {
+        it('opens DetailedView in Track mode and tracks the clicked box', async () => {
+            const onTrackForward = vi.fn();
+            const mounted = mountEditor({ onTrackForward });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await clickButton(wrapper, 'Track');
+            expect(wrapper.text()).toContain('Exit Track');
+
+            const box = wrapper.find('.move-box');
+            expect(box.exists()).toBe(true);
+            await box.trigger('click');
+
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
+            expect(onTrackForward).toHaveBeenCalledWith('v1', 'f1', state.frames[0].detectedObjects[0]);
         });
     });
 

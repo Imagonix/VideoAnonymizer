@@ -1,11 +1,11 @@
 <script setup lang="ts">
 defineProps<{
-    mode: 'move' | 'resize' | 'add';
+    mode: 'move' | 'resize' | 'add' | 'track';
 }>();
 
 const emit = defineEmits<{
     (e: 'done'): void;
-    (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
+    (e: 'mode-change', mode: 'move' | 'resize' | 'add' | 'track'): void;
 }>();
 </script>
 
@@ -27,6 +27,11 @@ const emit = defineEmits<{
               :class="{ active: mode === 'add' }"
               @click="emit('mode-change', 'add')"
             >Add</button>
+            <button
+              class="mode-switch-btn"
+              :class="{ active: mode === 'track' }"
+              @click="emit('mode-change', 'track')"
+            >Track</button>
         </div>
         <div class="move-actions">
             <button class="close-btn" @click="emit('done')" title="Close">✕</button>

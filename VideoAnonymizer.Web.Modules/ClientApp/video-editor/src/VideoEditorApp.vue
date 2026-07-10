@@ -104,7 +104,7 @@ const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const hoveredTimelineKey = ref<string | null>(null);
 const hoveredObjectKey = ref<string | null>(null);
 
-const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isOverlayOpen } = useEditorModes();
+const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isTrack, isOverlayOpen } = useEditorModes();
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
@@ -161,9 +161,9 @@ function splitAction() {
     }
 }
 
-function modeToggle(mode: 'merge' | 'split' | 'move' | 'resize' | 'add') {
+function modeToggle(mode: 'merge' | 'split' | 'move' | 'resize' | 'add' | 'track') {
     if (activeMode.value === mode) { deactivate(); return; }
-    if (mode === 'merge' || mode === 'split' || mode === 'move' || mode === 'resize' || mode === 'add') {
+    if (mode === 'merge' || mode === 'split' || mode === 'move' || mode === 'resize' || mode === 'add' || mode === 'track') {
         if (mode !== 'merge') clearOccurrences();
         if (mode !== 'split') mergeSelectedTimelineKeys.value = new Set();
         activate(mode);
@@ -205,12 +205,12 @@ function setVideoVolume(volume: number) {
                 <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects"
                   @toggle="toggleObject"
                   @hover-row="hoveredObjectKey = $event"
-                  @delete-object="deleteObject"
-                  @track-forward="trackForward" />
+                  @delete-object="deleteObject" />
                 <EditorControls
                   :move-mode="isMove"
                   :resize-mode="isResize"
                   :add-mode="isAdd"
+                  :track-mode="isTrack"
                   :merge-mode="isMerge"
                   :merge-count="mergeSelectedTimelineKeys.size"
                   :split-mode="isSplit"
@@ -219,6 +219,7 @@ function setVideoVolume(volume: number) {
                   @toggle-move-mode="modeToggle('move')"
                   @toggle-resize-mode="modeToggle('resize')"
                   @toggle-add-mode="modeToggle('add')"
+                  @toggle-track-mode="modeToggle('track')"
                   @toggle-merge-mode="modeToggle('merge')"
                   @merge="mergeAction"
                   @toggle-split-mode="modeToggle('split')"
@@ -267,7 +268,7 @@ function setVideoVolume(volume: number) {
       :frames="frames"
       :video-ref="videoPlayerRef?.videoRef ?? null"
       :anonymization-settings="state.anonymizationSettings"
-      :mode="isAdd ? 'add' : isResize ? 'resize' : 'move'"
+      :mode="isTrack ? 'track' : isAdd ? 'add' : isResize ? 'resize' : 'move'"
       @done="deactivate"
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"

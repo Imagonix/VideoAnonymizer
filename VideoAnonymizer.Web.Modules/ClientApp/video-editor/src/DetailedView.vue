@@ -9,13 +9,13 @@ const props = defineProps<{
     frame: AnalyzedFrameDto;
     videoRef: HTMLVideoElement | null;
     anonymizationSettings: AnonymizationSettings;
-    mode: 'move' | 'resize' | 'add';
+    mode: 'move' | 'resize' | 'add' | 'track';
     frames: AnalyzedFrameDto[];
 }>();
 
 const emit = defineEmits<{
     (e: 'done'): void;
-    (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
+    (e: 'mode-change', mode: 'move' | 'resize' | 'add' | 'track'): void;
     (e: 'add-box', x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number): void;
     (e: 'box-updated', obj: DetectedObjectDto, beforeState: DetectedObjectDto[]): void;
     (e: 'track-forward', obj: DetectedObjectDto): void;
@@ -237,12 +237,10 @@ function cancelAdd() {
     pendingLabel.value = null;
 }
 
-function getTrackButtonStyle(obj: DetectedObjectDto) {
-    const box = getBoxPct(obj);
-    return {
-        left: box.left,
-        top: box.top,
-    };
+function onBoxClick(obj: DetectedObjectDto) {
+    if (props.mode === 'track') {
+        emit('track-forward', obj);
+    }
 }
 </script>
 
@@ -269,22 +267,24 @@ function getTrackButtonStyle(obj: DetectedObjectDto) {
                         :class="{
                           'move-box--dragging': dragState?.id === obj.id,
                           'move-box--active': activeBoxId === obj.id,
-                          'move-box--no-move': mode !== 'move'
+                          'move-box--no-move': mode !== 'move',
+                          'move-box--track': mode === 'track'
                         }"
                         :style="getBoxPct(obj)"
+                        :title="mode === 'track' ? 'Track this object forward' : null"
                         @mouseenter="activeBoxId = obj.id"
                         @mouseleave="activeBoxId = null"
                         @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
-                      />
-                      <button
-                        class="track-forward-btn"
-                        :style="getTrackButtonStyle(obj)"
-                        @mousedown.stop.prevent
-                        @click.stop.prevent="emit('track-forward', obj)"
-                        title="Track this object forward"
+                        @click.stop="onBoxClick(obj)"
                       >
-                        Track forward
-                      </button>
+                        <span v-if="mode === 'track'" class="tracking-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+                            <circle cx="12" cy="12" r="2" fill="currentColor" />
+                            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                          </svg>
+                        </span>
+                      </div>
                       <template v-if="mode === 'resize'">
                         <div
                           v-for="pos in handlePositions"
@@ -376,6 +376,9 @@ function getTrackButtonStyle(obj: DetectedObjectDto) {
 
 .move-box {
     position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: 2px solid;
     box-sizing: border-box;
     cursor: move;
@@ -395,6 +398,34 @@ function getTrackButtonStyle(obj: DetectedObjectDto) {
 
 .move-box--no-move {
     cursor: default;
+}
+
+.move-box--track {
+    cursor: pointer;
+    border-color: var(--mud-palette-secondary) !important;
+    background: color-mix(in srgb, var(--mud-palette-secondary) 10%, transparent);
+}
+
+.move-box--track:hover {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-secondary) 28%, transparent);
+}
+
+.tracking-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(22px, 35%, 42px);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--mud-palette-secondary) 88%, transparent);
+    color: var(--mud-palette-secondary-contrast-text);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.32);
+    pointer-events: none;
+}
+
+.tracking-icon svg {
+    width: 70%;
+    height: 70%;
 }
 
 .resize-handle {
@@ -440,27 +471,5 @@ function getTrackButtonStyle(obj: DetectedObjectDto) {
     opacity: 0.3;
 }
 
-.track-forward-btn {
-    position: absolute;
-    z-index: 8;
-    transform: translateY(calc(-100% - 4px));
-    pointer-events: auto;
-    border: none;
-    border-radius: 4px;
-    background: var(--mud-palette-secondary);
-    color: var(--mud-palette-secondary-contrast-text);
-    cursor: pointer;
-    font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
-    line-height: 1;
-    padding: 5px 8px;
-    white-space: nowrap;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
-}
-
-.track-forward-btn:hover {
-    background: color-mix(in srgb, var(--mud-palette-secondary) 88%, white);
-}
 .resize-handle--e { cursor: ew-resize; }
 </style>

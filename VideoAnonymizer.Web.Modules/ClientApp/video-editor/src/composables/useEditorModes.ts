@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 
-export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add';
+export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add' | 'track';
 
 export function useEditorModes() {
     const activeMode = ref<EditorMode>('select');
@@ -18,8 +18,12 @@ export function useEditorModes() {
     const isMove = computed(() => activeMode.value === 'move');
     const isResize = computed(() => activeMode.value === 'resize');
     const isAdd = computed(() => activeMode.value === 'add');
+    const isTrack = computed(() => activeMode.value === 'track');
     const isOverlayOpen = computed(() =>
-        activeMode.value === 'move' || activeMode.value === 'resize' || activeMode.value === 'add'
+        activeMode.value === 'move'
+        || activeMode.value === 'resize'
+        || activeMode.value === 'add'
+        || activeMode.value === 'track'
     );
 
     return {
@@ -31,6 +35,7 @@ export function useEditorModes() {
         isMove,
         isResize,
         isAdd,
+        isTrack,
         isOverlayOpen,
     };
 }
