@@ -173,6 +173,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 - Reqnroll step definitions should store scenario state in `ScenarioContext`, following the pattern in `HomeStepDefinitions`, instead of keeping mutable instance fields.
 - Do not edit generated `.feature.cs` files directly. Edit `.feature` files and step definitions.
 - Vue `.feature` tests are executed by the Vitest feature runner, not by Reqnroll, so Visual Studio Reqnroll navigation does not apply to those files.
+- When fixing build or test failures, fix the root cause at the failing dependency, configuration, or behavior boundary first. Do not add defensive cleanup, null checks, retries, or other robustness changes merely to suppress follow-on failures unless the user explicitly asks for that hardening or the follow-on failure is itself the root defect being addressed.
 
 ### Refactoring Guidance
 - Do not extract single-use helper methods unless the surrounding method is becoming hard to read.
