@@ -26,9 +26,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     public bool InterpolateTrackedObjects { get; set; } = true;
 
     [Parameter]
-    public bool TrackForwardProcessing { get; set; }
-
-    [Parameter]
     public EventCallback<VideoEditorAction> OnAction { get; set; }
 
     private ElementReference _hostElement;
@@ -38,7 +35,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private int _lastBlurSizePercent;
     private int _lastTimeBufferMs;
     private bool _lastInterpolateTrackedObjects;
-    private bool _lastTrackForwardProcessing;
     private DotNetObjectReference<VideoEditor>? _dotNetRef;
 
     [JSInvokable]
@@ -123,6 +119,18 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         }
     }
 
+    public async Task ClearTrackingObjectId(string objectId)
+    {
+        if (!_mounted || _hostModule is null) return;
+        try
+        {
+            await _hostModule.InvokeVoidAsync("clearTrackingObjectId", _hostElement, objectId);
+        }
+        catch
+        {
+        }
+    }
+
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
     {
         if (!_mounted || _hostModule is null)
@@ -156,7 +164,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                 _lastBlurSizePercent = BlurSizePercent;
                 _lastTimeBufferMs = TimeBufferMs;
                 _lastInterpolateTrackedObjects = InterpolateTrackedObjects;
-                _lastTrackForwardProcessing = TrackForwardProcessing;
                 _mounted = true;
             }
             catch
@@ -189,16 +196,6 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                     interpolateTrackedObjects = InterpolateTrackedObjects
                 });
         }
-
-        if (TrackForwardProcessing != _lastTrackForwardProcessing)
-        {
-            _lastTrackForwardProcessing = TrackForwardProcessing;
-
-            await _hostModule.InvokeVoidAsync(
-                "updateVideoEditorTrackForwardProcessing",
-                _hostElement,
-                TrackForwardProcessing);
-        }
     }
 
     private object BuildProps()
@@ -213,8 +210,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                 blurSizePercent = BlurSizePercent,
                 timeBufferMs = TimeBufferMs,
                 interpolateTrackedObjects = InterpolateTrackedObjects
-            },
-            trackForwardProcessing = TrackForwardProcessing
+            }
         };
     }
 

@@ -29,9 +29,9 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         private static string[] featureTags = new string[] {
                 "object_interpolation"};
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Predicting object positions between analyzed frames", "  As a reviewer anonymizing a video with sampled detections\n  I want tracked obje" +
-                "cts to be predicted between analyzed frames\n  So that moving license plates and " +
-                "faces stay covered while the export renders every frame.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Predicting object positions between analyzed frames", "  As a reviewer anonymizing a video with sampled detections\r\n  I want tracked obj" +
+                "ects to be predicted between analyzed frames\r\n  So that moving license plates an" +
+                "d faces stay covered while the export renders every frame.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "RelevantDetectedObjectInterpolation.feature"
 #line hidden

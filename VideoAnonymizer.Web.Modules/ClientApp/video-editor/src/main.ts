@@ -5,7 +5,7 @@ import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 type AppHandle = {
     update: (nextProps: VideoEditorProps) => void;
     updateSettings: (settings: AnonymizationSettings) => void;
-    updateTrackForwardProcessing: (isProcessing: boolean) => void;
+    clearTrackingObjectId: (objectId: string) => void;
     applyChanges: (changes: DetectedObjectChangeSet) => void;
     unmount: () => void;
     getFrames: () => any[]
@@ -47,13 +47,13 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         videoSourceUrl: props.videoSourceUrl,
         frames: props.frames ?? [],
         anonymizationSettings: props.anonymizationSettings,
-        trackForwardProcessing: props.trackForwardProcessing === true,
         ...callbacks,
     });
 
     const app = createApp(VideoEditorApp, { state });
     const vm = app.mount(element) as {
-        getFrames?: () => any[]
+        getFrames?: () => any[],
+        clearTrackingObjectId?: (objectId: string) => void,
     };
 
     return {
@@ -62,15 +62,14 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
             state.videoSourceUrl = nextProps.videoSourceUrl;
             state.frames = nextProps.frames ?? [];
             state.anonymizationSettings = nextProps.anonymizationSettings;
-            state.trackForwardProcessing = nextProps.trackForwardProcessing === true;
         },
         updateSettings(settings: AnonymizationSettings) {
             state.anonymizationSettings.blurSizePercent = settings.blurSizePercent;
             state.anonymizationSettings.timeBufferMs = settings.timeBufferMs;
             state.anonymizationSettings.interpolateTrackedObjects = settings.interpolateTrackedObjects;
         },
-        updateTrackForwardProcessing(isProcessing: boolean) {
-            state.trackForwardProcessing = isProcessing;
+        clearTrackingObjectId(objectId: string) {
+            (vm as any)?.clearTrackingObjectId?.(objectId);
         },
         applyChanges(changes: DetectedObjectChangeSet) {
             (vm as any)?.applyChanges?.(changes);

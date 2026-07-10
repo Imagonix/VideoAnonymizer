@@ -1,7 +1,7 @@
 <script setup lang="ts">
 defineProps<{
     mode: 'move' | 'resize' | 'add' | 'track';
-    trackForwardProcessing: boolean;
+    hasActiveTracking: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -30,14 +30,9 @@ const emit = defineEmits<{
             >Add</button>
             <button
               class="mode-switch-btn"
-              :class="{ active: mode === 'track' }"
-              :disabled="trackForwardProcessing"
-              :aria-busy="trackForwardProcessing ? 'true' : 'false'"
+              :class="{ active: mode === 'track', 'mode-switch-btn--track-disabled': hasActiveTracking }"
               @click="emit('mode-change', 'track')"
-            >
-                <span v-if="trackForwardProcessing" class="mode-spinner" aria-hidden="true"></span>
-                <span>{{ trackForwardProcessing ? 'Tracking...' : 'Track' }}</span>
-            </button>
+            >Track</button>
         </div>
         <div class="move-actions">
             <button class="close-btn" @click="emit('done')" title="Close">✕</button>
@@ -83,9 +78,14 @@ const emit = defineEmits<{
     transition: background 0.15s, color 0.15s;
 }
 
-.mode-switch-btn:disabled {
-    cursor: progress;
+.mode-switch-btn--track-disabled {
     opacity: 0.72;
+    cursor: default;
+}
+
+.mode-switch-btn--track-disabled:hover {
+    background: transparent;
+    color: var(--mud-palette-text-secondary);
 }
 
 .mode-switch-btn:not(:last-child) {
@@ -100,21 +100,6 @@ const emit = defineEmits<{
 .mode-switch-btn:hover:not(.active) {
     background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
     color: var(--mud-palette-text-primary);
-}
-
-.mode-spinner {
-    width: 13px;
-    height: 13px;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 999px;
-    animation: spin 0.75s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 .move-actions {

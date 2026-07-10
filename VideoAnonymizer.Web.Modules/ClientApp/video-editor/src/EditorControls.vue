@@ -4,7 +4,7 @@ defineProps<{
     resizeMode: boolean;
     addMode: boolean;
     trackMode: boolean;
-    trackForwardProcessing: boolean;
+    hasActiveTracking: boolean;
     mergeMode: boolean;
     mergeCount: number;
     splitMode: boolean;
@@ -72,19 +72,16 @@ const emit = defineEmits<{
         <div class="control-row">
             <button
               class="control-btn"
-              :class="{ active: trackMode }"
-              :disabled="trackForwardProcessing"
-              :aria-busy="trackForwardProcessing ? 'true' : 'false'"
+              :class="{ active: trackMode, 'control-btn--track-disabled': hasActiveTracking }"
               @click="emit('toggle-track-mode')"
-              :title="trackForwardProcessing ? 'Tracking forward is in progress' : 'Click a bounding box in detailed view to track it forward'"
+              :title="hasActiveTracking ? 'Tracking in progress - click to toggle track mode' : 'Click a bounding box in detailed view to track it forward'"
             >
-                <span v-if="trackForwardProcessing" class="btn-spinner" aria-hidden="true"></span>
-                <svg v-else class="btn-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                     <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
                     <circle cx="12" cy="12" r="2" fill="currentColor" />
                     <path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
-                <span>{{ trackForwardProcessing ? 'Tracking...' : trackMode ? 'Exit Track' : 'Track' }}</span>
+                <span>{{ trackMode ? 'Exit Track' : 'Track' }}</span>
             </button>
         </div>
         <div class="control-row">
@@ -201,12 +198,12 @@ const emit = defineEmits<{
     color: var(--mud-palette-text-primary);
 }
 
-.control-btn:disabled {
-    cursor: progress;
+.control-btn--track-disabled {
     opacity: 0.72;
+    cursor: default;
 }
 
-.control-btn:disabled:hover {
+.control-btn--track-disabled:hover {
     border-color: var(--mud-palette-lines-inputs);
     background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
     color: var(--mud-palette-text-primary);
@@ -230,22 +227,6 @@ const emit = defineEmits<{
     width: 18px;
     height: 18px;
     flex: 0 0 18px;
-}
-
-.btn-spinner {
-    width: 18px;
-    height: 18px;
-    flex: 0 0 18px;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 999px;
-    animation: spin 0.75s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
 }
 
 .action-btn {

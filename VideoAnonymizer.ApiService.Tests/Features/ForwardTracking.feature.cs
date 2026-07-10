@@ -29,9 +29,9 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         private static string[] featureTags = new string[] {
                 "forward_tracking"};
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Forward-only single-object tracking", "  As a reviewer correcting one object track\n  I want generated forward detections" +
-                " to be saved safely\n  So that the editor can continue with normal reviewed detec" +
-                "tions.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Forward-only single-object tracking", "  As a reviewer correcting one object track\r\n  I want generated forward detection" +
+                "s to be saved safely\r\n  So that the editor can continue with normal reviewed det" +
+                "ections.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "ForwardTracking.feature"
 #line hidden

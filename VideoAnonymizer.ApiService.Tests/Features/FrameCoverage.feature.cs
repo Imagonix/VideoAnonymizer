@@ -29,9 +29,9 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         private static string[] featureTags = new string[] {
                 "frame_coverage"};
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Applying persisted detections between analyzed frames", "  As a reviewer who sampled detections at intervals\n  I want the processor to reu" +
-                "se persisted detections between analyzed frames\n  So that selected faces stay bl" +
-                "urred continuously in the exported video.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Applying persisted detections between analyzed frames", "  As a reviewer who sampled detections at intervals\r\n  I want the processor to re" +
+                "use persisted detections between analyzed frames\r\n  So that selected faces stay " +
+                "blurred continuously in the exported video.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "FrameCoverage.feature"
 #line hidden

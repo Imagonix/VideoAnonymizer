@@ -74,10 +74,10 @@ export async function applyDetectedObjectChanges(element, changes) {
     appHandle.applyChanges(changes);
 }
 
-export async function updateVideoEditorTrackForwardProcessing(element, isProcessing) {
+export async function clearTrackingObjectId(element, objectId) {
     const appHandle = mountedApps.get(element);
-    if (!appHandle || typeof appHandle.updateTrackForwardProcessing !== 'function') return;
-    appHandle.updateTrackForwardProcessing(isProcessing === true);
+    if (!appHandle || typeof appHandle.clearTrackingObjectId !== 'function') return;
+    appHandle.clearTrackingObjectId(objectId);
 }
 
 export async function unmountVideoEditor(element) {

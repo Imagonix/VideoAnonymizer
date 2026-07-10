@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
+import type { Set } from 'vue';
 import type { VideoDimensions } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
@@ -101,7 +102,7 @@ onUnmounted(() => {
 });
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
-const trackForwardProcessing = computed(() => props.state.trackForwardProcessing === true);
+const trackingObjectIds = ref(new Set<string>());
 const hoveredTimelineKey = ref<string | null>(null);
 const hoveredObjectKey = ref<string | null>(null);
 
@@ -111,12 +112,18 @@ const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOn
 const { splitSourceKey, execute: splitExecute } = useSplit();
 const { currentFrame, timelineObjects, timelineObjectCounts, orderedCurrentFrameObjects } = useTimelineObjects(frames, currentTime);
 const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isMove);
-const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, trackForward, addBox, onBoxUpdated } = useDetectedObjectActions(
+const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onBoxUpdated } = useDetectedObjectActions(
     props.state,
     frames,
     currentFrame,
     activeMode
 );
+
+function trackForward(obj: DetectedObjectDto) {
+    trackingObjectIds.value.add(obj.id);
+    trackingObjectIds.value = new Set(trackingObjectIds.value);
+    props.state.onTrackForward?.(props.state.videoId, obj.analyzedFrameId, obj);
+}
 
 useKeyboardUndoRedo(props.state);
 
@@ -139,7 +146,12 @@ function applyChanges(changes: DetectedObjectChangeSet) {
     }
 }
 
-defineExpose({ getFrames, applyChanges });
+function clearTrackingObjectId(objectId: string) {
+    trackingObjectIds.value.delete(objectId);
+    trackingObjectIds.value = new Set(trackingObjectIds.value);
+}
+
+defineExpose({ getFrames, applyChanges, clearTrackingObjectId });
 
 function getFrames() {
     return JSON.parse(JSON.stringify(props.state.frames))
@@ -212,7 +224,7 @@ function setVideoVolume(volume: number) {
                   :resize-mode="isResize"
                   :add-mode="isAdd"
                   :track-mode="isTrack"
-                  :track-forward-processing="trackForwardProcessing"
+                  :has-active-tracking="trackingObjectIds.size > 0"
                   :merge-mode="isMerge"
                   :merge-count="mergeSelectedTimelineKeys.size"
                   :split-mode="isSplit"
@@ -271,7 +283,7 @@ function setVideoVolume(volume: number) {
       :video-ref="videoPlayerRef?.videoRef ?? null"
       :anonymization-settings="state.anonymizationSettings"
       :mode="isTrack ? 'track' : isAdd ? 'add' : isResize ? 'resize' : 'move'"
-      :track-forward-processing="trackForwardProcessing"
+      :tracking-object-ids="trackingObjectIds"
       @done="deactivate"
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"

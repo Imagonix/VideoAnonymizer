@@ -11,7 +11,7 @@ const props = defineProps<{
     anonymizationSettings: AnonymizationSettings;
     mode: 'move' | 'resize' | 'add' | 'track';
     frames: AnalyzedFrameDto[];
-    trackForwardProcessing: boolean;
+    trackingObjectIds: Set<string>;
 }>();
 
 const emit = defineEmits<{
@@ -22,7 +22,7 @@ const emit = defineEmits<{
     (e: 'track-forward', obj: DetectedObjectDto): void;
 }>();
 
-
+const hasActiveTracking = computed(() => props.trackingObjectIds.size > 0);
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const overlayRef = ref<HTMLDivElement | null>(null);
@@ -239,7 +239,7 @@ function cancelAdd() {
 }
 
 function onBoxClick(obj: DetectedObjectDto) {
-    if (props.mode === 'track' && !props.trackForwardProcessing) {
+    if (props.mode === 'track' && !props.trackingObjectIds.has(obj.id)) {
         emit('track-forward', obj);
     }
 }
@@ -250,7 +250,7 @@ function onBoxClick(obj: DetectedObjectDto) {
         <div class="move-modal">
             <DetailedViewHeader
               :mode="mode"
-              :track-forward-processing="trackForwardProcessing"
+              :has-active-tracking="hasActiveTracking"
               @done="emit('done')"
               @mode-change="(nextMode) => emit('mode-change', nextMode)"
             />
@@ -271,22 +271,23 @@ function onBoxClick(obj: DetectedObjectDto) {
                           'move-box--active': activeBoxId === obj.id,
                           'move-box--no-move': mode !== 'move',
                           'move-box--track': mode === 'track',
-                          'move-box--track-disabled': mode === 'track' && trackForwardProcessing
+                          'move-box--tracking': mode === 'track' && trackingObjectIds.has(obj.id)
                         }"
                         :style="getBoxPct(obj)"
-                        :title="mode === 'track' ? trackForwardProcessing ? 'Tracking forward is in progress' : 'Track this object forward' : null"
+                        :title="mode === 'track' ? trackingObjectIds.has(obj.id) ? 'Tracking forward in progress' : 'Track this object forward' : null"
                         @mouseenter="activeBoxId = obj.id"
                         @mouseleave="activeBoxId = null"
                         @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
                         @click.stop="onBoxClick(obj)"
                       >
-                        <span v-if="mode === 'track'" class="tracking-icon" aria-hidden="true">
+                        <span v-if="mode === 'track' && !trackingObjectIds.has(obj.id)" class="tracking-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
                             <circle cx="12" cy="12" r="2" fill="currentColor" />
                             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                           </svg>
                         </span>
+                        <span v-if="mode === 'track' && trackingObjectIds.has(obj.id)" class="tracking-spinner" aria-hidden="true"></span>
                       </div>
                       <template v-if="mode === 'resize'">
                         <div
@@ -407,8 +408,9 @@ function onBoxClick(obj: DetectedObjectDto) {
     cursor: pointer;
 }
 
-.move-box--track-disabled {
+.move-box--tracking {
     cursor: progress;
+    opacity: 0.7;
 }
 
 .move-box--track:hover {
@@ -431,6 +433,21 @@ function onBoxClick(obj: DetectedObjectDto) {
 .tracking-icon svg {
     width: 70%;
     height: 70%;
+}
+
+.tracking-spinner {
+    width: clamp(22px, 35%, 42px);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    border: 3px solid var(--mud-palette-primary);
+    border-right-color: transparent;
+    animation: spin 0.75s linear infinite;
+    pointer-events: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.32);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 .resize-handle {

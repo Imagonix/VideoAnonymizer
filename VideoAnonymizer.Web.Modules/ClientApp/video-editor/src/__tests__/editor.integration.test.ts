@@ -390,27 +390,33 @@ describe('VideoEditorApp integration', () => {
             expect(onTrackForward).toHaveBeenCalledWith('v1', 'f1', state.frames[0].detectedObjects[0]);
         });
 
-        it('shows progress and blocks duplicate tracking while track forward is running', async () => {
+        it('shows per-box spinner and blocks duplicate tracking for the same object', async () => {
             const onTrackForward = vi.fn();
             const mounted = mountEditor({ onTrackForward });
             wrapper = mounted.wrapper;
             state = mounted.state;
 
             await clickButton(wrapper, 'Track');
-            (state as any).trackForwardProcessing = true;
-            await wrapper.vm.$nextTick();
 
-            const busyButtons = wrapper.findAll('button').filter(button => button.text().includes('Tracking...'));
-            expect(busyButtons.length).toBeGreaterThanOrEqual(2);
-            expect(busyButtons.every(button => (button.element as HTMLButtonElement).disabled)).toBe(true);
-            expect(wrapper.find('.btn-spinner').exists()).toBe(true);
-            expect(wrapper.find('.mode-spinner').exists()).toBe(true);
-
+            // Click a box to start tracking - this adds the object to trackingObjectIds
             const box = wrapper.find('.move-box');
             expect(box.exists()).toBe(true);
             await box.trigger('click');
 
-            expect(onTrackForward).not.toHaveBeenCalled();
+            await wrapper.vm.$nextTick();
+
+            // The track button shows disabled styling but is still clickable
+            const trackBtn = wrapper.findAll('button').filter(b => b.text() === 'Exit Track')[0];
+            expect(trackBtn.classes()).toContain('control-btn--track-disabled');
+
+            // The tracked box shows a spinner overlay
+            const trackedBox = wrapper.find('.move-box--tracking');
+            expect(trackedBox.exists()).toBe(true);
+
+            // Clicking the same box again does not trigger another track-forward
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
+            await box.trigger('click');
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
         });
     });
 

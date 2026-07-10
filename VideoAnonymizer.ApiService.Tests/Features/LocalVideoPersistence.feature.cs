@@ -29,9 +29,9 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         private static string[] featureTags = new string[] {
                 "api_persistence"};
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Local video persistence", "  As a reviewer working in the local application\n  I want uploaded videos, settin" +
-                "gs, reviewed objects and file paths to be persisted\n  So that I can leave and re" +
-                "turn without losing review work.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Local video persistence", "  As a reviewer working in the local application\r\n  I want uploaded videos, setti" +
+                "ngs, reviewed objects and file paths to be persisted\r\n  So that I can leave and " +
+                "return without losing review work.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "LocalVideoPersistence.feature"
 #line hidden
