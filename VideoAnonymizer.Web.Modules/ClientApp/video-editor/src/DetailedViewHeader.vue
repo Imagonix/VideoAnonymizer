@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{
     mode: 'move' | 'resize' | 'add' | 'track';
+    trackForwardProcessing: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -30,8 +31,13 @@ const emit = defineEmits<{
             <button
               class="mode-switch-btn"
               :class="{ active: mode === 'track' }"
+              :disabled="trackForwardProcessing"
+              :aria-busy="trackForwardProcessing ? 'true' : 'false'"
               @click="emit('mode-change', 'track')"
-            >Track</button>
+            >
+                <span v-if="trackForwardProcessing" class="mode-spinner" aria-hidden="true"></span>
+                <span>{{ trackForwardProcessing ? 'Tracking...' : 'Track' }}</span>
+            </button>
         </div>
         <div class="move-actions">
             <button class="close-btn" @click="emit('done')" title="Close">✕</button>
@@ -63,6 +69,10 @@ const emit = defineEmits<{
 }
 
 .mode-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 4px 14px;
     border: none;
     background: transparent;
@@ -71,6 +81,11 @@ const emit = defineEmits<{
     font-size: 0.82rem;
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
+}
+
+.mode-switch-btn:disabled {
+    cursor: progress;
+    opacity: 0.72;
 }
 
 .mode-switch-btn:not(:last-child) {
@@ -85,6 +100,21 @@ const emit = defineEmits<{
 .mode-switch-btn:hover:not(.active) {
     background: color-mix(in srgb, var(--mud-palette-primary) 8%, transparent);
     color: var(--mud-palette-text-primary);
+}
+
+.mode-spinner {
+    width: 13px;
+    height: 13px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 999px;
+    animation: spin 0.75s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .move-actions {

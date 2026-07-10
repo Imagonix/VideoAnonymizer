@@ -74,6 +74,12 @@ export async function applyDetectedObjectChanges(element, changes) {
     appHandle.applyChanges(changes);
 }
 
+export async function updateVideoEditorTrackForwardProcessing(element, isProcessing) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.updateTrackForwardProcessing !== 'function') return;
+    appHandle.updateTrackForwardProcessing(isProcessing === true);
+}
+
 export async function unmountVideoEditor(element) {
     const appHandle = mountedApps.get(element);
     if (appHandle && typeof appHandle.unmount === 'function') {

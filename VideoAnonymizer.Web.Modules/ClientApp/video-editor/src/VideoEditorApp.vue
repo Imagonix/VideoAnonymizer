@@ -101,6 +101,7 @@ onUnmounted(() => {
 });
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
+const trackForwardProcessing = computed(() => props.state.trackForwardProcessing === true);
 const hoveredTimelineKey = ref<string | null>(null);
 const hoveredObjectKey = ref<string | null>(null);
 
@@ -211,6 +212,7 @@ function setVideoVolume(volume: number) {
                   :resize-mode="isResize"
                   :add-mode="isAdd"
                   :track-mode="isTrack"
+                  :track-forward-processing="trackForwardProcessing"
                   :merge-mode="isMerge"
                   :merge-count="mergeSelectedTimelineKeys.size"
                   :split-mode="isSplit"
@@ -269,6 +271,7 @@ function setVideoVolume(volume: number) {
       :video-ref="videoPlayerRef?.videoRef ?? null"
       :anonymization-settings="state.anonymizationSettings"
       :mode="isTrack ? 'track' : isAdd ? 'add' : isResize ? 'resize' : 'move'"
+      :track-forward-processing="trackForwardProcessing"
       @done="deactivate"
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"

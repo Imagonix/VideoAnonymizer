@@ -389,6 +389,29 @@ describe('VideoEditorApp integration', () => {
             expect(onTrackForward).toHaveBeenCalledTimes(1);
             expect(onTrackForward).toHaveBeenCalledWith('v1', 'f1', state.frames[0].detectedObjects[0]);
         });
+
+        it('shows progress and blocks duplicate tracking while track forward is running', async () => {
+            const onTrackForward = vi.fn();
+            const mounted = mountEditor({ onTrackForward });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await clickButton(wrapper, 'Track');
+            (state as any).trackForwardProcessing = true;
+            await wrapper.vm.$nextTick();
+
+            const busyButtons = wrapper.findAll('button').filter(button => button.text().includes('Tracking...'));
+            expect(busyButtons.length).toBeGreaterThanOrEqual(2);
+            expect(busyButtons.every(button => (button.element as HTMLButtonElement).disabled)).toBe(true);
+            expect(wrapper.find('.btn-spinner').exists()).toBe(true);
+            expect(wrapper.find('.mode-spinner').exists()).toBe(true);
+
+            const box = wrapper.find('.move-box');
+            expect(box.exists()).toBe(true);
+            await box.trigger('click');
+
+            expect(onTrackForward).not.toHaveBeenCalled();
+        });
     });
 
     describe('resize', () => {

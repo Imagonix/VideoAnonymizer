@@ -36,6 +36,7 @@
                              BlurSizePercent="@BlurSizePercent"
                              TimeBufferMs="@TimeBufferMs"
                              InterpolateTrackedObjects="@InterpolateTrackedObjects"
+                             TrackForwardProcessing="@_trackForwardProcessing"
                              OnAction="OnVideoEditorAction" />
 
                 @if (_editorInputBlocked)
@@ -60,6 +61,7 @@
     private List<AnalyzedFrameDto> _capturedFrames = [];
     private bool _videoEditorProcessing;
     private bool _editorInputBlocked;
+    private bool _trackForwardProcessing;
     private bool _hasErrors;
 
     public ReviewExportTab()
@@ -115,6 +117,15 @@
     {
         if (_editorInputBlocked && action is UndoAction or RedoAction)
             return Task.CompletedTask;
+
+        if (action is TrackForwardAction)
+        {
+            if (_trackForwardProcessing)
+                return Task.CompletedTask;
+
+            _trackForwardProcessing = true;
+            _ = InvokeAsync(StateHasChanged);
+        }
 
         if (action is UndoAction or RedoAction && _actionQueue.HasPendingActions)
         {
@@ -176,6 +187,11 @@
         catch
         {
             MarkActionFailed(item);
+        }
+        finally
+        {
+            _trackForwardProcessing = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 

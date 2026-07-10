@@ -11,6 +11,7 @@ const props = defineProps<{
     anonymizationSettings: AnonymizationSettings;
     mode: 'move' | 'resize' | 'add' | 'track';
     frames: AnalyzedFrameDto[];
+    trackForwardProcessing: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -238,7 +239,7 @@ function cancelAdd() {
 }
 
 function onBoxClick(obj: DetectedObjectDto) {
-    if (props.mode === 'track') {
+    if (props.mode === 'track' && !props.trackForwardProcessing) {
         emit('track-forward', obj);
     }
 }
@@ -249,6 +250,7 @@ function onBoxClick(obj: DetectedObjectDto) {
         <div class="move-modal">
             <DetailedViewHeader
               :mode="mode"
+              :track-forward-processing="trackForwardProcessing"
               @done="emit('done')"
               @mode-change="(nextMode) => emit('mode-change', nextMode)"
             />
@@ -268,10 +270,11 @@ function onBoxClick(obj: DetectedObjectDto) {
                           'move-box--dragging': dragState?.id === obj.id,
                           'move-box--active': activeBoxId === obj.id,
                           'move-box--no-move': mode !== 'move',
-                          'move-box--track': mode === 'track'
+                          'move-box--track': mode === 'track',
+                          'move-box--track-disabled': mode === 'track' && trackForwardProcessing
                         }"
                         :style="getBoxPct(obj)"
-                        :title="mode === 'track' ? 'Track this object forward' : null"
+                        :title="mode === 'track' ? trackForwardProcessing ? 'Tracking forward is in progress' : 'Track this object forward' : null"
                         @mouseenter="activeBoxId = obj.id"
                         @mouseleave="activeBoxId = null"
                         @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
@@ -402,6 +405,10 @@ function onBoxClick(obj: DetectedObjectDto) {
 
 .move-box--track {
     cursor: pointer;
+}
+
+.move-box--track-disabled {
+    cursor: progress;
 }
 
 .move-box--track:hover {
