@@ -21,7 +21,8 @@ public sealed class TrackForwardCompletedNotificationHandler(LongRunningJobsHub 
                 Error = message.Error,
                 Result = message.TrackId.HasValue
                     ? new TrackForwardResponseDto { TrackId = message.TrackId.Value }
-                    : null
+                    : null,
+                CreatedObjectIds = message.CreatedObjectIds
             },
             cancellationToken);
     }

@@ -57,6 +57,22 @@ public class DetectedObjectDataService(IDbContextFactory<VideoAnonymizerDbContex
         await db.SaveChangesAsync();
     }
 
+    public async Task BulkDeleteDetectedObjects(Guid videoId, IReadOnlyList<Guid> objectIds)
+    {
+        using var db = await dbFactory.CreateDbContextAsync();
+
+        var entities = await db.DetectedObjects
+            .Include(o => o.AnalyzedFrame)
+            .Where(o => objectIds.Contains(o.Id) && o.AnalyzedFrame.VideoId == videoId)
+            .ToListAsync();
+
+        if (entities.Count != objectIds.Count)
+            throw new NotFoundException();
+
+        db.DetectedObjects.RemoveRange(entities);
+        await db.SaveChangesAsync();
+    }
+
     public async Task BulkUpdateDetectedObjects(Guid videoId, IReadOnlyList<DetectedObjectDto> dtos)
     {
         using var db = await dbFactory.CreateDbContextAsync();

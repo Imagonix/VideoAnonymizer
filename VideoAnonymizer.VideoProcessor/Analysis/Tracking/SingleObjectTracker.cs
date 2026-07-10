@@ -23,7 +23,8 @@ internal sealed class SingleObjectTracker(
                 RabbitMQConstants.RoutingKeys.TrackForwardCompleted,
                 new TrackForwardCompleted(
                     job.JobId, job.VideoId, DateTimeOffset.UtcNow,
-                    "completed", string.Empty, result.TrackId),
+                    "completed", string.Empty, result.TrackId,
+                    result.CreatedObjectIds.ToList()),
                 stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

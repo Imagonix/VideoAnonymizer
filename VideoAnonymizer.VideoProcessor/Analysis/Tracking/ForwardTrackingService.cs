@@ -11,7 +11,8 @@ public sealed record TrackForwardResult(
     int SkippedConflicts,
     int ReacquiredCount,
     string StoppedReason,
-    IReadOnlyList<TrackForwardGap> Gaps);
+    IReadOnlyList<TrackForwardGap> Gaps,
+    IReadOnlyList<Guid> CreatedObjectIds);
 
 public sealed record TrackForwardGap(int StartTimeMs, int EndTimeMs);
 
@@ -72,7 +73,7 @@ public sealed class ForwardTrackingService(
         if (persistFrameIndexes.Count == 0)
         {
             await db.SaveChangesAsync(cancellationToken);
-            return new TrackForwardResult(trackId, 0, 0, 0, "no_future_frames", []);
+            return new TrackForwardResult(trackId, 0, 0, 0, "no_future_frames", [], []);
         }
 
         var pythonResponse = await objectDetectionClient.TrackForwardAsync(
@@ -102,6 +103,7 @@ public sealed class ForwardTrackingService(
 
         var createdCount = 0;
         var skippedConflicts = 0;
+        var createdIds = new List<Guid>();
 
         foreach (var detection in pythonResponse.Detections.OrderBy(d => d.FrameIndex))
         {
@@ -132,6 +134,7 @@ public sealed class ForwardTrackingService(
 
             db.DetectedObjects.Add(entity);
             targetFrame.DetectedObjects.Add(entity);
+            createdIds.Add(entity.Id);
             createdCount++;
         }
 
@@ -146,7 +149,8 @@ public sealed class ForwardTrackingService(
             pythonResponse.StoppedReason,
             pythonResponse.Gaps
                 .Select(gap => new TrackForwardGap(gap.StartTimeMs, gap.EndTimeMs))
-                .ToList());
+                .ToList(),
+            createdIds);
     }
 
     private static void ValidateOptions(TrackForwardJob job)

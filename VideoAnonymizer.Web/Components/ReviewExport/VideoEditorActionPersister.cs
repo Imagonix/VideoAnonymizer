@@ -68,10 +68,19 @@ public sealed class VideoEditorActionPersister(HttpClient client)
         VideoEditorAction action,
         bool isRedo,
         VideoEditor? videoEditor,
-        Func<AnonymizationSettingsDto, Task> applySettings)
+        Func<AnonymizationSettingsDto, Task> applySettings,
+        ActionHistoryItem? historyItem = null)
     {
         switch (action)
         {
+            case TrackForwardAction a when !isRedo && historyItem?.CreatedObjectIds.Count > 0:
+                await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
+                    $"/{SharedConstants.Paths.Video}/{a.VideoId}/{SharedConstants.Paths.DetectedObjects}/delete",
+                    new { ObjectIds = historyItem.CreatedObjectIds }));
+                await PushChangesToVueAsync(videoEditor, [],
+                    historyItem.CreatedObjectIds.Select(id => id.ToString()).ToList(), []);
+                break;
+
             case ObjectAddedAction a:
                 if (isRedo)
                 {

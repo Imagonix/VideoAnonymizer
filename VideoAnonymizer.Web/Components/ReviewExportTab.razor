@@ -61,7 +61,7 @@
     private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
     private IDisposable? _trackForwardCompletedSubscription;
-    private readonly Dictionary<Guid, (ActionHistoryItem Item, string SeedObjectId)> _pendingTrackForwardJobs = [];
+    private readonly Dictionary<Guid, (ActionHistoryItem Item, string SeedObjectId, TrackForwardAction Action)> _pendingTrackForwardJobs = [];
     private List<AnalyzedFrameDto> _capturedFrames = [];
     private bool _videoEditorProcessing;
     private bool _editorInputBlocked;
@@ -173,7 +173,7 @@
         try
         {
             var job = await persister.TrackForwardAsync(action, jobId);
-            _pendingTrackForwardJobs[job.JobId] = (item, action.Object.Id.ToString());
+            _pendingTrackForwardJobs[job.JobId] = (item, action.Object.Id.ToString(), action);
             _activeTrackForwardCount++;
             Snackbar.Add("Tracking started.", Severity.Info);
             await InvokeAsync(StateHasChanged);
@@ -194,7 +194,7 @@
             if (VideoId.HasValue && message.VideoId != VideoId.Value)
                 return;
 
-            var (item, seedObjectId) = trackingInfo;
+            var (item, seedObjectId, action) = trackingInfo;
             _pendingTrackForwardJobs.Remove(message.JobId);
             _activeTrackForwardCount = Math.Max(0, _activeTrackForwardCount - 1);
 
@@ -223,6 +223,8 @@
             }
 
             item.Status = ActionStatus.Success;
+            item.CreatedObjectIds = message.CreatedObjectIds;
+            _undoRedoState.Add(action, item);
 
             if (_videoEditor is not null)
             {
@@ -259,8 +261,14 @@
 
         try
         {
-            await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync);
+            await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync, operation.DisplayItem);
             _undoRedoState.Complete(operation, isRedo);
+
+            if (operation.Action is TrackForwardAction && !isRedo)
+            {
+                await TrackingCompleted.InvokeAsync();
+            }
+
             await InvokeAsync(StateHasChanged);
         }
         catch

@@ -9,4 +9,5 @@ public class TrackForwardCompletedMessage
     public string Status { get; set; } = "";
     public string Error { get; set; } = "";
     public TrackForwardResponseDto? Result { get; set; }
+    public List<Guid> CreatedObjectIds { get; set; } = [];
 }
