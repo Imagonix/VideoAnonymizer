@@ -288,9 +288,14 @@ namespace VideoAnonymizer.Web.Pages
             }
         }
 
+        private async Task OnTrackingCompletedAsync()
+        {
+            await LoadAnalyzedFramesAsync(_currentVideoId);
+        }
+
         private async Task StartAnonymizationAsync()
         {
-            if (_currentVideoId.IsNullOrEmpty() || _reviewExportTab is null)
+            if (_currentVideoId is null)
                 return;
 
             try

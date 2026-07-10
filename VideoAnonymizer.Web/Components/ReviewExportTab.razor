@@ -92,6 +92,9 @@
     public EventCallback StartAnonymization { get; set; }
 
     [Parameter]
+    public EventCallback TrackingCompleted { get; set; }
+
+    [Parameter]
     public int BlurSizePercent { get; set; } = 120;
 
     [Parameter]
@@ -227,6 +230,7 @@
             }
 
             Snackbar.Add($"Track {message.Result.TrackId}: forward tracking completed", Severity.Info);
+            await TrackingCompleted.InvokeAsync();
             StateHasChanged();
         });
 

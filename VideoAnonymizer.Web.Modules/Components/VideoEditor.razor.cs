@@ -35,6 +35,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
     private int _lastBlurSizePercent;
     private int _lastTimeBufferMs;
     private bool _lastInterpolateTrackedObjects;
+    private IReadOnlyList<AnalyzedFrameDto>? _lastFrames;
     private DotNetObjectReference<VideoEditor>? _dotNetRef;
 
     [JSInvokable]
@@ -164,6 +165,7 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                 _lastBlurSizePercent = BlurSizePercent;
                 _lastTimeBufferMs = TimeBufferMs;
                 _lastInterpolateTrackedObjects = InterpolateTrackedObjects;
+                _lastFrames = Frames;
                 _mounted = true;
             }
             catch
@@ -178,9 +180,11 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         if (!_mounted || _hostModule is null)
             return;
 
-        if (BlurSizePercent != _lastBlurSizePercent
+        var settingsChanged = BlurSizePercent != _lastBlurSizePercent
             || TimeBufferMs != _lastTimeBufferMs
-            || InterpolateTrackedObjects != _lastInterpolateTrackedObjects)
+            || InterpolateTrackedObjects != _lastInterpolateTrackedObjects;
+
+        if (settingsChanged)
         {
             _lastBlurSizePercent = BlurSizePercent;
             _lastTimeBufferMs = TimeBufferMs;
@@ -195,6 +199,12 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                     timeBufferMs = TimeBufferMs,
                     interpolateTrackedObjects = InterpolateTrackedObjects
                 });
+        }
+
+        if (_lastFrames != Frames)
+        {
+            _lastFrames = Frames;
+            await _hostModule.InvokeVoidAsync("updateVideoEditor", _hostElement, BuildProps());
         }
     }
 

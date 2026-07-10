@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
-import type { Set } from 'vue';
 import type { VideoDimensions } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';

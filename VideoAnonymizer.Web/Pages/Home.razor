@@ -39,7 +39,8 @@
                                  InterpolateTrackedObjects="@CurrentAppState.InterpolateTrackedObjects"
                                  @bind-BlurSizePercent="_blurSizePercent"
                                  @bind-TimeBufferMs="_timeBufferMs"
-                                 StartAnonymization="StartAnonymizationAsync"/>
+                                 StartAnonymization="StartAnonymizationAsync"
+                                 TrackingCompleted="OnTrackingCompletedAsync"/>
             </MudTabPanel>
         </MudTabs>
     </MudStack>
