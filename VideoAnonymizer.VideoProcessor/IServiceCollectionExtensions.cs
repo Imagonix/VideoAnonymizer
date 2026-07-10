@@ -10,6 +10,7 @@ using VideoAnonymizer.VideoProcessor.Analysis.Detection;
 using VideoAnonymizer.VideoProcessor.Analysis.Messaging;
 using VideoAnonymizer.VideoProcessor.Analysis.Progress;
 using VideoAnonymizer.VideoProcessor.Analysis.Tracking;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking.Messaging;
 using VideoAnonymizer.VideoProcessor.Anonymization;
 using VideoAnonymizerWorker = global::VideoAnonymizer.VideoProcessor.Anonymization.VideoAnonymizer;
 
@@ -24,6 +25,8 @@ namespace VideoAnonymizer.VideoProcessor
             services.AddSingleton<ObjectTrackingPipeline>();
             services.AddSingletonAsHostedService<VideoAnalyzer>();
             services.AddSingletonAsHostedService<VideoAnonymizerWorker>();
+            services.AddSingletonAsHostedService<SingleObjectTracker>();
+            services.AddScoped<ForwardTrackingService>();
             return services;
         }
 
@@ -31,6 +34,7 @@ namespace VideoAnonymizer.VideoProcessor
         {
             services.AddSingleton<IMessageHandler<AnalyzeVideo>, AnalyzeVideoHandler>();
             services.AddSingleton<IMessageHandler<AnonymizeVideo>, AnonymizeVideoHandler>();
+            services.AddSingleton<IMessageHandler<TrackForwardJob>, TrackForwardVideoHandler>();
             return services;
         }
 
@@ -38,6 +42,7 @@ namespace VideoAnonymizer.VideoProcessor
         {
             services.AddHostedService<AnalyzeVideoConsumer>();
             services.AddHostedService<AnonymizeVideoConsumer>();
+            services.AddHostedService<TrackForwardVideoConsumer>();
             return services;
         }
 

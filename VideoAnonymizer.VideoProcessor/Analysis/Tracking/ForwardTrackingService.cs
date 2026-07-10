@@ -1,10 +1,19 @@
 using Microsoft.EntityFrameworkCore;
-using VideoAnonymizer.ApiService.DTO;
+using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
-using VideoAnonymizer.Web.Shared.DTO;
 
-namespace VideoAnonymizer.ApiService.DataServices;
+namespace VideoAnonymizer.VideoProcessor.Analysis.Tracking;
+
+public sealed record TrackForwardResult(
+    int TrackId,
+    int CreatedDetections,
+    int SkippedConflicts,
+    int ReacquiredCount,
+    string StoppedReason,
+    IReadOnlyList<TrackForwardGap> Gaps);
+
+public sealed record TrackForwardGap(int StartTimeMs, int EndTimeMs);
 
 public sealed class ForwardTrackingService(
     IDbContextFactory<VideoAnonymizerDbContext> dbFactory,
@@ -12,19 +21,19 @@ public sealed class ForwardTrackingService(
 {
     private const double ConflictIouThreshold = 0.30;
 
-    public async Task<TrackForwardResponseDto> TrackForwardAsync(
+    public async Task<TrackForwardResult> TrackForwardAsync(
         Guid videoId,
-        TrackForwardRequestDto request,
+        TrackForwardJob job,
         CancellationToken cancellationToken)
     {
-        ValidateOptions(request);
+        ValidateOptions(job);
 
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
         var video = await db.Videos
             .FirstOrDefaultAsync(v => v.Id == videoId, cancellationToken);
 
         if (video is null)
-            throw new NotFoundException();
+            throw new KeyNotFoundException($"Video {videoId} not found.");
 
         if (!File.Exists(video.SourcePath))
             throw new FileNotFoundException("Video file not found.", video.SourcePath);
@@ -38,10 +47,8 @@ public sealed class ForwardTrackingService(
         if (frames.Count == 0)
             throw new ArgumentException("The video has no analyzed frames.");
 
-        var seed = ResolveSeed(frames, request);
-        var updatedObjects = new List<DetectedObjectDto>();
+        var seed = ResolveSeed(frames, job);
         var trackId = seed.Object.TrackId ?? NextTrackId(frames);
-        var seedChanged = seed.WasCreated || seed.Object.TrackId != trackId;
         if (seed.Object.TrackId != trackId)
         {
             seed.Object.TrackId = trackId;
@@ -52,13 +59,8 @@ public sealed class ForwardTrackingService(
             db.DetectedObjects.Add(seed.Object);
         }
 
-        if (seedChanged)
-        {
-            updatedObjects.Add(seed.Object.ToDto());
-        }
-
-        var persistEveryMs = request.PersistEveryMs ?? InferPersistEveryMs(frames);
-        var maxTrackDurationMs = Math.Max(1, request.MaxTrackDurationMs);
+        var persistEveryMs = job.PersistEveryMs ?? InferPersistEveryMs(frames);
+        var maxTrackDurationMs = Math.Max(1, job.MaxTrackDurationMs);
         var maxTrackTimeSeconds = seed.Frame.TimeSeconds + maxTrackDurationMs / 1000.0;
         var persistFrameIndexes = frames
             .Where(frame =>
@@ -70,13 +72,7 @@ public sealed class ForwardTrackingService(
         if (persistFrameIndexes.Count == 0)
         {
             await db.SaveChangesAsync(cancellationToken);
-            return new TrackForwardResponseDto
-            {
-                TrackId = trackId,
-                StoppedReason = "no_future_frames",
-                UpdatedObjects = updatedObjects,
-                UpdatedFrames = await LoadUpdatedFramesAsync(db, videoId, [seed.Frame.Id], cancellationToken)
-            };
+            return new TrackForwardResult(trackId, 0, 0, 0, "no_future_frames", []);
         }
 
         var pythonResponse = await objectDetectionClient.TrackForwardAsync(
@@ -96,16 +92,15 @@ public sealed class ForwardTrackingService(
                 TrackId = trackId,
                 PersistEveryMs = persistEveryMs,
                 PersistFrameIndexes = persistFrameIndexes,
-                MaxLostDurationMs = request.MaxLostDurationMs,
-                RecoveryDetectorIntervalMs = request.RecoveryDetectorIntervalMs,
-                TrackerType = request.TrackerType,
-                SearchAreaExpansion = request.SearchAreaExpansion,
+                MaxLostDurationMs = job.MaxLostDurationMs,
+                RecoveryDetectorIntervalMs = job.RecoveryDetectorIntervalMs,
+                TrackerType = job.TrackerType,
+                SearchAreaExpansion = job.SearchAreaExpansion,
                 MaxTrackDurationMs = maxTrackDurationMs
             },
             cancellationToken);
 
-        var createdObjects = new List<DetectedObjectDto>();
-        var updatedFrameIds = new HashSet<Guid> { seed.Frame.Id };
+        var createdCount = 0;
         var skippedConflicts = 0;
 
         foreach (var detection in pythonResponse.Detections.OrderBy(d => d.FrameIndex))
@@ -137,108 +132,99 @@ public sealed class ForwardTrackingService(
 
             db.DetectedObjects.Add(entity);
             targetFrame.DetectedObjects.Add(entity);
-            createdObjects.Add(entity.ToDto());
-            updatedFrameIds.Add(targetFrame.Id);
+            createdCount++;
         }
 
         await db.SaveChangesAsync(cancellationToken);
         db.ChangeTracker.Clear();
 
-        return new TrackForwardResponseDto
-        {
-            TrackId = trackId,
-            CreatedDetections = createdObjects.Count,
-            SkippedConflicts = skippedConflicts,
-            ReacquiredCount = pythonResponse.ReacquiredCount,
-            StoppedReason = pythonResponse.StoppedReason,
-            Gaps = pythonResponse.Gaps
-                .Select(gap => new TrackForwardGapDto
-                {
-                    StartTimeMs = gap.StartTimeMs,
-                    EndTimeMs = gap.EndTimeMs
-                })
-                .ToList(),
-            UpdatedObjects = updatedObjects,
-            CreatedObjects = createdObjects,
-            UpdatedFrames = await LoadUpdatedFramesAsync(db, videoId, updatedFrameIds, cancellationToken)
-        };
+        return new TrackForwardResult(
+            trackId,
+            createdCount,
+            skippedConflicts,
+            pythonResponse.ReacquiredCount,
+            pythonResponse.StoppedReason,
+            pythonResponse.Gaps
+                .Select(gap => new TrackForwardGap(gap.StartTimeMs, gap.EndTimeMs))
+                .ToList());
     }
 
-    private static void ValidateOptions(TrackForwardRequestDto request)
+    private static void ValidateOptions(TrackForwardJob job)
     {
-        if (!string.Equals(request.ConflictMode, "skip", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(job.ConflictMode, "skip", StringComparison.OrdinalIgnoreCase))
             throw new ArgumentException("Only conflictMode 'skip' is supported.");
 
-        if (request.PersistEveryMs is <= 0)
+        if (job.PersistEveryMs is <= 0)
             throw new ArgumentException("persistEveryMs must be greater than zero.");
 
-        if (request.MaxLostDurationMs <= 0)
+        if (job.MaxLostDurationMs <= 0)
             throw new ArgumentException("maxLostDurationMs must be greater than zero.");
 
-        if (request.RecoveryDetectorIntervalMs <= 0)
+        if (job.RecoveryDetectorIntervalMs <= 0)
             throw new ArgumentException("recoveryDetectorIntervalMs must be greater than zero.");
 
-        if (request.SearchAreaExpansion < 1)
+        if (job.SearchAreaExpansion < 1)
             throw new ArgumentException("searchAreaExpansion must be at least 1.0.");
 
-        if (request.MaxTrackDurationMs <= 0)
+        if (job.MaxTrackDurationMs <= 0)
             throw new ArgumentException("maxTrackDurationMs must be greater than zero.");
     }
 
-    private static SeedObject ResolveSeed(IReadOnlyList<AnalyzedFrame> frames, TrackForwardRequestDto request)
+    private static SeedObject ResolveSeed(IReadOnlyList<AnalyzedFrame> frames, TrackForwardJob job)
     {
-        if (request.SeedDetectionId.HasValue)
+        if (job.SeedDetectionId.HasValue)
         {
             var seedObject = frames
                 .SelectMany(frame => frame.DetectedObjects)
-                .FirstOrDefault(obj => obj.Id == request.SeedDetectionId.Value);
+                .FirstOrDefault(obj => obj.Id == job.SeedDetectionId.Value);
             if (seedObject is null)
-                throw new NotFoundException();
+                throw new KeyNotFoundException($"Seed detection {job.SeedDetectionId.Value} not found.");
 
             var seedFrame = frames.First(frame => frame.Id == seedObject.AnalyzedFrameId);
             ValidateBox(seedObject.X, seedObject.Y, seedObject.Width, seedObject.Height);
             return new SeedObject(seedFrame, seedObject, WasCreated: false);
         }
 
-        if (request.BoundingBox is null)
-            throw new ArgumentException("A boundingBox is required when seedDetectionId is not provided.");
+        if (job.SeedBoundingBoxX is null || job.SeedBoundingBoxY is null ||
+            job.SeedBoundingBoxWidth is null || job.SeedBoundingBoxHeight is null)
+            throw new ArgumentException("A bounding box is required when seedDetectionId is not provided.");
 
         ValidateBox(
-            request.BoundingBox.X,
-            request.BoundingBox.Y,
-            request.BoundingBox.Width,
-            request.BoundingBox.Height);
+            job.SeedBoundingBoxX.Value,
+            job.SeedBoundingBoxY.Value,
+            job.SeedBoundingBoxWidth.Value,
+            job.SeedBoundingBoxHeight.Value);
 
-        if (string.IsNullOrWhiteSpace(request.ObjectClass))
+        if (string.IsNullOrWhiteSpace(job.ObjectClass))
             throw new ArgumentException("objectClass is required when seedDetectionId is not provided.");
 
-        var explicitSeedFrame = ResolveExplicitSeedFrame(frames, request);
+        var explicitSeedFrame = ResolveExplicitSeedFrame(frames, job);
         var explicitSeedObject = new DetectedObject
         {
             AnalyzedFrameId = explicitSeedFrame.Id,
             Confidence = 1,
-            ClassName = request.ObjectClass,
+            ClassName = job.ObjectClass,
             Selected = true,
-            TrackId = request.TrackId,
-            X = request.BoundingBox.X,
-            Y = request.BoundingBox.Y,
-            Width = request.BoundingBox.Width,
-            Height = request.BoundingBox.Height
+            TrackId = job.InitialTrackId,
+            X = job.SeedBoundingBoxX.Value,
+            Y = job.SeedBoundingBoxY.Value,
+            Width = job.SeedBoundingBoxWidth.Value,
+            Height = job.SeedBoundingBoxHeight.Value
         };
 
         explicitSeedFrame.DetectedObjects.Add(explicitSeedObject);
         return new SeedObject(explicitSeedFrame, explicitSeedObject, WasCreated: true);
     }
 
-    private static AnalyzedFrame ResolveExplicitSeedFrame(IReadOnlyList<AnalyzedFrame> frames, TrackForwardRequestDto request)
+    private static AnalyzedFrame ResolveExplicitSeedFrame(IReadOnlyList<AnalyzedFrame> frames, TrackForwardJob job)
     {
-        if (request.SeedFrameIndex.HasValue)
+        if (job.SeedFrameIndex.HasValue)
         {
-            var frame = frames.FirstOrDefault(frame => frame.FrameIndex == request.SeedFrameIndex.Value);
-            return frame ?? throw new NotFoundException();
+            var frame = frames.FirstOrDefault(frame => frame.FrameIndex == job.SeedFrameIndex.Value);
+            return frame ?? throw new KeyNotFoundException($"Seed frame index {job.SeedFrameIndex.Value} not found.");
         }
 
-        var seedSeconds = request.SeedTimeMs / 1000.0;
+        var seedSeconds = job.SeedTimeMs / 1000.0;
         return frames
             .OrderBy(frame => Math.Abs(frame.TimeSeconds - seedSeconds))
             .First();
@@ -303,22 +289,6 @@ public sealed class ForwardTrackingService(
 
     private static int ToMilliseconds(double timeSeconds) =>
         (int)Math.Round(timeSeconds * 1000.0);
-
-    private static async Task<List<AnalyzedFrameDto>> LoadUpdatedFramesAsync(
-        VideoAnonymizerDbContext db,
-        Guid videoId,
-        IEnumerable<Guid> frameIds,
-        CancellationToken cancellationToken)
-    {
-        var ids = frameIds.ToHashSet();
-        return await db.AnalyzedFrames
-            .AsNoTracking()
-            .Include(frame => frame.DetectedObjects)
-            .Where(frame => frame.VideoId == videoId && ids.Contains(frame.Id))
-            .OrderBy(frame => frame.FrameIndex)
-            .Select(frame => frame.ToDto())
-            .ToListAsync(cancellationToken);
-    }
 
     private sealed record SeedObject(AnalyzedFrame Frame, DetectedObject Object, bool WasCreated);
 }

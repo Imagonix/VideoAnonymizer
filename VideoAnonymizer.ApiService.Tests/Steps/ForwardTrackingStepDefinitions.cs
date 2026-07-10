@@ -1,14 +1,13 @@
 using FluentAssertions;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using Reqnroll;
-using VideoAnonymizer.ApiService.DataServices;
+using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Database;
 using VideoAnonymizer.ObjectDetectionClient;
-using VideoAnonymizer.Web.Shared.DTO;
+using VideoAnonymizer.VideoProcessor.Analysis.Tracking;
 using DetectionClient = VideoAnonymizer.ObjectDetectionClient.ObjectDetectionClient;
 
 namespace VideoAnonymizer.ApiService.Tests.Steps;
@@ -72,10 +71,22 @@ public sealed class ForwardTrackingStepDefinitions
         set => _scenarioContext.Set(value, nameof(SecondFutureFrameId));
     }
 
-    private IActionResult LastResult
+    private TrackForwardResult? LastResult
     {
-        get => _scenarioContext.Get<IActionResult>(nameof(LastResult));
+        get => _scenarioContext.Get<TrackForwardResult>(nameof(LastResult));
         set => _scenarioContext.Set(value, nameof(LastResult));
+    }
+
+    private Exception? LastException
+    {
+        get => _scenarioContext.TryGetValue<Exception>(nameof(LastException), out var ex) ? ex : null;
+        set
+        {
+            if (value is not null)
+                _scenarioContext.Set(value, nameof(LastException));
+            else
+                _scenarioContext.Remove(nameof(LastException));
+        }
     }
 
     public ForwardTrackingStepDefinitions(ScenarioContext scenarioContext)
@@ -198,26 +209,27 @@ public sealed class ForwardTrackingStepDefinitions
     [When("the reviewer tracks the seed face forward")]
     public async Task WhenTheReviewerTracksTheSeedFaceForward()
     {
-        LastResult = await TrackForwardDirectlyAsync(
-            new TrackForwardRequestDto { SeedDetectionId = SeedObjectId });
+        await TrackForwardDirectlyAsync(new TrackForwardJob
+        {
+            SeedDetectionId = SeedObjectId
+        });
     }
 
     [When("track forward is requested with replace conflicts")]
     public async Task WhenTrackForwardIsRequestedWithReplaceConflicts()
     {
-        LastResult = await TrackForwardDirectlyAsync(
-            new TrackForwardRequestDto
-            {
-                SeedDetectionId = SeedObjectId,
-                ConflictMode = "replace"
-            });
+        await TrackForwardDirectlyAsync(new TrackForwardJob
+        {
+            SeedDetectionId = SeedObjectId,
+            ConflictMode = "replace"
+        });
     }
 
     [Then("generated faces use the seed track id")]
     public async Task ThenGeneratedFacesUseTheSeedTrackId()
     {
-        var response = GetOkPayload<TrackForwardResponseDto>(LastResult);
-        response.CreatedDetections.Should().Be(2);
+        LastResult.Should().NotBeNull();
+        LastResult!.CreatedDetections.Should().Be(2);
 
         await using var db = await DbFactory.CreateDbContextAsync();
         var generated = await db.DetectedObjects
@@ -239,9 +251,9 @@ public sealed class ForwardTrackingStepDefinitions
     [Then("only the non-conflicting generated face is saved")]
     public async Task ThenOnlyTheNonConflictingGeneratedFaceIsSaved()
     {
-        var response = GetOkPayload<TrackForwardResponseDto>(LastResult);
-        response.CreatedDetections.Should().Be(1);
-        response.SkippedConflicts.Should().Be(1);
+        LastResult.Should().NotBeNull();
+        LastResult!.CreatedDetections.Should().Be(1);
+        LastResult.SkippedConflicts.Should().Be(1);
 
         await using var db = await DbFactory.CreateDbContextAsync();
         var firstFutureTrackIds = await db.DetectedObjects
@@ -260,36 +272,35 @@ public sealed class ForwardTrackingStepDefinitions
     [Then("the track forward request is rejected")]
     public void ThenTheTrackForwardRequestIsRejected()
     {
-        LastResult.Should().BeOfType<BadRequestObjectResult>();
+        LastException.Should().BeOfType<ArgumentException>();
         FakeClient.LastRequest.Should().BeNull();
     }
 
     [Then("the response includes the reacquisition summary")]
     public void ThenTheResponseIncludesTheReacquisitionSummary()
     {
-        var response = GetOkPayload<TrackForwardResponseDto>(LastResult);
-        response.ReacquiredCount.Should().Be(1);
-        response.StoppedReason.Should().Be("lost_timeout");
-        response.Gaps.Should().ContainSingle(gap => gap.StartTimeMs == 1200 && gap.EndTimeMs == 6200);
-        response.CreatedObjects.Should().OnlyContain(obj => obj.TrackId == 7);
+        LastResult.Should().NotBeNull();
+        LastResult!.ReacquiredCount.Should().Be(1);
+        LastResult.StoppedReason.Should().Be("lost_timeout");
+        LastResult.Gaps.Should().ContainSingle(gap => gap.StartTimeMs == 1200 && gap.EndTimeMs == 6200);
+
+        LastResult.CreatedDetections.Should().Be(1);
+        LastResult.TrackId.Should().Be(7);
     }
 
-    private async Task<IActionResult> TrackForwardDirectlyAsync(TrackForwardRequestDto request)
+    private async Task TrackForwardDirectlyAsync(TrackForwardJob job)
     {
         try
         {
+            job.VideoId = VideoId;
             var result = await new ForwardTrackingService(DbFactory, FakeClient)
-                .TrackForwardAsync(VideoId, request, CancellationToken.None);
+                .TrackForwardAsync(VideoId, job, CancellationToken.None);
 
-            return new OkObjectResult(new ApiResponse<TrackForwardResponseDto>
-            {
-                IsSuccess = true,
-                Payload = result
-            });
+            LastResult = result;
         }
         catch (ArgumentException ex)
         {
-            return new BadRequestObjectResult(ex.Message);
+            LastException = ex;
         }
     }
 
@@ -365,14 +376,6 @@ public sealed class ForwardTrackingStepDefinitions
         var path = Path.Combine(ContentRoot, fileName);
         File.WriteAllBytes(path, [0, 1, 2, 3, 4, 5]);
         return path;
-    }
-
-    private static T GetOkPayload<T>(IActionResult result)
-    {
-        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        var response = ok.Value.Should().BeAssignableTo<ApiResponse<T>>().Subject;
-        response.Payload.Should().NotBeNull();
-        return response.Payload!;
     }
 
     private sealed class FakeForwardTrackingClient : DetectionClient

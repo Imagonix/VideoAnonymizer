@@ -24,9 +24,6 @@ public static class ApiServiceRegistration
         builder.Services.AddSingleton<LongRunningJobsHub>();
         builder.Services.AddScoped<VideoDataService>();
         builder.Services.AddScoped<DetectedObjectDataService>();
-        builder.Services.AddScoped<ForwardTrackingService>();
-        builder.Services.AddSingleton<TrackForwardJobQueue>();
-        builder.Services.AddHostedService<TrackForwardJobWorker>();
         builder.Services.AddScoped<StateDataService>();
         builder.Services.AddSingleton<IObjectDetectionApiReadyState, ObjectDetectionApiReadyState>();
         builder.Services.AddHostedService<ObjectDetectionApiStartupWaiter>();
@@ -76,6 +73,7 @@ public static class ApiServiceRegistration
         services.AddSingleton<IMessageHandler<AnalyzedVideo>, VideoAnalyzedNotificationHandler>();
         services.AddSingleton<IMessageHandler<AnonymizedVideo>, VideoAnonymizedNotificationHandler>();
         services.AddSingleton<IMessageHandler<VideoProcessingProgress>, VideoProcessingProgressNotificationHandler>();
+        services.AddSingleton<IMessageHandler<TrackForwardCompleted>, TrackForwardCompletedNotificationHandler>();
         return services;
     }
 
@@ -84,6 +82,7 @@ public static class ApiServiceRegistration
         services.AddHostedService<VideoAnalyzedConsumer>();
         services.AddHostedService<VideoAnonymizedConsumer>();
         services.AddHostedService<VideoProcessingProgressConsumer>();
+        services.AddHostedService<TrackForwardCompletedConsumer>();
         return services;
     }
 }

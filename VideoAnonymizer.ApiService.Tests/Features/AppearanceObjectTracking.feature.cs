@@ -29,9 +29,9 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         private static string[] featureTags = new string[] {
                 "appearance_tracking"};
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Assigning track ids by appearance", "  As a reviewer checking detected faces in a video\r\n  I want visually similar fac" +
-                "es to keep the same track id\r\n  So that one person is not split into many separa" +
-                "te objects.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Features", "Assigning track ids by appearance", "  As a reviewer checking detected faces in a video\n  I want visually similar face" +
+                "s to keep the same track id\n  So that one person is not split into many separate" +
+                " objects.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
 #line 1 "AppearanceObjectTracking.feature"
 #line hidden
