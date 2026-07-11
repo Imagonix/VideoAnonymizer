@@ -14,6 +14,13 @@ public sealed class VideoEditorUndoRedoState
     public int HistoryIndex => _historyIndex;
     public int Count => _history.Count;
 
+    public ActionHistoryItem? GetDisplayItem(int index)
+    {
+        if (index < 0 || index >= _displayItems.Count)
+            return null;
+        return _displayItems[index];
+    }
+
     public void Add(VideoEditorAction action, ActionHistoryItem? displayItem = null, Guid actionId = default)
     {
         if (_historyIndex < _history.Count - 1)

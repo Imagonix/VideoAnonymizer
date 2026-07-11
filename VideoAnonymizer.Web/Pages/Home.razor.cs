@@ -272,6 +272,8 @@ namespace VideoAnonymizer.Web.Pages
                 StatusText = "Loading editor failed.";
                 Snackbar.Add($"Loading editor failed: {ex.Message}", Severity.Error);
             }
+
+            await InvokeAsync(StateHasChanged);
         }
 
         private async Task RefreshAppStateAsync()

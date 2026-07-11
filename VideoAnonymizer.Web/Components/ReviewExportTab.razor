@@ -117,10 +117,17 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (VideoId.HasValue && _lastVideoId != VideoId)
+        if (VideoId.HasValue)
         {
-            _lastVideoId = VideoId;
-            await LoadActionHistoryAsync();
+            if (_lastVideoId != VideoId)
+            {
+                _lastVideoId = VideoId;
+                await LoadActionHistoryAsync();
+            }
+        }
+        else
+        {
+            _lastVideoId = null;
         }
     }
 
@@ -133,6 +140,14 @@
             var persister = new VideoEditorActionPersister(client);
             var actions = await persister.LoadActionHistoryAsync(VideoId.Value);
             _undoRedoState.DeserializeActions(VideoId.Value, actions);
+
+            _actionHistory.Clear();
+            for (var i = 0; i < _undoRedoState.Count; i++)
+            {
+                var displayItem = _undoRedoState.GetDisplayItem(i);
+                if (displayItem is not null)
+                    _actionHistory.Add(displayItem);
+            }
         }
         catch
         {
@@ -256,7 +271,7 @@
                 action.AnalyzedFrameId, action.Object, message.CreatedObjects, message.Result.TrackId));
             using var recordClient = HttpClientFactory.CreateClient("ApiService");
             var recordPersister = new VideoEditorActionPersister(recordClient);
-            var actionId = await recordPersister.RecordActionAsync(VideoId!.Value, action);
+            var actionId = await recordPersister.RecordRawActionAsync(VideoId!.Value, "track-forward", trackForwardData);
 
             _undoRedoState.Add(action, item, actionId);
 

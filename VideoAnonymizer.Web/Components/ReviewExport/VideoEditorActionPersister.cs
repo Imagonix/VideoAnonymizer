@@ -12,6 +12,11 @@ public sealed class VideoEditorActionPersister(HttpClient client)
     public async Task<Guid> RecordActionAsync(Guid videoId, VideoEditorAction action)
     {
         var (actionType, data) = SerializeAction(action);
+        return await RecordRawActionAsync(videoId, actionType, data);
+    }
+
+    public async Task<Guid> RecordRawActionAsync(Guid videoId, string actionType, string data)
+    {
         using var response = await client.PostAsJsonAsync(
             $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.Actions}",
             new RecordActionRequest { ActionType = actionType, Data = data });
