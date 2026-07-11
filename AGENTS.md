@@ -36,7 +36,7 @@ Key projects under `VideoAnonymizer.slnx`:
 | `VideoAnonymizer.VideoProcessor` | Background worker: frame extraction, blur processing, export |
 | `VideoAnonymizer.ObjectDetection` | Python FastAPI object detection service that loads detector configs from the models folder |
 | `VideoAnonymizer.ObjectDetectionClient` | .NET HTTP client for the Python detection API |
-| `VideoAnonymizer.Database` | EF Core entities (`Video`, `AnalyzedFrame`, `DetectedObject`) |
+| `VideoAnonymizer.Database` | EF Core entities (`Video`, `AnalyzedFrame`, `DetectedObject`, `EditorAction`) |
 | `VideoAnonymizer.Database.Postgres` | PostgreSQL provider — migrations + `AddPostgresVideoAnonymizerDbContext[Factory]()` |
 | `VideoAnonymizer.Database.SQLite` | SQLite provider — migrations + `AddSqliteVideoAnonymizerDbContext[Factory]()` + design-time factory |
 | `VideoAnonymizer.Contracts` | RabbitMQ message types and constants |
@@ -75,6 +75,16 @@ Key projects under `VideoAnonymizer.slnx`:
 - `DownloadService.DownloadFileAsync()` calls JS `triggerFileDownload(fileName, url)` which creates an anchor element and clicks it
 - API endpoint `GET /anonymized/{videoId}` streams the processed file
 
+### 5. Action Persistence (Undo/Redo across page reload)
+- Every editor action (add, update, bulk-update, delete, settings, track-forward) is recorded via `POST /video/{videoId}/actions` after the data mutation succeeds. The action's relevant DTOs are serialized to JSON in the `Data` column of the `EditorAction` table.
+- On page load, `ReviewExportTab.OnParametersSetAsync` calls `LoadActionHistoryAsync()` which GETs all non-undone actions and reconstructs the `_undoRedoState` stack via `VideoEditorUndoRedoState.DeserializeActions()`.
+- Undo/redo toggles the `Undone` flag via `PUT /video/{videoId}/actions/{actionId}/undone` while the `VideoEditorActionPersister.ApplyUndoRedoAsync()` still handles the actual CRUD inversion.
+- Track-forward specifically:
+  - The `TrackForwardCompletedMessage` carries `List<DetectedObjectDto> CreatedObjects` (populated by the API notification handler querying the DB after completion)
+  - These DTOs are stored on `ActionHistoryItem.CreatedObjectDtos` for redo
+  - On undo: bulk-delete objects by ID
+  - On redo: re-POST each cached DTO to create them again
+
 ## Key Code Locations
 
 ### Frontend - Main Page
@@ -83,7 +93,9 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Pages/Home.razor.js` - `triggerFileDownload()` JS function
 
 ### Frontend - Components
-- `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Settings (blur size, time buffer), editor, anonymize button, sync status indicator (save icon / spinner tied to channel state), action handler (switch on `VideoEditorAction`)
+- `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Settings (blur size, time buffer), editor, anonymize button, sync status indicator (save icon / spinner tied to channel state), action handler (switch on `VideoEditorAction`), action history persistence
+- `VideoAnonymizer.Web/Components/ReviewExport/ActionPersistenceData.cs` - Internal JSON serialization records per action type
+- `VideoAnonymizer.Web/Components/ReviewExport/VideoEditorUndoRedoState.cs` - Undo/redo stack with persisted ActionId, DeserializeActions() for page reload recovery
 - `VideoAnonymizer.Web/Components/UploadTab.razor` - File upload + detect button + existing videos list with click-to-open
 - `VideoAnonymizer.Web/Components/StatusIndicator.razor` - Progress overlay
 
@@ -115,14 +127,17 @@ Key projects under `VideoAnonymizer.slnx`:
 ### Backend
 - `VideoAnonymizer.ApiService/Controllers/VideosController.cs` - Video endpoints: analyze, analyzed, video, anonymize, anonymized
 - `VideoAnonymizer.ApiService/Controllers/DetectedObjectsController.cs` - Review editor object persistence endpoints
+- `VideoAnonymizer.ApiService/Controllers/ActionsController.cs` - Action history CRUD (record, list, toggle undone)
 - `VideoAnonymizer.ApiService/DataServices/VideoDataService.cs` - Video DB access
 - `VideoAnonymizer.ApiService/DataServices/DetectedObjectDataService.cs` - Detected object DB access
+- `VideoAnonymizer.ApiService/DataServices/EditorActionDataService.cs` - Action persistence with auto-incrementing SequenceNumber
 - `VideoAnonymizer.ApiService/Notifications/LongRunningJobsHub.cs` - SignalR hub
+- `VideoAnonymizer.Database/EditorAction.cs` - Action entity: ActionType, Data (JSON), Undone flag, SequenceNumber
 - `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying the configured blur shape for each detected object
 - `VideoAnonymizer.VideoProcessor/AnonymizeVideoConsumer.cs` / `AnonymizeVideoHandler.cs` - RabbitMQ consumer
 
 ### Shared Constants
-- `VideoAnonymizer.Web.Contracts/SharedConstants.cs` - API routes (`analyze`, `anonymize`, `video`, `anonymized`) and SignalR message keys (`videoAnalyzed`, `videoAnonymized`, `jobProgress`)
+- `VideoAnonymizer.Web.Contracts/SharedConstants.cs` - API routes (`analyze`, `anonymize`, `video`, `anonymized`, `actions`, `undone`) and SignalR message keys (`videoAnalyzed`, `videoAnonymized`, `trackForwardCompleted`, `jobProgress`)
 - `VideoAnonymizer.Web.Contracts/DTO/` - All request/response DTOs
 
 ## Common Tasks
@@ -253,9 +268,10 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - `SelectedFileName` is preserved from the initial file selection (not nullified after analysis) to ensure correct download filename
 - Video files are stored on disk; the API serves them via `PhysicalFile()` with range processing support
 - The Vue editor communicates with Blazor via JS interop (`GetFramesAsync()` / property updates on the mounted Vue app)
+- The `trackForwardCompleted` SignalR message carries `List<DetectedObjectDto> CreatedObjects` (full DTOs of newly tracked objects, queried from DB by the API notification handler) for redo support
 - Settings (blur size, time buffer) are persisted on change via `PUT /video/{videoId}/settings` and go through the `VideoEditor` operation channel
 - VideoEditor operations use a command pattern: `VideoEditorAction` records dispatched through a single `OnAction` callback with a switch in `ReviewExportTab`
-- **Undo/Redo**: Blazor owns the authoritative undo/redo stack and the action queue in `ReviewExportTab`. Object update actions carry `BeforeState` plus the updated object payload, while settings actions carry `BeforeState` and `AfterState`. Vue sends Ctrl+Z/Y as `onUndo`/`onRedo` signals (no payload). Blazor serializes pending saves before undo/redo, applies the inverse HTTP call, then pushes a `DetectedObjectChangeSet` delta to Vue via `applyDetectedObjectChanges` JS bridge. A Blazor overlay blocks editor input when undo/redo is requested while earlier actions are pending. New actions clear any redo history (actions after current index).
+- **Undo/Redo**: Blazor owns the authoritative undo/redo stack and the action queue in `ReviewExportTab`. Every action is recorded via `POST /video/{videoId}/actions` and persisted to the `EditorAction` DB table. On page reload, `VideoEditorUndoRedoState.DeserializeActions()` reconstructs the stack from the API. Object update actions carry `BeforeState` plus the updated object payload, while settings actions carry `BeforeState` and `AfterState`. Vue sends Ctrl+Z/Y as `onUndo`/`onRedo` signals (no payload). Blazor serializes pending saves before undo/redo, applies the inverse HTTP call, toggles the `Undone` flag via `PUT /video/{videoId}/actions/{actionId}/undone`, then pushes a `DetectedObjectChangeSet` delta to Vue via `applyDetectedObjectChanges` JS bridge. A Blazor overlay blocks editor input when undo/redo is requested while earlier actions are pending. New actions clear any redo history (actions after current index).
 - **Blazor → Vue state propagation**: Blazor pushes state to Vue via dedicated JS bridge functions (`updateVideoEditorSettings`, `applyDetectedObjectChanges`). These are defined in `videoEditorHost.js` and exposed as `AppHandle` methods in `main.ts`, updating the reactive `state` proxy.
 - HTTP execution and queueing logic lives in `ReviewExportTab` and its `ReviewExport/` helper classes. `VideoEditor` only bridges Vue events and JS interop calls.
 - The upload tab shows a list of existing videos loaded from `GET /videos`; clicking a row opens the video directly (no separate button)

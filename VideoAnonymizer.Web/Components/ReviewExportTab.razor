@@ -1,3 +1,4 @@
+@using System.Text.Json
 @using VideoAnonymizer.Web.Components.ReviewExport
 @using VideoAnonymizer.Web.Modules.Actions
 @using VideoAnonymizer.Web.Modules.Components
@@ -67,6 +68,7 @@
     private bool _editorInputBlocked;
     private int _activeTrackForwardCount;
     private bool _hasErrors;
+    private Guid? _lastVideoId;
 
     public ReviewExportTab()
     {
@@ -111,6 +113,30 @@
     protected override void OnInitialized()
     {
         _trackForwardCompletedSubscription = JobHubClient.OnTrackForwardCompleted(OnTrackForwardCompletedAsync);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (VideoId.HasValue && _lastVideoId != VideoId)
+        {
+            _lastVideoId = VideoId;
+            await LoadActionHistoryAsync();
+        }
+    }
+
+    private async Task LoadActionHistoryAsync()
+    {
+        if (VideoId is null) return;
+        try
+        {
+            using var client = HttpClientFactory.CreateClient("ApiService");
+            var persister = new VideoEditorActionPersister(client);
+            var actions = await persister.LoadActionHistoryAsync(VideoId.Value);
+            _undoRedoState.DeserializeActions(VideoId.Value, actions);
+        }
+        catch
+        {
+        }
     }
 
     private Task OnQueueProcessingChangedAsync(bool isProcessing) =>
@@ -223,8 +249,16 @@
             }
 
             item.Status = ActionStatus.Success;
-            item.CreatedObjectIds = message.CreatedObjectIds;
-            _undoRedoState.Add(action, item);
+            item.CreatedObjectIds = message.CreatedObjects.Select(o => o.Id).ToList();
+            item.CreatedObjectDtos = message.CreatedObjects;
+
+            var trackForwardData = JsonSerializer.Serialize(new ActionDataTrackForward(
+                action.AnalyzedFrameId, action.Object, message.CreatedObjects, message.Result.TrackId));
+            using var recordClient = HttpClientFactory.CreateClient("ApiService");
+            var recordPersister = new VideoEditorActionPersister(recordClient);
+            var actionId = await recordPersister.RecordActionAsync(VideoId!.Value, action);
+
+            _undoRedoState.Add(action, item, actionId);
 
             if (_videoEditor is not null)
             {
@@ -244,7 +278,8 @@
         {
             await persister.SaveAsync(action);
             item.Status = ActionStatus.Success;
-            _undoRedoState.Add(action, item);
+            var actionId = await persister.RecordActionAsync(VideoId!.Value, action);
+            _undoRedoState.Add(action, item, actionId);
             await InvokeAsync(StateHasChanged);
         }
         catch
@@ -262,6 +297,12 @@
         try
         {
             await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync, operation.DisplayItem);
+
+            if (operation.ActionId != Guid.Empty)
+            {
+                await persister.ToggleActionUndoneAsync(VideoId!.Value, operation.ActionId, !isRedo);
+            }
+
             _undoRedoState.Complete(operation, isRedo);
 
             if (operation.Action is TrackForwardAction && !isRedo)

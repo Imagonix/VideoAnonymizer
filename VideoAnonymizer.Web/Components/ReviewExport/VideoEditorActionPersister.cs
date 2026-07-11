@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using VideoAnonymizer.Web.Modules.Actions;
 using VideoAnonymizer.Web.Modules.Components;
 using VideoAnonymizer.Web.Shared;
@@ -8,6 +9,36 @@ namespace VideoAnonymizer.Web.Components.ReviewExport;
 
 public sealed class VideoEditorActionPersister(HttpClient client)
 {
+    public async Task<Guid> RecordActionAsync(Guid videoId, VideoEditorAction action)
+    {
+        var (actionType, data) = SerializeAction(action);
+        using var response = await client.PostAsJsonAsync(
+            $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.Actions}",
+            new RecordActionRequest { ActionType = actionType, Data = data });
+
+        response.EnsureSuccessStatusCode();
+        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<EditorActionDto>>();
+        return apiResponse?.Payload?.Id
+            ?? throw new InvalidOperationException("Failed to record action.");
+    }
+
+    public async Task<List<EditorActionDto>> LoadActionHistoryAsync(Guid videoId)
+    {
+        var response = await client.GetAsync(
+            $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.Actions}");
+        response.EnsureSuccessStatusCode();
+        var apiResponse = await response.Content.ReadFromJsonAsync<ApiResponse<List<EditorActionDto>>>();
+        return apiResponse?.Payload ?? [];
+    }
+
+    public async Task ToggleActionUndoneAsync(Guid videoId, Guid actionId, bool undone)
+    {
+        using var response = await client.PutAsJsonAsync(
+            $"/{SharedConstants.Paths.Video}/{videoId}/{SharedConstants.Paths.Actions}/{actionId}/{SharedConstants.Paths.Undone}",
+            new ToggleUndoneRequest { Undone = undone });
+        response.EnsureSuccessStatusCode();
+    }
+
     public async Task SaveAsync(VideoEditorAction action)
     {
         switch (action)
@@ -81,6 +112,15 @@ public sealed class VideoEditorActionPersister(HttpClient client)
                     historyItem.CreatedObjectIds.Select(id => id.ToString()).ToList(), []);
                 break;
 
+            case TrackForwardAction a when isRedo && historyItem?.CreatedObjectDtos.Count > 0:
+                foreach (var dto in historyItem.CreatedObjectDtos)
+                {
+                    await EnsureSuccessfulResponseAsync(client.PostAsJsonAsync(
+                        DetectedObjectRoute(a.VideoId, dto.AnalyzedFrameId.ToString()), dto));
+                }
+                await PushChangesToVueAsync(videoEditor, [], [], historyItem.CreatedObjectDtos);
+                break;
+
             case ObjectAddedAction a:
                 if (isRedo)
                 {
@@ -138,6 +178,19 @@ public sealed class VideoEditorActionPersister(HttpClient client)
                 await applySettings(settingsState);
                 break;
         }
+    }
+
+    private static (string ActionType, string Data) SerializeAction(VideoEditorAction action)
+    {
+        return action switch
+        {
+            ObjectAddedAction a => ("add", JsonSerializer.Serialize(new ActionDataAdd(a.AnalyzedFrameId, a.Object))),
+            ObjectUpdatedAction a => ("update", JsonSerializer.Serialize(new ActionDataUpdate(a.AnalyzedFrameId, a.BeforeState[0], a.Object, a.OperationType))),
+            ObjectsBulkUpdatedAction a => ("bulk-update", JsonSerializer.Serialize(new ActionDataBulkUpdate([.. a.BeforeState], [.. a.Objects], a.OperationType))),
+            ObjectDeletedAction a => ("delete", JsonSerializer.Serialize(new ActionDataDelete(a.AnalyzedFrameId, a.Object))),
+            SettingsUpdatedAction a => ("settings", JsonSerializer.Serialize(new ActionDataSettings(a.BeforeState, a.AfterState))),
+            _ => throw new ArgumentException($"Unsupported action type: {action.GetType().Name}")
+        };
     }
 
     private Task SaveSettingsAsync(Guid videoId, AnonymizationSettingsDto settings) =>

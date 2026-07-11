@@ -22,6 +22,8 @@ namespace VideoAnonymizer.Web.Shared
             public const string Video = "video";
             public const string Videos = "videos";
             public const string VideoSettings = "settings";
+            public const string Actions = "actions";
+            public const string Undone = "undone";
         }
 
         public static class SignalR
