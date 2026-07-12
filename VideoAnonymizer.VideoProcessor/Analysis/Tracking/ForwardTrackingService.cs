@@ -111,10 +111,12 @@ public sealed class ForwardTrackingService(
             MaxTrackDurationMs = maxTrackDurationMs
         };
 
-        var seedFrameMs = ToMilliseconds(seed.Frame.TimeSeconds);
+        var stoppedEarly = false;
 
         await foreach (var streamEvent in objectDetectionClient.TrackForwardStreamingAsync(request, cancellationToken))
         {
+            if (stoppedEarly) break;
+
             switch (streamEvent.Type)
             {
                 case "detection" when streamEvent.Detection is not null:
@@ -123,9 +125,18 @@ public sealed class ForwardTrackingService(
                     var frame = frames.FirstOrDefault(f => f.FrameIndex == detection.FrameIndex);
                     if (frame is null) break;
 
+                    var timeMs = detection.TimeMs > 0 ? detection.TimeMs : ToMilliseconds(frame.TimeSeconds);
+
+                    if (HasSameTrackInFrame(frame, trackId))
+                    {
+                        await onGapCompleted(new TrackForwardGapResult(
+                            trackId, timeMs, timeMs, [], false));
+                        stoppedEarly = true;
+                        break;
+                    }
+
                     Guid? createdId = null;
-                    if (!HasSameTrackInFrame(frame, trackId)
-                        && !HasDifferentTrackConflict(frame, detection, trackId))
+                    if (!HasDifferentTrackConflict(frame, detection, trackId))
                     {
                         var entity = new DetectedObject
                         {
@@ -150,7 +161,6 @@ public sealed class ForwardTrackingService(
                     await db.SaveChangesAsync(cancellationToken);
                     db.ChangeTracker.Clear();
 
-                    var timeMs = detection.TimeMs > 0 ? detection.TimeMs : ToMilliseconds(frame.TimeSeconds);
                     await onGapCompleted(new TrackForwardGapResult(
                         trackId, timeMs, timeMs, createdId is not null ? [createdId.Value] : [], false));
                     break;
@@ -158,13 +168,20 @@ public sealed class ForwardTrackingService(
 
                 case "progress":
                 {
-                    // Frame processed with no detection (lost, skipped, etc.)
-                    // Move the pulsating dot to this frame's position
                     var frameIndex = streamEvent.FrameIndex;
                     var frame = frames.FirstOrDefault(f => f.FrameIndex == frameIndex);
                     if (frame is null) break;
 
                     var progressMs = ToMilliseconds(frame.TimeSeconds);
+
+                    if (HasSameTrackInFrame(frame, trackId))
+                    {
+                        await onGapCompleted(new TrackForwardGapResult(
+                            trackId, progressMs, progressMs, [], false));
+                        stoppedEarly = true;
+                        break;
+                    }
+
                     await onGapCompleted(new TrackForwardGapResult(
                         trackId, progressMs, progressMs, [], false));
                     break;
@@ -186,6 +203,12 @@ public sealed class ForwardTrackingService(
                     break;
                 }
             }
+        }
+
+        if (stoppedEarly)
+        {
+            await onGapCompleted(new TrackForwardGapResult(
+                trackId, 0, 0, allCreatedIds, true));
         }
     }
 
