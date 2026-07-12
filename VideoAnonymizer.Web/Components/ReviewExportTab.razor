@@ -216,7 +216,6 @@
             var job = await persister.TrackForwardAsync(action, jobId);
             _pendingTrackForwardJobs[job.JobId] = (item, action.Object.Id.ToString(), action);
             _activeTrackForwardCount++;
-            Snackbar.Add("Tracking started.", Severity.Info);
             await InvokeAsync(StateHasChanged);
         }
         catch
@@ -280,7 +279,6 @@
                 await _videoEditor.ClearTrackingObjectId(seedObjectId);
             }
 
-            Snackbar.Add($"Track {message.Result.TrackId}: forward tracking completed", Severity.Info);
             await TrackingCompleted.InvokeAsync();
             StateHasChanged();
         });
