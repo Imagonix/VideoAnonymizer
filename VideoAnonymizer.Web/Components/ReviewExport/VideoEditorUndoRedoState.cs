@@ -89,7 +89,7 @@ public sealed class VideoEditorUndoRedoState
         _actionIds.Clear();
         _historyIndex = -1;
 
-        foreach (var dto in actionDtos.Where(a => !a.Undone))
+        foreach (var dto in actionDtos.OrderBy(a => a.SequenceNumber))
         {
             var action = ReconstructAction(videoId, dto.ActionType, dto.Data);
             if (action is null) continue;
@@ -98,6 +98,7 @@ public sealed class VideoEditorUndoRedoState
             var item = new ActionHistoryItem(description, dto.CreatedAt)
             {
                 Status = ActionStatus.Success,
+                Undone = dto.Undone,
                 CreatedObjectDtos = ExtractCreatedDtos(dto.ActionType, dto.Data)
             };
 
@@ -106,8 +107,7 @@ public sealed class VideoEditorUndoRedoState
             _actionIds.Add(dto.Id);
         }
 
-        if (_history.Count > 0)
-            _historyIndex = _history.Count - 1;
+        _historyIndex = _displayItems.FindLastIndex(i => i is not null && !i.Undone);
     }
 
     private static VideoEditorAction? ReconstructAction(Guid videoId, string actionType, string data)
