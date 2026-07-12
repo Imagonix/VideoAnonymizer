@@ -221,9 +221,7 @@ function setVideoVolume(volume: number) {
                     :video-dimensions="videoDimensions"
                     :highlighted-row-key="isMerge ? hoveredTimelineKey : isSplit ? (hoveredTimelineKey ?? splitSourceKey) : hoveredObjectKey"
                     :split-source-key="isSplit ? splitSourceKey : null"
-                    :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
-                    :tracking-object-ids="trackingObjectIds"
-                    :tracking-track-ids="trackingTrackIds" />
+                    :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()" />
             </div>
 
             <div ref="rightPanelRef" class="right-panel">

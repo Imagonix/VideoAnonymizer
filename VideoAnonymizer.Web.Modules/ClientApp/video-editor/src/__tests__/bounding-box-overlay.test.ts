@@ -34,8 +34,6 @@ describe('BoundingBoxOverlay', () => {
                 highlightedRowKey: null,
                 splitSourceKey: null,
                 alwaysShowKeys: new Set<string>(),
-                trackingObjectIds: new Set<string>(),
-                trackingTrackIds: new Set<number>(),
             },
         });
 
@@ -73,8 +71,6 @@ describe('BoundingBoxOverlay', () => {
                 highlightedRowKey: null,
                 splitSourceKey: null,
                 alwaysShowKeys: new Set<string>(),
-                trackingObjectIds: new Set<string>(),
-                trackingTrackIds: new Set<number>(),
             },
         });
 

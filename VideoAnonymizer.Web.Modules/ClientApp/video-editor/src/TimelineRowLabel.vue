@@ -32,7 +32,7 @@ function getTimelineKey(obj: TimelineObject): string {
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
 const isMergeHovered = computed(() => props.mode === 'merge' && props.hoveredTimelineKey === timelineKey.value);
-const isBlocked = computed(() => {
+const isTracking = computed(() => {
     if (props.timelineObject.type !== 'tracked') return false;
     const tid = props.timelineObject.occurences[0]?.[1].trackId;
     return tid != null && props.trackingTrackIds.has(tid);
@@ -109,7 +109,7 @@ function onRowClick() {
 <template>
     <div
       class="label-container"
-      :class="{ 'label-container--merge-mode': mode === 'merge', 'label-container--blocked': isBlocked }"
+      :class="{ 'label-container--merge-mode': mode === 'merge', 'label-container--tracking': isTracking }"
       :style="mergeHighlightStyle"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
@@ -118,10 +118,10 @@ function onRowClick() {
         <MudLikeCheckbox
           :checked="checked"
           :indeterminate="indeterminate"
-          :disabled="mode === 'merge' || isBlocked"
+          :disabled="mode === 'merge'"
           @change="(value: boolean) => emit('toggle', timelineObject, value)"
         >
-          <span v-if="!isEditing" class="label-text" :class="{ 'label-text--blocked': isBlocked }" @dblclick.stop="isBlocked ? undefined : startEdit">
+          <span v-if="!isEditing" class="label-text" @dblclick.stop="startEdit">
             {{ getTimelineLabel(props.timelineObject) }}
           </span>
           <input
@@ -135,8 +135,9 @@ function onRowClick() {
             @click.stop
           />
         </MudLikeCheckbox>
-        <span v-if="isBlocked" class="label-spinner" />
-        <ColorDot v-else :detected-object="sampleDetectedObject" :alignRight="true" />
+        <div class="color-dot-wrapper" :class="{ 'color-dot-wrapper--tracking': isTracking }">
+          <ColorDot :detected-object="sampleDetectedObject" :alignRight="true" />
+        </div>
     </div>
 </template>
 
@@ -179,28 +180,24 @@ function onRowClick() {
     border-color: var(--mud-palette-primary);
 }
 
-.label-container--blocked {
-    opacity: 0.5;
-    pointer-events: none;
-}
-
-.label-text--blocked {
-    cursor: default;
-}
-
-.label-spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    border: 2px solid var(--mud-palette-action-disabled, rgba(255,255,255,0.5));
-    border-right-color: transparent;
-    animation: label-spin 0.75s linear infinite;
-    flex-shrink: 0;
+.color-dot-wrapper {
+    position: relative;
+    display: inline-flex;
     margin-left: auto;
+    flex-shrink: 0;
 }
 
-@keyframes label-spin {
+.color-dot-wrapper--tracking::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    animation: dot-ring-spin 0.75s linear infinite;
+}
+
+@keyframes dot-ring-spin {
     to { transform: rotate(360deg); }
 }
 </style>
