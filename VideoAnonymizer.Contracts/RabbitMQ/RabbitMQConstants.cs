@@ -15,6 +15,7 @@ namespace VideoAnonymizer.Contracts.RabbitMQ
             public const string Progress = RoutingKeys.Progress + ".queue";
             public const string TrackForward = RoutingKeys.TrackForward + ".queue";
             public const string TrackForwardCompleted = RoutingKeys.TrackForwardCompleted + ".queue";
+            public const string TrackForwardProgress = RoutingKeys.TrackForwardProgress + ".queue";
         }
         public class RoutingKeys
         {
@@ -25,6 +26,7 @@ namespace VideoAnonymizer.Contracts.RabbitMQ
             public const string Progress = "video.progress";
             public const string TrackForward = "video.track-forward";
             public const string TrackForwardCompleted = "video.track-forward-completed";
+            public const string TrackForwardProgress = "video.track-forward-progress";
         }
     }
 }

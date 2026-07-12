@@ -75,6 +75,7 @@ public static class ApiServiceRegistration
         services.AddSingleton<IMessageHandler<AnonymizedVideo>, VideoAnonymizedNotificationHandler>();
         services.AddSingleton<IMessageHandler<VideoProcessingProgress>, VideoProcessingProgressNotificationHandler>();
         services.AddSingleton<IMessageHandler<TrackForwardCompleted>, TrackForwardCompletedNotificationHandler>();
+        services.AddSingleton<IMessageHandler<TrackForwardProgress>, TrackForwardProgressNotificationHandler>();
         return services;
     }
 
@@ -84,6 +85,7 @@ public static class ApiServiceRegistration
         services.AddHostedService<VideoAnonymizedConsumer>();
         services.AddHostedService<VideoProcessingProgressConsumer>();
         services.AddHostedService<TrackForwardCompletedConsumer>();
+        services.AddHostedService<TrackForwardProgressConsumer>();
         return services;
     }
 }

@@ -7,6 +7,97 @@ public partial class ObjectDetectionClient
         return TrackForwardAsync(body, System.Threading.CancellationToken.None);
     }
 
+    public virtual async System.Collections.Generic.IAsyncEnumerable<TrackForwardStreamEvent> TrackForwardStreamingAsync(
+        TrackForwardPythonRequest body,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] System.Threading.CancellationToken cancellationToken)
+    {
+        if (body == null)
+            throw new System.ArgumentNullException(nameof(body));
+
+        var client_ = _httpClient;
+
+        using var request_ = new System.Net.Http.HttpRequestMessage();
+        var json_ = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerSettings);
+        var content_ = new System.Net.Http.ByteArrayContent(json_);
+        content_.Headers.ContentType = System.Net.Http.Headers.MediaTypeHeaderValue.Parse("application/json");
+        request_.Content = content_;
+        request_.Method = new System.Net.Http.HttpMethod("POST");
+        request_.Headers.Accept.Add(System.Net.Http.Headers.MediaTypeWithQualityHeaderValue.Parse("text/event-stream"));
+
+        var urlBuilder_ = new System.Text.StringBuilder();
+        if (!string.IsNullOrEmpty(_baseUrl))
+            urlBuilder_.Append(_baseUrl);
+        urlBuilder_.Append("trackForward");
+
+        PrepareRequest(client_, request_, urlBuilder_);
+
+        var url_ = urlBuilder_.ToString();
+        request_.RequestUri = new System.Uri(url_, System.UriKind.RelativeOrAbsolute);
+
+        PrepareRequest(client_, request_, url_);
+
+        using var response_ = await client_.SendAsync(
+                request_,
+                System.Net.Http.HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        response_.EnsureSuccessStatusCode();
+
+        using var stream_ = await response_.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var reader_ = new System.IO.StreamReader(stream_);
+
+        while (!reader_.EndOfStream)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var line_ = await reader_.ReadLineAsync(cancellationToken).ConfigureAwait(false);
+            if (line_ is null) break;
+            if (!line_.StartsWith("data: ")) continue;
+
+            var jsonStr_ = line_.Substring(6);
+            using var doc_ = System.Text.Json.JsonDocument.Parse(jsonStr_);
+            var type_ = doc_.RootElement.GetProperty("type").GetString();
+
+            if (type_ == "detection")
+            {
+                var detection = System.Text.Json.JsonSerializer.Deserialize<TrackForwardPythonDetectionResult>(
+                    jsonStr_, JsonSerializerSettings);
+                if (detection is not null)
+                    yield return new TrackForwardStreamEvent { Type = "detection", Detection = detection };
+            }
+            else if (type_ == "gap")
+            {
+                yield return new TrackForwardStreamEvent
+                {
+                    Type = "gap",
+                    Gap = new TrackForwardPythonGap
+                    {
+                        StartTimeMs = doc_.RootElement.GetProperty("startTimeMs").GetInt32(),
+                        EndTimeMs = doc_.RootElement.GetProperty("endTimeMs").GetInt32()
+                    }
+                };
+            }
+            else if (type_ == "progress")
+            {
+                yield return new TrackForwardStreamEvent
+                {
+                    Type = "progress",
+                    FrameIndex = doc_.RootElement.GetProperty("frameIndex").GetInt32(),
+                    TimeMs = doc_.RootElement.GetProperty("timeMs").GetInt32()
+                };
+            }
+            else if (type_ == "complete")
+            {
+                yield return new TrackForwardStreamEvent
+                {
+                    Type = "complete",
+                    StoppedReason = doc_.RootElement.GetProperty("stoppedReason").GetString(),
+                    ReacquiredCount = doc_.RootElement.GetProperty("reacquiredCount").GetInt32()
+                };
+            }
+        }
+    }
+
     public virtual async System.Threading.Tasks.Task<TrackForwardPythonResponse> TrackForwardAsync(
         TrackForwardPythonRequest body,
         System.Threading.CancellationToken cancellationToken)
@@ -235,4 +326,15 @@ public sealed class TrackForwardPythonGap
 
     [System.Text.Json.Serialization.JsonPropertyName("endTimeMs")]
     public int EndTimeMs { get; set; }
+}
+
+public sealed class TrackForwardStreamEvent
+{
+    public string Type { get; init; } = "";
+    public TrackForwardPythonDetectionResult? Detection { get; init; }
+    public TrackForwardPythonGap? Gap { get; init; }
+    public string? StoppedReason { get; init; }
+    public int ReacquiredCount { get; init; }
+    public int FrameIndex { get; init; }
+    public int TimeMs { get; init; }
 }

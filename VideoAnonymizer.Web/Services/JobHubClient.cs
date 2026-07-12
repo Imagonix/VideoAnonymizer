@@ -34,6 +34,9 @@ public sealed class JobHubClient : IJobHubClient, IAsyncDisposable
     public IDisposable OnTrackForwardCompleted(Func<TrackForwardCompletedMessage, Task> handler)
         => _hubConnection.On(SharedConstants.SignalR.Messages.TrackForwardCompleted, handler);
 
+    public IDisposable OnTrackForwardProgress(Func<TrackForwardProgressMessage, Task> handler)
+        => _hubConnection.On(SharedConstants.SignalR.Messages.TrackForwardProgress, handler);
+
     public IDisposable OnJobProgress(Func<LongRunningJobProgressMessage, Task> handler)
         => _hubConnection.On(SharedConstants.SignalR.Messages.JobProgress, handler);
 

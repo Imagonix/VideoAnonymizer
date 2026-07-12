@@ -16,15 +16,23 @@ public sealed record TrackForwardResult(
 
 public sealed record TrackForwardGap(int StartTimeMs, int EndTimeMs);
 
+public sealed record TrackForwardGapResult(
+    int TrackId,
+    int GapStartTimeMs,
+    int GapEndTimeMs,
+    IReadOnlyList<Guid> CreatedObjectIds,
+    bool IsFinal);
+
 public sealed class ForwardTrackingService(
     IDbContextFactory<VideoAnonymizerDbContext> dbFactory,
     global::VideoAnonymizer.ObjectDetectionClient.ObjectDetectionClient objectDetectionClient)
 {
     private const double ConflictIouThreshold = 0.30;
 
-    public async Task<TrackForwardResult> TrackForwardAsync(
+    public async Task TrackForwardIncrementalAsync(
         Guid videoId,
         TrackForwardJob job,
+        Func<TrackForwardGapResult, Task> onGapCompleted,
         CancellationToken cancellationToken)
     {
         ValidateOptions(job);
@@ -73,84 +81,112 @@ public sealed class ForwardTrackingService(
         if (persistFrameIndexes.Count == 0)
         {
             await db.SaveChangesAsync(cancellationToken);
-            return new TrackForwardResult(trackId, 0, 0, 0, "no_future_frames", [], []);
+            await onGapCompleted(new TrackForwardGapResult(trackId, ToMilliseconds(seed.Frame.TimeSeconds), ToMilliseconds(seed.Frame.TimeSeconds), [], true));
+            return;
         }
 
-        var pythonResponse = await objectDetectionClient.TrackForwardAsync(
-            new TrackForwardPythonRequest
-            {
-                VideoPath = video.SourcePath,
-                SeedFrameIndex = seed.Frame.FrameIndex,
-                SeedTimeMs = ToMilliseconds(seed.Frame.TimeSeconds),
-                BoundingBox = new TrackForwardPythonBoundingBox
-                {
-                    X = seed.Object.X,
-                    Y = seed.Object.Y,
-                    Width = seed.Object.Width,
-                    Height = seed.Object.Height
-                },
-                ObjectClass = seed.Object.ClassName ?? "face",
-                TrackId = trackId,
-                PersistEveryMs = persistEveryMs,
-                PersistFrameIndexes = persistFrameIndexes,
-                MaxLostDurationMs = job.MaxLostDurationMs,
-                RecoveryDetectorIntervalMs = job.RecoveryDetectorIntervalMs,
-                TrackerType = job.TrackerType,
-                SearchAreaExpansion = job.SearchAreaExpansion,
-                MaxTrackDurationMs = maxTrackDurationMs
-            },
-            cancellationToken);
-
-        var createdCount = 0;
-        var skippedConflicts = 0;
-        var createdIds = new List<Guid>();
-
-        foreach (var detection in pythonResponse.Detections.OrderBy(d => d.FrameIndex))
+        // Subscribe to streaming Python results — processes frames one by one
+        // and yields events as the tracker runs in real-time.
+        var allCreatedIds = new List<Guid>();
+        var request = new TrackForwardPythonRequest
         {
-            var targetFrame = frames.FirstOrDefault(frame => frame.FrameIndex == detection.FrameIndex);
-            if (targetFrame is null)
-                continue;
-
-            if (HasSameTrackInFrame(targetFrame, trackId)
-                || HasDifferentTrackConflict(targetFrame, detection, trackId))
+            VideoPath = video.SourcePath,
+            SeedFrameIndex = seed.Frame.FrameIndex,
+            SeedTimeMs = ToMilliseconds(seed.Frame.TimeSeconds),
+            BoundingBox = new TrackForwardPythonBoundingBox
             {
-                skippedConflicts++;
-                continue;
+                X = seed.Object.X,
+                Y = seed.Object.Y,
+                Width = seed.Object.Width,
+                Height = seed.Object.Height
+            },
+            ObjectClass = seed.Object.ClassName ?? "face",
+            TrackId = trackId,
+            PersistEveryMs = persistEveryMs,
+            PersistFrameIndexes = persistFrameIndexes,
+            MaxLostDurationMs = job.MaxLostDurationMs,
+            RecoveryDetectorIntervalMs = job.RecoveryDetectorIntervalMs,
+            TrackerType = job.TrackerType,
+            SearchAreaExpansion = job.SearchAreaExpansion,
+            MaxTrackDurationMs = maxTrackDurationMs
+        };
+
+        var seedFrameMs = ToMilliseconds(seed.Frame.TimeSeconds);
+
+        await foreach (var streamEvent in objectDetectionClient.TrackForwardStreamingAsync(request, cancellationToken))
+        {
+            switch (streamEvent.Type)
+            {
+                case "detection" when streamEvent.Detection is not null:
+                {
+                    var detection = streamEvent.Detection;
+                    var frame = frames.FirstOrDefault(f => f.FrameIndex == detection.FrameIndex);
+                    if (frame is null) break;
+
+                    Guid? createdId = null;
+                    if (!HasSameTrackInFrame(frame, trackId)
+                        && !HasDifferentTrackConflict(frame, detection, trackId))
+                    {
+                        var entity = new DetectedObject
+                        {
+                            AnalyzedFrameId = frame.Id,
+                            Confidence = detection.Confidence,
+                            ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
+                            BlurShape = detection.BlurShape ?? seed.Object.BlurShape,
+                            Selected = true,
+                            TrackId = trackId,
+                            X = detection.X,
+                            Y = detection.Y,
+                            Width = detection.Width,
+                            Height = detection.Height
+                        };
+
+                        db.DetectedObjects.Add(entity);
+                        frame.DetectedObjects.Add(entity);
+                        allCreatedIds.Add(entity.Id);
+                        createdId = entity.Id;
+                    }
+
+                    await db.SaveChangesAsync(cancellationToken);
+                    db.ChangeTracker.Clear();
+
+                    var timeMs = detection.TimeMs > 0 ? detection.TimeMs : ToMilliseconds(frame.TimeSeconds);
+                    await onGapCompleted(new TrackForwardGapResult(
+                        trackId, timeMs, timeMs, createdId is not null ? [createdId.Value] : [], false));
+                    break;
+                }
+
+                case "progress":
+                {
+                    // Frame processed with no detection (lost, skipped, etc.)
+                    // Move the pulsating dot to this frame's position
+                    var frameIndex = streamEvent.FrameIndex;
+                    var frame = frames.FirstOrDefault(f => f.FrameIndex == frameIndex);
+                    if (frame is null) break;
+
+                    var progressMs = ToMilliseconds(frame.TimeSeconds);
+                    await onGapCompleted(new TrackForwardGapResult(
+                        trackId, progressMs, progressMs, [], false));
+                    break;
+                }
+
+                case "gap" when streamEvent.Gap is not null:
+                {
+                    // Tracking was lost and recovered — record gap
+                    var gap = streamEvent.Gap;
+                    await onGapCompleted(new TrackForwardGapResult(
+                        trackId, gap.EndTimeMs, gap.EndTimeMs, [], false));
+                    break;
+                }
+
+                case "complete":
+                {
+                    await onGapCompleted(new TrackForwardGapResult(
+                        trackId, 0, 0, allCreatedIds, true));
+                    break;
+                }
             }
-
-            var entity = new DetectedObject
-            {
-                AnalyzedFrameId = targetFrame.Id,
-                Confidence = detection.Confidence,
-                ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
-                BlurShape = detection.BlurShape ?? seed.Object.BlurShape,
-                Selected = true,
-                TrackId = trackId,
-                X = detection.X,
-                Y = detection.Y,
-                Width = detection.Width,
-                Height = detection.Height
-            };
-
-            db.DetectedObjects.Add(entity);
-            targetFrame.DetectedObjects.Add(entity);
-            createdIds.Add(entity.Id);
-            createdCount++;
         }
-
-        await db.SaveChangesAsync(cancellationToken);
-        db.ChangeTracker.Clear();
-
-        return new TrackForwardResult(
-            trackId,
-            createdCount,
-            skippedConflicts,
-            pythonResponse.ReacquiredCount,
-            pythonResponse.StoppedReason,
-            pythonResponse.Gaps
-                .Select(gap => new TrackForwardGap(gap.StartTimeMs, gap.EndTimeMs))
-                .ToList(),
-            createdIds);
     }
 
     private static void ValidateOptions(TrackForwardJob job)

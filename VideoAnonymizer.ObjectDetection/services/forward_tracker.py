@@ -1,3 +1,5 @@
+import asyncio
+import json
 import logging
 import math
 from dataclasses import dataclass
@@ -9,7 +11,6 @@ from models import (
     TrackForwardDetectionResult,
     TrackForwardGap,
     TrackForwardRequest,
-    TrackForwardResponse,
 )
 from services.detection_service import detect_image
 
@@ -40,10 +41,12 @@ class Box:
         return math.hypot(self.width, self.height)
 
 
-def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
+async def track_forward_stream(request: TrackForwardRequest):
+    """Async generator that yields per-frame SSE events as JSON strings."""
     capture = cv2.VideoCapture(request.videoPath)
     if not capture.isOpened():
-        raise ValueError(f"Could not open video: {request.videoPath}")
+        yield json.dumps({"type": "error", "message": f"Could not open video: {request.videoPath}"})
+        return
 
     try:
         fps = capture.get(cv2.CAP_PROP_FPS)
@@ -55,7 +58,8 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
 
         success, frame = capture.read()
         if not success or frame is None:
-            raise ValueError(f"Could not read seed frame {seed_frame_index}.")
+            yield json.dumps({"type": "error", "message": f"Could not read seed frame {seed_frame_index}."})
+            return
 
         frame_height, frame_width = frame.shape[:2]
         seed_box = _clip_box(
@@ -69,7 +73,8 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
             frame_height,
         )
         if seed_box is None:
-            raise ValueError("Seed bounding box does not intersect the video frame.")
+            yield json.dumps({"type": "error", "message": "Seed bounding box does not intersect the video frame."})
+            return
 
         tracker = _create_tracker(request.trackerType)
         _init_tracker(tracker, frame, seed_box)
@@ -78,8 +83,6 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
         next_persist_time_ms = request.seedTimeMs + max(1, request.persistEveryMs)
         max_track_time_ms = request.seedTimeMs + max(1, request.maxTrackDurationMs)
 
-        detections: list[TrackForwardDetectionResult] = []
-        gaps: list[TrackForwardGap] = []
         reacquired_count = 0
         stopped_reason = "end_of_video"
         last_box = seed_box
@@ -113,7 +116,22 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
                 if tracked_box is not None and _is_sane_box(tracked_box, last_box, frame_width, frame_height):
                     last_box = tracked_box
                     if should_persist:
-                        detections.append(_to_detection(request, frame_index, current_time_ms, last_box, False))
+                        detection = _to_detection(request, frame_index, current_time_ms, last_box, False)
+                        yield json.dumps({
+                            "type": "detection",
+                            "frameIndex": detection.frameIndex,
+                            "timeMs": detection.timeMs,
+                            "className": detection.className,
+                            "confidence": detection.confidence,
+                            "x": detection.x,
+                            "y": detection.y,
+                            "width": detection.width,
+                            "height": detection.height,
+                            "blurShape": detection.blurShape,
+                            "trackId": detection.trackId,
+                            "reacquired": detection.reacquired,
+                        })
+                        await asyncio.sleep(0)
                     if not persist_frame_indexes:
                         next_persist_time_ms = _advance_next_persist_time(
                             next_persist_time_ms,
@@ -125,10 +143,21 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
                 lost_started_ms = current_time_ms
                 last_detector_run_ms = None
                 logger.debug("Tracker lost object at frame %s.", frame_index)
+                # Yield progress even for lost frames so the dot moves
+                yield json.dumps({
+                    "type": "progress",
+                    "frameIndex": frame_index,
+                    "timeMs": current_time_ms,
+                })
+                await asyncio.sleep(0)
                 continue
 
             if current_time_ms - lost_started_ms > request.maxLostDurationMs:
-                gaps.append(TrackForwardGap(startTimeMs=lost_started_ms, endTimeMs=current_time_ms))
+                yield json.dumps({
+                    "type": "gap",
+                    "startTimeMs": lost_started_ms,
+                    "endTimeMs": current_time_ms,
+                })
                 stopped_reason = "lost_timeout"
                 break
 
@@ -157,7 +186,11 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
             if reacquired_box is None:
                 continue
 
-            gaps.append(TrackForwardGap(startTimeMs=lost_started_ms, endTimeMs=current_time_ms))
+            yield json.dumps({
+                "type": "gap",
+                "startTimeMs": lost_started_ms,
+                "endTimeMs": current_time_ms,
+            })
             lost_started_ms = None
             last_detector_run_ms = None
             last_box = reacquired_box
@@ -166,21 +199,35 @@ def track_forward(request: TrackForwardRequest) -> TrackForwardResponse:
             _init_tracker(tracker, frame, last_box)
 
             if should_persist:
-                detections.append(_to_detection(request, frame_index, current_time_ms, last_box, True))
+                detection = _to_detection(request, frame_index, current_time_ms, last_box, True)
+                yield json.dumps({
+                    "type": "detection",
+                    "frameIndex": detection.frameIndex,
+                    "timeMs": detection.timeMs,
+                    "className": detection.className,
+                    "confidence": detection.confidence,
+                    "x": detection.x,
+                    "y": detection.y,
+                    "width": detection.width,
+                    "height": detection.height,
+                    "blurShape": detection.blurShape,
+                    "trackId": detection.trackId,
+                    "reacquired": detection.reacquired,
+                })
+                await asyncio.sleep(0)
             if not persist_frame_indexes:
                 next_persist_time_ms = _advance_next_persist_time(
                     next_persist_time_ms,
                     request.persistEveryMs,
                     current_time_ms,
                 )
+            await asyncio.sleep(0)
 
-        return TrackForwardResponse(
-            trackId=request.trackId,
-            detections=detections,
-            reacquiredCount=reacquired_count,
-            gaps=gaps,
-            stoppedReason=stopped_reason,
-        )
+        yield json.dumps({
+            "type": "complete",
+            "stoppedReason": stopped_reason,
+            "reacquiredCount": reacquired_count,
+        })
     finally:
         capture.release()
 

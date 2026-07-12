@@ -8,6 +8,7 @@ public sealed class FakeJobHubClient : IJobHubClient
     private Func<LongRunningJobFinishedMessage, Task>? _videoAnalyzedHandler;
     private Func<LongRunningJobFinishedMessage, Task>? _videoAnonymizedHandler;
     private Func<TrackForwardCompletedMessage, Task>? _trackForwardCompletedHandler;
+    private Func<TrackForwardProgressMessage, Task>? _trackForwardProgressHandler;
     private Func<LongRunningJobProgressMessage, Task>? _jobProgressHandler;
 
     public bool StartCalled { get; private set; }
@@ -16,6 +17,7 @@ public sealed class FakeJobHubClient : IJobHubClient
     public int VideoAnalyzedSubscriptionCount { get; private set; }
     public int VideoAnonymizedSubscriptionCount { get; private set; }
     public int TrackForwardCompletedSubscriptionCount { get; private set; }
+    public int TrackForwardProgressSubscriptionCount { get; private set; }
     public int JobProgressSubscriptionCount { get; private set; }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -51,6 +53,13 @@ public sealed class FakeJobHubClient : IJobHubClient
         return new CallbackDisposable(() => _trackForwardCompletedHandler = null);
     }
 
+    public IDisposable OnTrackForwardProgress(Func<TrackForwardProgressMessage, Task> handler)
+    {
+        TrackForwardProgressSubscriptionCount++;
+        _trackForwardProgressHandler = handler;
+        return new CallbackDisposable(() => _trackForwardProgressHandler = null);
+    }
+
     public IDisposable OnJobProgress(Func<LongRunningJobProgressMessage, Task> handler)
     {
         JobProgressSubscriptionCount++;
@@ -79,6 +88,14 @@ public sealed class FakeJobHubClient : IJobHubClient
         if (_trackForwardCompletedHandler is not null)
         {
             await _trackForwardCompletedHandler(message);
+        }
+    }
+
+    public async Task RaiseTrackForwardProgressAsync(TrackForwardProgressMessage message)
+    {
+        if (_trackForwardProgressHandler is not null)
+        {
+            await _trackForwardProgressHandler(message);
         }
     }
 

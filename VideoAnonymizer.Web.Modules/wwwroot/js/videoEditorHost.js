@@ -80,6 +80,12 @@ export async function clearTrackingObjectId(element, objectId) {
     appHandle.clearTrackingObjectId(objectId);
 }
 
+export async function updateTrackingProgress(element, gapStartMs, gapEndMs) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.updateTrackingProgress !== 'function') return;
+    appHandle.updateTrackingProgress(gapStartMs, gapEndMs);
+}
+
 export async function unmountVideoEditor(element) {
     const appHandle = mountedApps.get(element);
     if (appHandle && typeof appHandle.unmount === 'function') {

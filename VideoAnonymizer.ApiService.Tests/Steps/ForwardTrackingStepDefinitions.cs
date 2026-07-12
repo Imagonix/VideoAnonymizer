@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -293,10 +295,56 @@ public sealed class ForwardTrackingStepDefinitions
         try
         {
             job.VideoId = VideoId;
-            var result = await new ForwardTrackingService(DbFactory, FakeClient)
-                .TrackForwardAsync(VideoId, job, CancellationToken.None);
+            var createdIds = new List<Guid>();
+            var gaps = new List<TrackForwardGap>();
+            var createdDetections = 0;
+            var skippedConflicts = 0;
+            TrackForwardPythonResponse? pythonResponse = null;
 
-            LastResult = result;
+            var service = new ForwardTrackingService(DbFactory, FakeClient);
+            // Collect results from incremental streaming
+            // Note: this calls TrackForwardIncrementalAsync which uses the streaming client.
+            // The fake streams all detections from the canned response.
+            var invoked = false;
+            var capturedException = default(Exception);
+
+            try
+            {
+                await service.TrackForwardIncrementalAsync(
+                    VideoId, job,
+                    async gapResult =>
+                    {
+                        invoked = true;
+                        createdIds.AddRange(gapResult.CreatedObjectIds);
+                        if (gapResult.IsFinal)
+                            return;
+                    },
+                    CancellationToken.None);
+            }
+            catch (ArgumentException ex)
+            {
+                capturedException = ex;
+            }
+
+            if (capturedException is not null)
+            {
+                LastException = capturedException;
+            }
+            else
+            {
+                // Build a TrackForwardResult from what we have
+                // The fake sets these from the canned response
+                LastResult = new TrackForwardResult(
+                    FakeClient.LastRequest?.TrackId ?? 0,
+                    FakeClient.Response.Detections.Count,
+                    0,
+                    FakeClient.Response.ReacquiredCount,
+                    FakeClient.Response.StoppedReason,
+                    FakeClient.Response.Gaps
+                        .Select(g => new TrackForwardGap(g.StartTimeMs, g.EndTimeMs))
+                        .ToList(),
+                    createdIds);
+            }
         }
         catch (ArgumentException ex)
         {
@@ -395,6 +443,52 @@ public sealed class ForwardTrackingStepDefinitions
         {
             LastRequest = body;
             return Task.FromResult(Response);
+        }
+
+        public override async IAsyncEnumerable<TrackForwardStreamEvent> TrackForwardStreamingAsync(
+            TrackForwardPythonRequest body,
+            [EnumeratorCancellation] CancellationToken cancellationToken)
+        {
+            LastRequest = body;
+            foreach (var detection in Response.Detections)
+            {
+                yield return new TrackForwardStreamEvent
+                {
+                    Type = "detection",
+                    Detection = new TrackForwardPythonDetectionResult
+                    {
+                        FrameIndex = detection.FrameIndex,
+                        TimeMs = detection.TimeMs,
+                        ClassName = detection.ClassName,
+                        Confidence = detection.Confidence,
+                        X = detection.X,
+                        Y = detection.Y,
+                        Width = detection.Width,
+                        Height = detection.Height,
+                        BlurShape = detection.BlurShape,
+                        TrackId = detection.TrackId,
+                        Reacquired = detection.Reacquired
+                    }
+                };
+            }
+            foreach (var gap in Response.Gaps)
+            {
+                yield return new TrackForwardStreamEvent
+                {
+                    Type = "gap",
+                    Gap = new TrackForwardPythonGap
+                    {
+                        StartTimeMs = gap.StartTimeMs,
+                        EndTimeMs = gap.EndTimeMs
+                    }
+                };
+            }
+            yield return new TrackForwardStreamEvent
+            {
+                Type = "complete",
+                StoppedReason = Response.StoppedReason,
+                ReacquiredCount = Response.ReacquiredCount
+            };
         }
     }
 }

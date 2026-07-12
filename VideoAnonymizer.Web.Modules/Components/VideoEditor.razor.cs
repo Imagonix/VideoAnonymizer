@@ -132,6 +132,18 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
         }
     }
 
+    public async Task PushTrackingProgress(int gapStartMs, int gapEndMs)
+    {
+        if (!_mounted || _hostModule is null) return;
+        try
+        {
+            await _hostModule.InvokeVoidAsync("updateTrackingProgress", _hostElement, gapStartMs, gapEndMs);
+        }
+        catch
+        {
+        }
+    }
+
     public async Task<IReadOnlyList<AnalyzedFrameDto>> GetFramesAsync()
     {
         if (!_mounted || _hostModule is null)

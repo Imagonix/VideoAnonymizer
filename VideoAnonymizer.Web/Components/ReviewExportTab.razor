@@ -62,6 +62,7 @@
     private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
     private IDisposable? _trackForwardCompletedSubscription;
+    private IDisposable? _trackForwardProgressSubscription;
     private readonly Dictionary<Guid, (ActionHistoryItem Item, string SeedObjectId, TrackForwardAction Action)> _pendingTrackForwardJobs = [];
     private List<AnalyzedFrameDto> _capturedFrames = [];
     private bool _videoEditorProcessing;
@@ -113,6 +114,7 @@
     protected override void OnInitialized()
     {
         _trackForwardCompletedSubscription = JobHubClient.OnTrackForwardCompleted(OnTrackForwardCompletedAsync);
+        _trackForwardProgressSubscription = JobHubClient.OnTrackForwardProgress(OnTrackForwardProgressAsync);
     }
 
     protected override async Task OnParametersSetAsync()
@@ -210,20 +212,74 @@
     {
         var item = AddAction(VideoEditorActionDescriptions.Get(action));
         var jobId = Guid.NewGuid();
+        var seedObjectId = action.Object.Id.ToString();
+
+        // Pre-populate so early progress messages are not dropped
+        _pendingTrackForwardJobs[jobId] = (item, seedObjectId, action);
+        _activeTrackForwardCount++;
 
         try
         {
             var job = await persister.TrackForwardAsync(action, jobId);
-            _pendingTrackForwardJobs[job.JobId] = (item, action.Object.Id.ToString(), action);
-            _activeTrackForwardCount++;
+            if (job.JobId != jobId)
+            {
+                _pendingTrackForwardJobs.Remove(jobId);
+                _pendingTrackForwardJobs[job.JobId] = (item, seedObjectId, action);
+            }
             await InvokeAsync(StateHasChanged);
         }
         catch
         {
+            _pendingTrackForwardJobs.Remove(jobId);
             _activeTrackForwardCount = Math.Max(0, _activeTrackForwardCount - 1);
             MarkActionFailed(item);
         }
     }
+
+    private Task OnTrackForwardProgressAsync(TrackForwardProgressMessage message) =>
+        InvokeAsync(async () =>
+        {
+            if (!_pendingTrackForwardJobs.TryGetValue(message.JobId, out var trackingInfo))
+                return;
+
+            if (VideoId.HasValue && message.VideoId != VideoId.Value)
+                return;
+
+            var (item, seedObjectId, action) = trackingInfo;
+
+            if (!string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase))
+            {
+                if (item is not null)
+                {
+                    item.Status = ActionStatus.Failed;
+                }
+                _hasErrors = true;
+                if (_videoEditor is not null)
+                {
+                    await _videoEditor.ClearTrackingObjectId(seedObjectId);
+                    await _videoEditor.PushTrackingProgress(0, 0);
+                }
+                StateHasChanged();
+                return;
+            }
+
+            if (message.CreatedObjects.Count > 0 && _videoEditor is not null)
+            {
+                await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
+                {
+                    ObjectsToUpdate = [],
+                    ObjectsToRemove = [],
+                    ObjectsToAdd = message.CreatedObjects
+                });
+            }
+
+            if (_videoEditor is not null)
+            {
+                await _videoEditor.PushTrackingProgress(
+                    message.IsFinal ? 0 : message.GapStartTimeMs,
+                    message.IsFinal ? 0 : message.GapEndTimeMs);
+            }
+        });
 
     private Task OnTrackForwardCompletedAsync(TrackForwardCompletedMessage message) =>
         InvokeAsync(async () =>
@@ -256,6 +312,7 @@
                 if (_videoEditor is not null)
                 {
                     await _videoEditor.ClearTrackingObjectId(seedObjectId);
+                    await _videoEditor.PushTrackingProgress(0, 0);
                 }
 
                 StateHasChanged();
@@ -277,6 +334,7 @@
             if (_videoEditor is not null)
             {
                 await _videoEditor.ClearTrackingObjectId(seedObjectId);
+                await _videoEditor.PushTrackingProgress(0, 0);
             }
 
             await TrackingCompleted.InvokeAsync();
@@ -420,6 +478,7 @@
     public async ValueTask DisposeAsync()
     {
         _trackForwardCompletedSubscription?.Dispose();
+        _trackForwardProgressSubscription?.Dispose();
         await _actionQueue.DisposeAsync();
     }
 }

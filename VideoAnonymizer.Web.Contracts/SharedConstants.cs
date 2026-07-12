@@ -34,6 +34,7 @@ namespace VideoAnonymizer.Web.Shared
                 public const string VideoAnalyzed = "videoAnalyzed";
                 public const string VideoAnonymized = "videoAnonymized";
                 public const string TrackForwardCompleted = "trackForwardCompleted";
+                public const string TrackForwardProgress = "trackForwardProgress";
                 public const string JobProgress = "jobProgress";
 
             }

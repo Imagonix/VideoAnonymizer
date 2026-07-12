@@ -102,6 +102,7 @@ onUnmounted(() => {
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const trackingObjectIds = ref(new Set<string>());
+const activeGapRange = ref<{ startMs: number; endMs: number } | null>(null);
 const trackingTrackIds = computed(() => {
     const trackIds = new Set<number>();
     for (const frame of frames.value) {
@@ -132,6 +133,16 @@ const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onB
 function trackForward(obj: DetectedObjectDto) {
     trackingObjectIds.value.add(obj.id);
     trackingObjectIds.value = new Set(trackingObjectIds.value);
+    const seedFrame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
+    if (seedFrame) {
+        const nextFrame = props.state.frames
+            .filter(f => f.timeSeconds > seedFrame.timeSeconds)
+            .sort((a, b) => a.timeSeconds - b.timeSeconds)[0];
+        if (nextFrame) {
+            const t = nextFrame.timeSeconds * 1000;
+            activeGapRange.value = { startMs: t, endMs: t };
+        }
+    }
     props.state.onTrackForward?.(props.state.videoId, obj.analyzedFrameId, obj);
 }
 
@@ -161,7 +172,15 @@ function clearTrackingObjectId(objectId: string) {
     trackingObjectIds.value = new Set(trackingObjectIds.value);
 }
 
-defineExpose({ getFrames, applyChanges, clearTrackingObjectId });
+function updateTrackingProgress(gapStartMs: number, gapEndMs: number) {
+    if (gapStartMs === 0 && gapEndMs === 0) {
+        activeGapRange.value = null;
+    } else {
+        activeGapRange.value = { startMs: gapStartMs, endMs: gapEndMs };
+    }
+}
+
+defineExpose({ getFrames, applyChanges, clearTrackingObjectId, updateTrackingProgress });
 
 function getFrames() {
     return JSON.parse(JSON.stringify(props.state.frames))
@@ -281,6 +300,7 @@ function setVideoVolume(volume: number) {
                         :selected-occurrences="selectedOccurrences"
                         :hovered-timeline-key="hoveredTimelineKey"
                         :tracking-track-ids="trackingTrackIds"
+                        :active-gap-range="activeGapRange"
                         @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
                         @merge-toggle="mergeToggle"
                         @hover-row="hoveredTimelineKey = $event" />
