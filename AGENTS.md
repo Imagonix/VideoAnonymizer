@@ -75,6 +75,20 @@ Key projects under `VideoAnonymizer.slnx`:
 - `DownloadService.DownloadFileAsync()` calls JS `triggerFileDownload(fileName, url)` which creates an anchor element and clicks it
 - API endpoint `GET /anonymized/{videoId}` streams the processed file
 
+### 2b. Track Forward (Streaming)
+- User clicks "Track forward" on an object in the DetailedView (track mode) or via a function on the object list
+- Vue calls `trackForward(obj)` — immediately shows a pulsating dot at the next analyzed frame position in the timeline
+- `TrackForwardAction` is dispatched → `ReviewExportTab.ApplyTrackForwardAsync()` pre-populates `_pendingTrackForwardJobs`, then POSTs to `POST /analyzed/{videoId}/tracks/track-forward`
+- API saves a `TrackForwardJob` to DB, publishes `video.track-forward` RabbitMQ message
+- `SingleObjectTracker` worker receives the job, calls Python `POST /trackForward` (now SSE streaming)
+- Python opens the video, initializes the OpenCV tracker on the seed frame, then iterates frame-by-frame
+- **For each tracked frame**: Python yields a `data: {"type":"detection",...}` SSE event → .NET reads the stream → saves the detected object to DB → publishes `TrackForwardProgress` (RabbitMQ) → API queries new DTOs → pushes `trackForwardProgress` SignalR event
+- Blazor receives each progress event:
+  - Calls `PushChangesToVue(new DetectedObjectChangeSet { ObjectsToAdd = [...] })` — new object dots appear in the timeline in real-time
+  - Calls `PushTrackingProgress(frameTimeMs, frameTimeMs)` — the pulsating dot moves to the next frame position
+- On break (end of video, max duration, lost timeout): Python yields `{"type":"complete"}` → worker publishes final `TrackForwardProgress` + `TrackForwardCompleted`
+- `ReviewExportTab.OnTrackForwardCompletedAsync` records the action for undo/redo
+
 ### 5. Action Persistence (Undo/Redo across page reload)
 - Every editor action (add, update, bulk-update, delete, settings, track-forward) is recorded via `POST /video/{videoId}/actions` after the data mutation succeeds. The action's relevant DTOs are serialized to JSON in the `Data` column of the `EditorAction` table.
 - On page load, `ReviewExportTab.OnParametersSetAsync` calls `LoadActionHistoryAsync()` which GETs all non-undone actions and reconstructs the `_undoRedoState` stack via `VideoEditorUndoRedoState.DeserializeActions()`.
@@ -106,10 +120,10 @@ Key projects under `VideoAnonymizer.slnx`:
 ### Vue Editor (within Web.Modules)
 - `VideoAnonymizer.Web.Modules/Actions/VideoEditorAction.cs` - Action class hierarchy (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`, `UndoAction`, `RedoAction`); single `OnAction` callback dispatched via switch in `ReviewExportTab`; actions carry `OperationType` string (`"toggle"`, `"merge"`, `"split"`, `"reassign"`, `"move"`, `"resize"`) propagated from Vue
 - `VideoAnonymizer.Web.Modules/Components/VideoEditor.razor.cs` - Thin Blazor/Vue bridge; JS-invokable methods immediately forward `VideoEditorAction` records via `OnAction`
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables; `applyChanges()` for receiving delta updates from Blazor
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables; `applyChanges()` for receiving delta updates from Blazor; `trackForward()` for initiating tracking with immediate pulsating dot; `updateTrackingProgress()` for moving the dot per frame
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/EditorControls.vue` - Right-side button panel: Move, Resize, Add, Merge, Split
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/DetailedView.vue` - Fullscreen overlay for Move/Resize/Add operations with canvas frame preview, draggable/resizable boxes, and draw-new-box support
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRow.vue` - Row of occurrence dots; supports split-mode dot clicking with Ctrl/Shift selection
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRow.vue` - Row of occurrence dots; supports split-mode dot clicking with Ctrl/Shift selection; renders a pulsating dot (in the track's color) at the frame being tracked during track forward progress
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRowLabel.vue` - Row label with checkbox; merge-mode click selection, double-click trackId editing
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/BoundingBoxOverlay.vue` - Blur preview boxes with hover-dim support (merge/split/object-list)
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/ObjectList.vue` - Object toggle list with hover-row emit for dimming other boxes
@@ -122,7 +136,7 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useOccurrenceSelection.ts` - Ctrl/Shift dot occurrence selection
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useSplit.ts` - Split execution assigning new trackIds
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/utils/keys.ts` - Timeline key derivation helpers (`buildObjectKey`, `getTimelineKey`, `getObjTimelineKey`)
-- `VideoAnonymizer.Web.Modules/wwwroot/js/videoEditorHost.js` - JS bridge for mounting Vue app
+- `VideoAnonymizer.Web.Modules/wwwroot/js/videoEditorHost.js` - JS bridge for mounting Vue app; exports `updateTrackingProgress()` for per-frame dot positioning during track forward
 
 ### Backend
 - `VideoAnonymizer.ApiService/Controllers/VideosController.cs` - Video endpoints: analyze, analyzed, video, anonymize, anonymized
@@ -134,10 +148,14 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.ApiService/Notifications/LongRunningJobsHub.cs` - SignalR hub
 - `VideoAnonymizer.Database/EditorAction.cs` - Action entity: ActionType, Data (JSON), Undone flag, SequenceNumber
 - `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying the configured blur shape for each detected object
-- `VideoAnonymizer.VideoProcessor/AnonymizeVideoConsumer.cs` / `AnonymizeVideoHandler.cs` - RabbitMQ consumer
+- `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying the configured blur shape for each detected object
+- `VideoAnonymizer.VideoProcessor/Analysis/Tracking/SingleObjectTracker.cs` - Track forward job consumer, publishes per-frame progress via SSE streaming
+- `VideoAnonymizer.VideoProcessor/Analysis/Tracking/ForwardTrackingService.cs` - Resolves seed frame, calls Python tracker, persists detections
+- `VideoAnonymizer.ApiService/Notifications/TrackForwardProgressNotificationHandler.cs` - Queries DB for new objects and pushes `trackForwardProgress` SignalR event
+- `VideoAnonymizer.ApiService/Notifications/TrackForwardProgressConsumer.cs` - RabbitMQ consumer for per-frame progress
 
 ### Shared Constants
-- `VideoAnonymizer.Web.Contracts/SharedConstants.cs` - API routes (`analyze`, `anonymize`, `video`, `anonymized`, `actions`, `undone`) and SignalR message keys (`videoAnalyzed`, `videoAnonymized`, `trackForwardCompleted`, `jobProgress`)
+- `VideoAnonymizer.Web.Contracts/SharedConstants.cs` - API routes (`analyze`, `anonymize`, `video`, `anonymized`, `actions`, `undone`) and SignalR message keys (`videoAnalyzed`, `videoAnonymized`, `trackForwardCompleted`, `trackForwardProgress`, `jobProgress`)
 - `VideoAnonymizer.Web.Contracts/DTO/` - All request/response DTOs
 
 ## Common Tasks
@@ -269,6 +287,8 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - Video files are stored on disk; the API serves them via `PhysicalFile()` with range processing support
 - The Vue editor communicates with Blazor via JS interop (`GetFramesAsync()` / property updates on the mounted Vue app)
 - The `trackForwardCompleted` SignalR message carries `List<DetectedObjectDto> CreatedObjects` (full DTOs of newly tracked objects, queried from DB by the API notification handler) for redo support
+- Track forward uses **SSE streaming** from the Python API (`POST /trackForward` returns `text/event-stream`). Per-frame `TrackForwardProgress` messages flow through RabbitMQ → SignalR → Blazor, driving real-time pulsating dots in the timeline and incremental object appearance. The `TrackForwardProgress` contract, consumer, and SignalR handler follow the same pattern as `TrackForwardCompleted`.
+- When initiating track forward, `_pendingTrackForwardJobs` is pre-populated **before** the HTTP call to avoid dropping early progress messages.
 - Settings (blur size, time buffer) are persisted on change via `PUT /video/{videoId}/settings` and go through the `VideoEditor` operation channel
 - VideoEditor operations use a command pattern: `VideoEditorAction` records dispatched through a single `OnAction` callback with a switch in `ReviewExportTab`
 - **Undo/Redo**: Blazor owns the authoritative undo/redo stack and the action queue in `ReviewExportTab`. Every action is recorded via `POST /video/{videoId}/actions` and persisted to the `EditorAction` DB table. On page reload, `VideoEditorUndoRedoState.DeserializeActions()` reconstructs the stack from the API. Object update actions carry `BeforeState` plus the updated object payload, while settings actions carry `BeforeState` and `AfterState`. Vue sends Ctrl+Z/Y as `onUndo`/`onRedo` signals (no payload). Blazor serializes pending saves before undo/redo, applies the inverse HTTP call, toggles the `Undone` flag via `PUT /video/{videoId}/actions/{actionId}/undone`, then pushes a `DetectedObjectChangeSet` delta to Vue via `applyDetectedObjectChanges` JS bridge. A Blazor overlay blocks editor input when undo/redo is requested while earlier actions are pending. New actions clear any redo history (actions after current index).
