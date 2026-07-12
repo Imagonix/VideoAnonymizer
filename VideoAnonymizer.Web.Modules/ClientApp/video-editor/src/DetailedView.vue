@@ -12,6 +12,7 @@ const props = defineProps<{
     mode: 'move' | 'resize' | 'add' | 'track';
     frames: AnalyzedFrameDto[];
     trackingObjectIds: Set<string>;
+    trackingTrackIds: Set<number>;
 }>();
 
 const emit = defineEmits<{
@@ -22,7 +23,7 @@ const emit = defineEmits<{
     (e: 'track-forward', obj: DetectedObjectDto): void;
 }>();
 
-const hasActiveTracking = computed(() => props.trackingObjectIds.size > 0);
+const hasActiveTracking = computed(() => props.trackingObjectIds.size > 0 || props.trackingTrackIds.size > 0);
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const overlayRef = ref<HTMLDivElement | null>(null);
@@ -238,8 +239,12 @@ function cancelAdd() {
     pendingLabel.value = null;
 }
 
+function isBeingTracked(obj: DetectedObjectDto): boolean {
+    return props.trackingObjectIds.has(obj.id) || (obj.trackId != null && props.trackingTrackIds.has(obj.trackId));
+}
+
 function onBoxClick(obj: DetectedObjectDto) {
-    if (props.mode === 'track' && !props.trackingObjectIds.has(obj.id)) {
+    if (props.mode === 'track' && !isBeingTracked(obj)) {
         emit('track-forward', obj);
     }
 }
@@ -271,23 +276,23 @@ function onBoxClick(obj: DetectedObjectDto) {
                           'move-box--active': activeBoxId === obj.id,
                           'move-box--no-move': mode !== 'move',
                           'move-box--track': mode === 'track',
-                          'move-box--tracking': mode === 'track' && trackingObjectIds.has(obj.id)
+                          'move-box--tracking': mode === 'track' && isBeingTracked(obj)
                         }"
                         :style="getBoxPct(obj)"
-                        :title="mode === 'track' ? trackingObjectIds.has(obj.id) ? 'Tracking forward in progress' : 'Track this object forward' : null"
+                        :title="mode === 'track' ? isBeingTracked(obj) ? 'Tracking forward in progress' : 'Track this object forward' : null"
                         @mouseenter="activeBoxId = obj.id"
                         @mouseleave="activeBoxId = null"
                         @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
                         @click.stop="onBoxClick(obj)"
                       >
-                        <span v-if="mode === 'track' && !trackingObjectIds.has(obj.id)" class="tracking-icon" aria-hidden="true">
+                        <span v-if="mode === 'track' && !isBeingTracked(obj)" class="tracking-icon" aria-hidden="true">
                           <svg viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
                             <circle cx="12" cy="12" r="2" fill="currentColor" />
                             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                           </svg>
                         </span>
-                        <span v-if="mode === 'track' && trackingObjectIds.has(obj.id)" class="tracking-spinner" aria-hidden="true"></span>
+                        <span v-if="mode === 'track' && isBeingTracked(obj)" class="tracking-spinner" aria-hidden="true"></span>
                       </div>
                       <template v-if="mode === 'resize'">
                         <div

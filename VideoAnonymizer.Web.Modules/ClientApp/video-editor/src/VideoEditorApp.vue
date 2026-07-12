@@ -102,6 +102,17 @@ onUnmounted(() => {
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const trackingObjectIds = ref(new Set<string>());
+const trackingTrackIds = computed(() => {
+    const trackIds = new Set<number>();
+    for (const frame of frames.value) {
+        for (const obj of frame.detectedObjects) {
+            if (trackingObjectIds.value.has(obj.id) && obj.trackId != null) {
+                trackIds.add(obj.trackId);
+            }
+        }
+    }
+    return trackIds;
+});
 const hoveredTimelineKey = ref<string | null>(null);
 const hoveredObjectKey = ref<string | null>(null);
 
@@ -210,7 +221,9 @@ function setVideoVolume(volume: number) {
                     :video-dimensions="videoDimensions"
                     :highlighted-row-key="isMerge ? hoveredTimelineKey : isSplit ? (hoveredTimelineKey ?? splitSourceKey) : hoveredObjectKey"
                     :split-source-key="isSplit ? splitSourceKey : null"
-                    :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()" />
+                    :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
+                    :tracking-object-ids="trackingObjectIds"
+                    :tracking-track-ids="trackingTrackIds" />
             </div>
 
             <div ref="rightPanelRef" class="right-panel">
@@ -252,6 +265,7 @@ function setVideoVolume(volume: number) {
                   :mode="isMerge ? 'merge' : 'select'"
                   :merge-selected-keys="mergeSelectedTimelineKeys"
                   :hovered-timeline-key="hoveredTimelineKey"
+                  :tracking-track-ids="trackingTrackIds"
                   @toggle="toggleTrackedObject"
                   @set-track-id="setTrackId"
                   @merge-toggle="mergeToggle"
@@ -268,6 +282,7 @@ function setVideoVolume(volume: number) {
                         :merge-selected-keys="mergeSelectedTimelineKeys"
                         :selected-occurrences="selectedOccurrences"
                         :hovered-timeline-key="hoveredTimelineKey"
+                        :tracking-track-ids="trackingTrackIds"
                         @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
                         @merge-toggle="mergeToggle"
                         @hover-row="hoveredTimelineKey = $event" />
@@ -283,6 +298,7 @@ function setVideoVolume(volume: number) {
       :anonymization-settings="state.anonymizationSettings"
       :mode="isTrack ? 'track' : isAdd ? 'add' : isResize ? 'resize' : 'move'"
       :tracking-object-ids="trackingObjectIds"
+      :tracking-track-ids="trackingTrackIds"
       @done="deactivate"
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"

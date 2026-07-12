@@ -10,6 +10,7 @@ const props = defineProps<{
     mergeSelectedKeys: Set<string>;
     selectedOccurrences: Map<string, Set<number>>;
     hoveredTimelineKey: string | null;
+    trackingTrackIds: Set<number>;
 }>();
 
 const emit = defineEmits<{
@@ -32,6 +33,11 @@ function getTimelineKey(obj: TimelineObject): string {
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
 const isMergeHovered = computed(() => props.mode === 'merge' && props.hoveredTimelineKey === timelineKey.value);
+const isBlocked = computed(() => {
+    if (props.timelineObject.type !== 'tracked') return false;
+    const tid = props.timelineObject.occurences[0]?.[1].trackId;
+    return tid != null && props.trackingTrackIds.has(tid);
+});
 
 const mergeHighlightStyle = computed(() => {
     if (!isMergeSelected.value && !isMergeHovered.value) return {};
@@ -70,7 +76,7 @@ function onRowClick() {
 }
 
 function onDotClick(time: number, event: MouseEvent) {
-    if (allowsDotSelection.value) {
+    if (allowsDotSelection.value && !isBlocked.value) {
         emit('toggle-occurrence', timelineKey.value, time, event);
     }
 }
@@ -78,11 +84,12 @@ function onDotClick(time: number, event: MouseEvent) {
 <template>
     <div
       class="timeline-row-wrapper"
+      :class="{ 'timeline-row-wrapper--blocked': isBlocked }"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
       @mouseleave="emit('hover-row', null)"
     >
-        <div class="timeline-row" :style="mergeHighlightStyle">
+        <div class="timeline-row" :class="{ 'timeline-row--blocked': isBlocked }" :style="mergeHighlightStyle">
             <template v-if="props.timelineObject.type === 'single'">
                 <div class="dot" :style="{
                     left: toPercent(props.timelineObject.timeSeconds),
@@ -97,15 +104,18 @@ function onDotClick(time: number, event: MouseEvent) {
                   :class="{
                       'dot--selectable': allowsDotSelection,
                       'dot--selected': allowsDotSelection && selectedTimesForThisRow.has(time),
-                      'dot--dimmed': allowsDotSelection && otherRowsHaveSelection && !selectedTimesForThisRow.has(time)
+                      'dot--dimmed': allowsDotSelection && otherRowsHaveSelection && !selectedTimesForThisRow.has(time),
+                      'dot--blocked': isBlocked
                   }"
                   :style="{
                       left: toPercent(time),
-                      background: colorManager.getColor(obj),
-                      opacity: obj.selected ? (otherRowsHaveSelection && !selectedTimesForThisRow.has(time) ? 0.2 : 1) : 0.3
+                      background: isBlocked ? undefined : colorManager.getColor(obj),
+                      opacity: isBlocked ? 0.4 : (obj.selected ? (otherRowsHaveSelection && !selectedTimesForThisRow.has(time) ? 0.2 : 1) : 0.3)
                   }"
                   @click.stop="onDotClick(time, $event)"
-                />
+                >
+                  <span v-if="isBlocked" class="dot-spinner" />
+                </div>
             </template>
         </div>
     </div>
@@ -155,5 +165,37 @@ function onDotClick(time: number, event: MouseEvent) {
 .dot--dimmed {
   width: 6px;
   height: 6px;
+}
+
+.timeline-row-wrapper--blocked {
+  pointer-events: none;
+}
+
+.timeline-row--blocked {
+  opacity: 0.4;
+}
+
+.dot--blocked {
+  width: 12px;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--mud-palette-action-disabled, rgba(255,255,255,0.5));
+  background: transparent !important;
+}
+
+.dot-spinner {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--mud-palette-action-disabled, rgba(255,255,255,0.5));
+  border-right-color: transparent;
+  animation: dot-spin 0.75s linear infinite;
+}
+
+@keyframes dot-spin {
+  to { transform: rotate(360deg); }
 }
 </style>

@@ -9,6 +9,8 @@ const props = defineProps<{
   highlightedRowKey: string | null;
   splitSourceKey: string | null;
   alwaysShowKeys: Set<string>;
+  trackingObjectIds: Set<string>;
+  trackingTrackIds: Set<number>;
 }>();
 
 function getObjTimelineKey(obj: PreviewObject): string {
@@ -51,6 +53,11 @@ function usesRectangleBlur(obj: PreviewObject): boolean {
 
 function isPrimaryActivation(obj: PreviewObject): boolean {
   return obj.activation === 'detected' || obj.activation === 'interpolated';
+}
+
+function isTracking(obj: PreviewObject): boolean {
+  const d = obj.detectedObject;
+  return props.trackingObjectIds.has(d.id) || (d.trackId != null && props.trackingTrackIds.has(d.trackId));
 }
 
 function getBoxStyle(obj: PreviewObject) {
@@ -102,8 +109,11 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
         <div
           data-testid="bounding-box"
           class="bbox"
+          :class="{ 'bbox--tracking': isTracking(obj) }"
           :style="getBoxStyle(obj)"
-        />
+        >
+          <span v-if="isTracking(obj)" class="bbox-spinner" />
+        </div>
       </div>
     </template>
   </div>
@@ -140,5 +150,27 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
 
 .blur-area-outline--rectangle {
   border-radius: 0;
+}
+
+.bbox--tracking {
+  position: relative;
+}
+
+.bbox-spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: clamp(12px, 40%, 24px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-right-color: transparent;
+  animation: bbox-spin 0.75s linear infinite;
+  pointer-events: none;
+  z-index: 25;
+}
+
+@keyframes bbox-spin {
+  to { transform: rotate(360deg); }
 }
 </style>
