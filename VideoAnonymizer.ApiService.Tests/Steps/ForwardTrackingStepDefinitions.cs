@@ -295,29 +295,26 @@ public sealed class ForwardTrackingStepDefinitions
         try
         {
             job.VideoId = VideoId;
-            var createdIds = new List<Guid>();
-            var gaps = new List<TrackForwardGap>();
-            var createdDetections = 0;
-            var skippedConflicts = 0;
-            TrackForwardPythonResponse? pythonResponse = null;
+            var createdIds = new HashSet<Guid>();
 
             var service = new ForwardTrackingService(DbFactory, FakeClient);
             // Collect results from incremental streaming
             // Note: this calls TrackForwardIncrementalAsync which uses the streaming client.
             // The fake streams all detections from the canned response.
-            var invoked = false;
             var capturedException = default(Exception);
 
             try
             {
                 await service.TrackForwardIncrementalAsync(
                     VideoId, job,
-                    async gapResult =>
+                    gapResult =>
                     {
-                        invoked = true;
-                        createdIds.AddRange(gapResult.CreatedObjectIds);
-                        if (gapResult.IsFinal)
-                            return;
+                        foreach (var objectId in gapResult.CreatedObjectIds)
+                        {
+                            createdIds.Add(objectId);
+                        }
+
+                        return Task.CompletedTask;
                     },
                     CancellationToken.None);
             }
@@ -332,18 +329,18 @@ public sealed class ForwardTrackingStepDefinitions
             }
             else
             {
-                // Build a TrackForwardResult from what we have
-                // The fake sets these from the canned response
+                var persistedResponseCount = FakeClient.Response.Detections.Count(detection =>
+                    FakeClient.LastRequest?.PersistFrameIndexes.Contains(detection.FrameIndex) == true);
                 LastResult = new TrackForwardResult(
                     FakeClient.LastRequest?.TrackId ?? 0,
-                    FakeClient.Response.Detections.Count,
-                    0,
+                    createdIds.Count,
+                    persistedResponseCount - createdIds.Count,
                     FakeClient.Response.ReacquiredCount,
                     FakeClient.Response.StoppedReason,
                     FakeClient.Response.Gaps
                         .Select(g => new TrackForwardGap(g.StartTimeMs, g.EndTimeMs))
                         .ToList(),
-                    createdIds);
+                    createdIds.ToList());
             }
         }
         catch (ArgumentException ex)

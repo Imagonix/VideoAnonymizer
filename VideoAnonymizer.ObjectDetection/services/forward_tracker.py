@@ -16,6 +16,9 @@ from services.detection_service import detect_image
 
 logger = logging.getLogger(__name__)
 
+TRACKING_CONFIRMATION_MIN_IOU = 0.10
+TRACKING_CONFIRMATION_CENTER_FACTOR = 0.75
+
 
 @dataclass(frozen=True)
 class Box:
@@ -39,6 +42,12 @@ class Box:
     @property
     def diagonal(self) -> float:
         return math.hypot(self.width, self.height)
+
+
+@dataclass(frozen=True)
+class TrackingVerification:
+    correction: DetectionResult | None
+    contradicts_tracker: bool
 
 
 async def track_forward_stream(request: TrackForwardRequest):
@@ -89,6 +98,9 @@ async def track_forward_stream(request: TrackForwardRequest):
         frame_index = seed_frame_index
         lost_started_ms: int | None = None
         last_detector_run_ms: int | None = None
+        last_verified_box = seed_box
+        last_motion_x = 0.0
+        last_motion_y = 0.0
 
         while True:
             success, frame = capture.read()
@@ -113,7 +125,77 @@ async def track_forward_stream(request: TrackForwardRequest):
             if lost_started_ms is None:
                 ok, tracked_box_raw = tracker.update(frame)
                 tracked_box = _clip_box(Box(*tracked_box_raw), frame_width, frame_height) if ok else None
+                if _looks_like_track_left_frame(
+                    last_box,
+                    tracked_box,
+                    last_motion_x,
+                    last_motion_y,
+                    frame_width,
+                    frame_height,
+                ):
+                    stopped_reason = "left_frame"
+                    logger.debug("Tracked object left the frame at frame %s.", frame_index)
+                    break
+
                 if tracked_box is not None and _is_sane_box(tracked_box, last_box, frame_width, frame_height):
+                    detector_due = (
+                        last_detector_run_ms is None
+                        or current_time_ms - last_detector_run_ms >= request.recoveryDetectorIntervalMs
+                    )
+                    if detector_due:
+                        last_detector_run_ms = current_time_ms
+                        verification = _verify_tracking(
+                            frame,
+                            tracked_box,
+                            last_verified_box,
+                            request.objectClass,
+                            request.searchAreaExpansion,
+                        )
+                        if verification.correction is None:
+                            if verification.contradicts_tracker:
+                                last_box = last_verified_box
+                                lost_started_ms = current_time_ms
+                                last_detector_run_ms = None
+                                logger.debug("Tracker drifted away from object at frame %s.", frame_index)
+                                yield json.dumps({
+                                    "type": "progress",
+                                    "frameIndex": frame_index,
+                                    "timeMs": current_time_ms,
+                                })
+                                await asyncio.sleep(0)
+                                continue
+                            logger.debug("Detector did not verify tracked object at frame %s.", frame_index)
+                        else:
+                            confirmation = verification.correction
+                            tracked_box = _clip_box(
+                                Box(
+                                    float(confirmation.x),
+                                    float(confirmation.y),
+                                    float(confirmation.width),
+                                    float(confirmation.height),
+                                ),
+                                frame_width,
+                                frame_height,
+                            )
+                            if tracked_box is None:
+                                last_box = last_verified_box
+                                lost_started_ms = current_time_ms
+                                last_detector_run_ms = None
+                                logger.debug("Confirmed tracking box left frame at frame %s.", frame_index)
+                                yield json.dumps({
+                                    "type": "progress",
+                                    "frameIndex": frame_index,
+                                    "timeMs": current_time_ms,
+                                })
+                                await asyncio.sleep(0)
+                                continue
+
+                            last_verified_box = tracked_box
+                            tracker = _create_tracker(request.trackerType)
+                            _init_tracker(tracker, frame, tracked_box)
+
+                    last_motion_x = tracked_box.center_x - last_box.center_x
+                    last_motion_y = tracked_box.center_y - last_box.center_y
                     last_box = tracked_box
                     if should_persist:
                         detection = _to_detection(request, frame_index, current_time_ms, last_box, False)
@@ -194,6 +276,9 @@ async def track_forward_stream(request: TrackForwardRequest):
             lost_started_ms = None
             last_detector_run_ms = None
             last_box = reacquired_box
+            last_verified_box = reacquired_box
+            last_motion_x = 0.0
+            last_motion_y = 0.0
             reacquired_count += 1
             tracker = _create_tracker(request.trackerType)
             _init_tracker(tracker, frame, last_box)
@@ -305,11 +390,11 @@ def _is_sane_box(box: Box, previous: Box, frame_width: int, frame_height: int) -
 
     previous_area = max(previous.area, 1.0)
     scale_ratio = box.area / previous_area
-    if scale_ratio < 0.20 or scale_ratio > 5.0:
+    if scale_ratio < 0.40 or scale_ratio > 2.5:
         return False
 
     center_jump = math.hypot(box.center_x - previous.center_x, box.center_y - previous.center_y)
-    max_jump = max(64.0, previous.diagonal * 3.0)
+    max_jump = max(24.0, previous.diagonal)
     return center_jump <= max_jump
 
 
@@ -319,6 +404,62 @@ def _intersects_frame(box: Box, frame_width: int, frame_height: int) -> bool:
         and box.y < frame_height
         and box.x + box.width > 0
         and box.y + box.height > 0
+    )
+
+
+def _looks_like_track_left_frame(
+    previous: Box,
+    current: Box | None,
+    last_motion_x: float,
+    last_motion_y: float,
+    frame_width: int,
+    frame_height: int,
+) -> bool:
+    previous_edges = _near_frame_edges(previous, frame_width, frame_height)
+    approach_edges = _near_frame_edges(previous, frame_width, frame_height, margin_factor=0.50)
+    moving_outward = (
+        approach_edges[0] and last_motion_x < -2.0,
+        approach_edges[1] and last_motion_y < -2.0,
+        approach_edges[2] and last_motion_x > 2.0,
+        approach_edges[3] and last_motion_y > 2.0,
+    )
+    if not any(previous_edges) and not any(moving_outward):
+        return False
+
+    if current is None:
+        return True
+
+    current_motion_x = current.center_x - previous.center_x
+    current_motion_y = current.center_y - previous.center_y
+    moving_back_inward = (
+        moving_outward[0] and current_motion_x > 2.0,
+        moving_outward[1] and current_motion_y > 2.0,
+        moving_outward[2] and current_motion_x < -2.0,
+        moving_outward[3] and current_motion_y < -2.0,
+    )
+    if any(moving_back_inward):
+        return True
+
+    center_jump = math.hypot(current.center_x - previous.center_x, current.center_y - previous.center_y)
+    if center_jump <= max(12.0, previous.diagonal * 0.50):
+        return False
+
+    current_edges = _near_frame_edges(current, frame_width, frame_height)
+    return any(was_near and not is_near for was_near, is_near in zip(previous_edges, current_edges))
+
+
+def _near_frame_edges(
+    box: Box,
+    frame_width: int,
+    frame_height: int,
+    margin_factor: float = 0.10,
+) -> tuple[bool, bool, bool, bool]:
+    margin = max(2.0, min(box.width, box.height) * margin_factor)
+    return (
+        box.x <= margin,
+        box.y <= margin,
+        frame_width - (box.x + box.width) <= margin,
+        frame_height - (box.y + box.height) <= margin,
     )
 
 
@@ -364,6 +505,60 @@ def _find_recovery_detection(
     )
 
 
+def _verify_tracking(
+    frame,
+    tracked_box: Box,
+    last_verified_box: Box,
+    object_class: str,
+    search_area_expansion: float,
+) -> TrackingVerification:
+    detections = detect_image(frame)
+    search_area = _expand_box(last_verified_box, max(1.0, search_area_expansion))
+    matching_class = [
+        detection
+        for detection in detections
+        if _same_class(detection.className, object_class)
+    ]
+    candidates = [
+        detection
+        for detection in matching_class
+        if _center_inside(Box(detection.x, detection.y, detection.width, detection.height), search_area)
+    ]
+
+    if candidates:
+        correction = max(
+            candidates,
+            key=lambda detection: _tracking_confirmation_score(
+                Box(detection.x, detection.y, detection.width, detection.height),
+                tracked_box,
+                last_verified_box,
+                detection.confidence,
+            ),
+        )
+        return TrackingVerification(correction, False)
+
+    contradicts_tracker = any(
+        _confirms_tracked_box(
+            Box(detection.x, detection.y, detection.width, detection.height),
+            tracked_box,
+        )
+        for detection in matching_class
+    )
+    return TrackingVerification(None, contradicts_tracker)
+
+
+def _confirms_tracked_box(detection_box: Box, tracked_box: Box) -> bool:
+    if _iou(detection_box, tracked_box) >= TRACKING_CONFIRMATION_MIN_IOU:
+        return True
+
+    center_distance = math.hypot(
+        detection_box.center_x - tracked_box.center_x,
+        detection_box.center_y - tracked_box.center_y,
+    )
+    max_distance = max(12.0, min(detection_box.diagonal, tracked_box.diagonal) * TRACKING_CONFIRMATION_CENTER_FACTOR)
+    return center_distance <= max_distance
+
+
 def _expand_box(box: Box, factor: float) -> Box:
     width = box.width * factor
     height = box.height * factor
@@ -390,6 +585,12 @@ def _recovery_score(box: Box, last_box: Box, confidence: float) -> float:
     distance = math.hypot(box.center_x - last_box.center_x, box.center_y - last_box.center_y)
     distance_penalty = distance / max(1.0, last_box.diagonal)
     return _iou(box, last_box) + float(confidence) * 0.25 - distance_penalty * 0.1
+
+
+def _tracking_confirmation_score(box: Box, tracked_box: Box, last_verified_box: Box, confidence: float) -> float:
+    distance = math.hypot(box.center_x - last_verified_box.center_x, box.center_y - last_verified_box.center_y)
+    distance_penalty = distance / max(1.0, last_verified_box.diagonal)
+    return _iou(box, tracked_box) + _iou(box, last_verified_box) + float(confidence) * 0.25 - distance_penalty * 0.1
 
 
 def _iou(a: Box, b: Box) -> float:
