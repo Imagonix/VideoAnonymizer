@@ -1,4 +1,3 @@
-@using System.Text.Json
 @using VideoAnonymizer.Web.Components.ReviewExport
 @using VideoAnonymizer.Web.Modules.Actions
 @using VideoAnonymizer.Web.Modules.Components
@@ -17,9 +16,9 @@
                                TimeBufferMs="TimeBufferMs"
                                TimeBufferMsChanged="OnTimeBufferChanged">
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                <ActionHistoryPopover IsProcessing="_videoEditorProcessing || _activeTrackForwardCount > 0"
-                                      HasErrors="_hasErrors"
-                                      Items="_actionHistory" />
+                <ActionHistoryPopover IsProcessing="_actionCoordinator.HasPendingActions || _trackForwardCoordinator.ActiveCount > 0"
+                                      HasErrors="_actionCoordinator.HasErrors || _trackForwardCoordinator.HasErrors"
+                                      Items="_actionCoordinator.ActionHistory" />
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Secondary"
                            Size="Size.Small"
@@ -57,24 +56,14 @@
 </MudPaper>
 
 @code {
-    private readonly List<ActionHistoryItem> _actionHistory = [];
-    private readonly VideoEditorActionQueue _actionQueue;
-    private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
+    private EditorActionCoordinator _actionCoordinator = default!;
+    private TrackForwardCoordinator _trackForwardCoordinator = default!;
     private IDisposable? _trackForwardCompletedSubscription;
     private IDisposable? _trackForwardProgressSubscription;
-    private readonly Dictionary<Guid, (ActionHistoryItem Item, string SeedObjectId, TrackForwardAction Action)> _pendingTrackForwardJobs = [];
     private List<AnalyzedFrameDto> _capturedFrames = [];
-    private bool _videoEditorProcessing;
     private bool _editorInputBlocked;
-    private int _activeTrackForwardCount;
-    private bool _hasErrors;
     private Guid? _lastVideoId;
-
-    public ReviewExportTab()
-    {
-        _actionQueue = new VideoEditorActionQueue(OnQueueProcessingChangedAsync);
-    }
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -113,6 +102,24 @@
 
     protected override void OnInitialized()
     {
+        _actionCoordinator = new EditorActionCoordinator(
+            HttpClientFactory,
+            Snackbar,
+            () => _videoEditor,
+            ApplySettingsFromHistoryAsync,
+            action => _trackForwardCoordinator.StartAsync(action),
+            () => TrackingCompleted.InvokeAsync(),
+            OnQueueProcessingChangedAsync,
+            () => InvokeAsync(StateHasChanged));
+        _trackForwardCoordinator = new TrackForwardCoordinator(
+            HttpClientFactory,
+            Snackbar,
+            () => VideoId,
+            () => _videoEditor,
+            _actionCoordinator.AddAction,
+            _actionCoordinator.AddUndoRedoAction,
+            () => InvokeAsync(StateHasChanged),
+            () => TrackingCompleted.InvokeAsync());
         _trackForwardCompletedSubscription = JobHubClient.OnTrackForwardCompleted(OnTrackForwardCompletedAsync);
         _trackForwardProgressSubscription = JobHubClient.OnTrackForwardProgress(OnTrackForwardProgressAsync);
     }
@@ -124,7 +131,7 @@
             if (_lastVideoId != VideoId)
             {
                 _lastVideoId = VideoId;
-                await LoadActionHistoryAsync();
+                await _actionCoordinator.LoadAsync(VideoId.Value);
             }
         }
         else
@@ -133,33 +140,9 @@
         }
     }
 
-    private async Task LoadActionHistoryAsync()
-    {
-        if (VideoId is null) return;
-        try
-        {
-            using var client = HttpClientFactory.CreateClient("ApiService");
-            var persister = new VideoEditorActionPersister(client);
-            var actions = await persister.LoadActionHistoryAsync(VideoId.Value);
-            _undoRedoState.DeserializeActions(VideoId.Value, actions);
-
-            _actionHistory.Clear();
-            for (var i = 0; i < _undoRedoState.Count; i++)
-            {
-                var displayItem = _undoRedoState.GetDisplayItem(i);
-                if (displayItem is not null)
-                    _actionHistory.Add(displayItem);
-            }
-        }
-        catch
-        {
-        }
-    }
-
     private Task OnQueueProcessingChangedAsync(bool isProcessing) =>
         InvokeAsync(() =>
         {
-            _videoEditorProcessing = isProcessing;
             if (!isProcessing)
             {
                 _editorInputBlocked = false;
@@ -173,245 +156,21 @@
         if (_editorInputBlocked && action is UndoAction or RedoAction)
             return Task.CompletedTask;
 
-        if (action is UndoAction or RedoAction && _actionQueue.HasPendingActions)
+        if (action is UndoAction or RedoAction && _actionCoordinator.HasPendingActions)
         {
             _editorInputBlocked = true;
             _ = InvokeAsync(StateHasChanged);
         }
 
-        _actionQueue.Enqueue(() => ProcessVideoEditorActionAsync(action));
+        _actionCoordinator.Enqueue(action, VideoId!.Value);
         return Task.CompletedTask;
     }
 
-    private async Task ProcessVideoEditorActionAsync(VideoEditorAction action)
-    {
-        using var client = HttpClientFactory.CreateClient("ApiService");
-        var persister = new VideoEditorActionPersister(client);
-
-        switch (action)
-        {
-            case UndoAction:
-                await ApplyUndoRedoAsync(persister, isRedo: false);
-                break;
-
-            case RedoAction:
-                await ApplyUndoRedoAsync(persister, isRedo: true);
-                break;
-
-            case TrackForwardAction a:
-                await ApplyTrackForwardAsync(persister, a);
-                break;
-
-            default:
-                await PersistActionAsync(persister, action);
-                break;
-        }
-    }
-
-    private async Task ApplyTrackForwardAsync(VideoEditorActionPersister persister, TrackForwardAction action)
-    {
-        var item = AddAction(VideoEditorActionDescriptions.Get(action));
-        var jobId = Guid.NewGuid();
-        var seedObjectId = action.Object.Id.ToString();
-
-        // Pre-populate so early progress messages are not dropped
-        _pendingTrackForwardJobs[jobId] = (item, seedObjectId, action);
-        _activeTrackForwardCount++;
-
-        try
-        {
-            var job = await persister.TrackForwardAsync(action, jobId);
-            if (job.JobId != jobId)
-            {
-                _pendingTrackForwardJobs.Remove(jobId);
-                _pendingTrackForwardJobs[job.JobId] = (item, seedObjectId, action);
-            }
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            _pendingTrackForwardJobs.Remove(jobId);
-            _activeTrackForwardCount = Math.Max(0, _activeTrackForwardCount - 1);
-            MarkActionFailed(item);
-        }
-    }
-
     private Task OnTrackForwardProgressAsync(TrackForwardProgressMessage message) =>
-        InvokeAsync(async () =>
-        {
-            if (!_pendingTrackForwardJobs.TryGetValue(message.JobId, out var trackingInfo))
-                return;
-
-            if (VideoId.HasValue && message.VideoId != VideoId.Value)
-                return;
-
-            var (item, seedObjectId, action) = trackingInfo;
-
-            if (!string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase))
-            {
-                if (item is not null)
-                {
-                    item.Status = ActionStatus.Failed;
-                }
-                _hasErrors = true;
-                if (_videoEditor is not null)
-                {
-                    await _videoEditor.ClearTrackingObjectId(seedObjectId);
-                    await _videoEditor.PushTrackingProgress(message.TrackId ?? action.Object.TrackId, 0, 0);
-                }
-                StateHasChanged();
-                return;
-            }
-
-            if (message.CreatedObjects.Count > 0 && _videoEditor is not null)
-            {
-                await _videoEditor.PushChangesToVue(new DetectedObjectChangeSet
-                {
-                    ObjectsToUpdate = [],
-                    ObjectsToRemove = [],
-                    ObjectsToAdd = message.CreatedObjects
-                });
-            }
-
-            if (_videoEditor is not null)
-            {
-                await _videoEditor.PushTrackingProgress(
-                    message.TrackId ?? action.Object.TrackId,
-                    message.IsFinal ? 0 : message.GapStartTimeMs,
-                    message.IsFinal ? 0 : message.GapEndTimeMs);
-            }
-        });
+        InvokeAsync(() => _trackForwardCoordinator.HandleProgressAsync(message));
 
     private Task OnTrackForwardCompletedAsync(TrackForwardCompletedMessage message) =>
-        InvokeAsync(async () =>
-        {
-            if (!_pendingTrackForwardJobs.TryGetValue(message.JobId, out var trackingInfo))
-                return;
-
-            if (VideoId.HasValue && message.VideoId != VideoId.Value)
-                return;
-
-            var (item, seedObjectId, action) = trackingInfo;
-            _pendingTrackForwardJobs.Remove(message.JobId);
-            _activeTrackForwardCount = Math.Max(0, _activeTrackForwardCount - 1);
-
-            var completedSuccessfully =
-                string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase)
-                && message.Result is not null;
-            var retainedPartialResults =
-                !completedSuccessfully
-                && message.Result is not null
-                && message.CreatedObjects.Count > 0;
-
-            if (!completedSuccessfully && !retainedPartialResults)
-            {
-                if (item is not null)
-                {
-                    item.Status = ActionStatus.Failed;
-                }
-
-                _hasErrors = true;
-                Snackbar.Add(
-                    string.IsNullOrWhiteSpace(message.Error)
-                        ? "Tracking failed."
-                        : $"Tracking failed: {message.Error}",
-                    Severity.Error);
-
-                if (_videoEditor is not null)
-                {
-                    await _videoEditor.ClearTrackingObjectId(seedObjectId);
-                    await _videoEditor.PushTrackingProgress(message.Result?.TrackId ?? action.Object.TrackId, 0, 0);
-                }
-
-                StateHasChanged();
-                return;
-            }
-
-            item.Status = retainedPartialResults ? ActionStatus.Partial : ActionStatus.Success;
-            item.CreatedObjectIds = message.CreatedObjects.Select(o => o.Id).ToList();
-            item.CreatedObjectDtos = message.CreatedObjects;
-
-            var trackForwardData = JsonSerializer.Serialize(new ActionDataTrackForward(
-                action.AnalyzedFrameId,
-                action.Object,
-                message.CreatedObjects,
-                message.Result!.TrackId,
-                retainedPartialResults));
-            using var recordClient = HttpClientFactory.CreateClient("ApiService");
-            var recordPersister = new VideoEditorActionPersister(recordClient);
-            var actionId = await recordPersister.RecordRawActionAsync(VideoId!.Value, "track-forward", trackForwardData);
-
-            _undoRedoState.Add(action, item, actionId);
-
-            if (_videoEditor is not null)
-            {
-                await _videoEditor.ClearTrackingObjectId(seedObjectId);
-                await _videoEditor.PushTrackingProgress(message.Result.TrackId, 0, 0);
-            }
-
-            if (retainedPartialResults)
-            {
-                _hasErrors = true;
-                var matchLabel = message.CreatedObjects.Count == 1 ? "match" : "matches";
-                Snackbar.Add(
-                    $"Tracking stopped unexpectedly. {message.CreatedObjects.Count} {matchLabel} found so far were kept. "
-                    + "You can continue tracking from the last occurrence.",
-                    Severity.Warning);
-            }
-
-            await TrackingCompleted.InvokeAsync();
-            StateHasChanged();
-        });
-
-    private async Task PersistActionAsync(VideoEditorActionPersister persister, VideoEditorAction action)
-    {
-        var item = AddAction(VideoEditorActionDescriptions.Get(action));
-
-        try
-        {
-            await persister.SaveAsync(action);
-            item.Status = ActionStatus.Success;
-            var actionId = await persister.RecordActionAsync(VideoId!.Value, action);
-            _undoRedoState.Add(action, item, actionId);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            MarkActionFailed(item);
-        }
-    }
-
-    private async Task ApplyUndoRedoAsync(VideoEditorActionPersister persister, bool isRedo)
-    {
-        var operation = _undoRedoState.Begin(isRedo);
-        if (operation is null)
-            return;
-
-        try
-        {
-            await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync, operation.DisplayItem);
-
-            if (operation.ActionId != Guid.Empty)
-            {
-                await persister.ToggleActionUndoneAsync(VideoId!.Value, operation.ActionId, !isRedo);
-            }
-
-            _undoRedoState.Complete(operation, isRedo);
-
-            if (operation.Action is TrackForwardAction && !isRedo)
-            {
-                await TrackingCompleted.InvokeAsync();
-            }
-
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            _undoRedoState.Rollback(isRedo);
-            Snackbar.Add(isRedo ? "Failed to redo changes." : "Failed to undo changes.", Severity.Error);
-            await InvokeAsync(StateHasChanged);
-        }
-    }
+        InvokeAsync(() => _trackForwardCoordinator.HandleCompletedAsync(message));
 
     private async Task ApplySettingsFromHistoryAsync(AnonymizationSettingsDto settings)
     {
@@ -421,26 +180,6 @@
         await BlurSizePercentChanged.InvokeAsync(settings.BlurSizePercent);
         await TimeBufferMsChanged.InvokeAsync(settings.TimeBufferMs);
         await InvokeAsync(StateHasChanged);
-    }
-
-    private ActionHistoryItem AddAction(string description)
-    {
-        var item = new ActionHistoryItem(description, DateTime.UtcNow);
-        _actionHistory.Add(item);
-        if (_actionHistory.Count > 20)
-        {
-            _actionHistory.RemoveAt(0);
-        }
-
-        return item;
-    }
-
-    private void MarkActionFailed(ActionHistoryItem item)
-    {
-        item.Status = ActionStatus.Failed;
-        _hasErrors = true;
-        _ = InvokeAsync(StateHasChanged);
-        Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
     }
 
     private async Task OnStartAnonymizationClicked()
@@ -488,6 +227,7 @@
     {
         _trackForwardCompletedSubscription?.Dispose();
         _trackForwardProgressSubscription?.Dispose();
-        await _actionQueue.DisposeAsync();
+        _trackForwardCoordinator.Dispose();
+        await _actionCoordinator.DisposeAsync();
     }
 }
