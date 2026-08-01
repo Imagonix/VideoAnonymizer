@@ -294,8 +294,15 @@
             _pendingTrackForwardJobs.Remove(message.JobId);
             _activeTrackForwardCount = Math.Max(0, _activeTrackForwardCount - 1);
 
-            if (!string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase)
-                || message.Result is null)
+            var completedSuccessfully =
+                string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase)
+                && message.Result is not null;
+            var retainedPartialResults =
+                !completedSuccessfully
+                && message.Result is not null
+                && message.CreatedObjects.Count > 0;
+
+            if (!completedSuccessfully && !retainedPartialResults)
             {
                 if (item is not null)
                 {
@@ -319,12 +326,16 @@
                 return;
             }
 
-            item.Status = ActionStatus.Success;
+            item.Status = retainedPartialResults ? ActionStatus.Partial : ActionStatus.Success;
             item.CreatedObjectIds = message.CreatedObjects.Select(o => o.Id).ToList();
             item.CreatedObjectDtos = message.CreatedObjects;
 
             var trackForwardData = JsonSerializer.Serialize(new ActionDataTrackForward(
-                action.AnalyzedFrameId, action.Object, message.CreatedObjects, message.Result.TrackId));
+                action.AnalyzedFrameId,
+                action.Object,
+                message.CreatedObjects,
+                message.Result!.TrackId,
+                retainedPartialResults));
             using var recordClient = HttpClientFactory.CreateClient("ApiService");
             var recordPersister = new VideoEditorActionPersister(recordClient);
             var actionId = await recordPersister.RecordRawActionAsync(VideoId!.Value, "track-forward", trackForwardData);
@@ -335,6 +346,16 @@
             {
                 await _videoEditor.ClearTrackingObjectId(seedObjectId);
                 await _videoEditor.PushTrackingProgress(0, 0);
+            }
+
+            if (retainedPartialResults)
+            {
+                _hasErrors = true;
+                var matchLabel = message.CreatedObjects.Count == 1 ? "match" : "matches";
+                Snackbar.Add(
+                    $"Tracking stopped unexpectedly. {message.CreatedObjects.Count} {matchLabel} found so far were kept. "
+                    + "You can continue tracking from the last occurrence.",
+                    Severity.Warning);
             }
 
             await TrackingCompleted.InvokeAsync();

@@ -6,6 +6,7 @@ using Bunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using MudBlazor.Services;
 using Reqnroll;
 using VideoAnonymizer.Web.Components;
@@ -22,7 +23,9 @@ namespace VideoAnonymizer.Web.Tests.Components;
 public sealed class ReviewExportTabPersistenceStepDefinitions
 {
     private BunitContext _context = default!;
+    private BunitJSModuleInterop _editorModule = default!;
     private RecordingHttpMessageHandler _http = default!;
+    private FakeJobHubClient _jobHubClient = default!;
     private IRenderedComponent<ReviewExportTab> _cut = default!;
     private Guid _videoId;
     private Guid _frameId;
@@ -31,18 +34,29 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
     private int _faceSaveAssertionIndex;
     private int _settingsSaveAssertionIndex;
     private int _requestCountBeforeRedo;
+    private Guid _trackingJobId;
+    private Guid _streamedFaceId;
 
-    [BeforeScenario("review_editor_persistence")]
+    [BeforeScenario("review_editor_persistence", Order = 0)]
     public void SetUp()
     {
         _context = new BunitContext();
         _context.JSInterop.Mode = JSRuntimeMode.Loose;
         _http = new RecordingHttpMessageHandler();
+        _jobHubClient = new FakeJobHubClient();
 
         _context.Services.AddMudServices();
         _context.Services.AddSingleton<IHttpClientFactory>(new RecordingHttpClientFactory(_http));
-        _context.Services.AddSingleton<IJobHubClient>(new FakeJobHubClient());
+        _context.Services.AddSingleton<IJobHubClient>(_jobHubClient);
         _context.Render<MudBlazor.MudPopoverProvider>();
+    }
+
+    [BeforeScenario("tracking_failure_ui", Order = 1)]
+    public void SetUpTrackingFailureEditorModule()
+    {
+        _editorModule = _context.JSInterop.SetupModule(
+            "/_content/VideoAnonymizer.Web.Modules/js/videoEditorHost.js");
+        _editorModule.Mode = JSRuntimeMode.Loose;
     }
 
     [AfterScenario("review_editor_persistence")]
@@ -130,6 +144,38 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
     {
         await GivenTheReviewEditorHasUndoneAFaceMoveFromXToX(originalX: 10, movedX: 90);
         await WhenTheReviewerAddsAFace();
+    }
+
+    [Given("tracking has streamed a new face into the review editor")]
+    public async Task GivenTrackingHasStreamedANewFaceIntoTheReviewEditor()
+    {
+        GivenTheReviewEditorIsOpenForAPersistedVideoWithOneFaceAtX(10);
+
+        await _cut.InvokeAsync(() => Editor.OnTrackForward(
+            _videoId.ToString(),
+            _frameId.ToString(),
+            CreateObject(_faceId, _frameId, trackId: 3)));
+
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Should().ContainSingle(r =>
+                r.Method == HttpMethod.Post && r.Path.Contains($"/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}"))
+                .Subject;
+            _trackingJobId = GetJsonGuid(request.Body, "jobId");
+        });
+
+        _streamedFaceId = Guid.NewGuid();
+        await _jobHubClient.RaiseTrackForwardProgressAsync(new TrackForwardProgressMessage
+        {
+            JobId = _trackingJobId,
+            VideoId = _videoId,
+            Status = SharedConstants.SignalR.Status.Completed,
+            TrackId = 3,
+            CreatedObjects = [CreateObject(_streamedFaceId, _frameId, trackId: 3)]
+        });
+
+        _cut.WaitForAssertion(() =>
+            _editorModule.Invocations["applyDetectedObjectChanges"].Should().ContainSingle());
     }
 
     [When("the reviewer adds a face")]
@@ -232,10 +278,67 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
         await Task.Delay(100);
     }
 
+    [When("tracking fails after retaining the streamed face")]
+    public async Task WhenTrackingFailsAfterRetainingTheStreamedFace()
+    {
+        await _jobHubClient.RaiseTrackForwardCompletedAsync(new TrackForwardCompletedMessage
+        {
+            JobId = _trackingJobId,
+            VideoId = _videoId,
+            Status = "failed",
+            Error = "Python tracking failed.",
+            Result = new TrackForwardResponseDto
+            {
+                TrackId = 3,
+                CreatedDetections = 1,
+                StoppedReason = "technical_failure"
+            },
+            CreatedObjects = [CreateObject(_streamedFaceId, _frameId, trackId: 3)]
+        });
+    }
+
     [Then("no extra persistence request is sent")]
     public void ThenNoExtraPersistenceRequestIsSent()
     {
         Requests.Count.Should().Be(_requestCountBeforeRedo);
+    }
+
+    [Then("the streamed face remains in the review editor")]
+    public void ThenTheStreamedFaceRemainsInTheReviewEditor()
+    {
+        _cut.WaitForAssertion(() =>
+        {
+            var invocations = _editorModule.Invocations["applyDetectedObjectChanges"];
+            invocations.Should().ContainSingle();
+            var changes = invocations[0].Arguments[1]
+                .Should().BeOfType<DetectedObjectChangeSet>().Subject;
+            changes.ObjectsToRemove.Should().BeEmpty();
+            changes.ObjectsToAdd.Should().ContainSingle(obj => obj.Id == _streamedFaceId);
+            changes.ObjectsToUpdate.Should().BeEmpty();
+        });
+    }
+
+    [Then("a warning says tracking can continue from the last occurrence")]
+    public void ThenAWarningSaysTrackingCanContinueFromTheLastOccurrence()
+    {
+        var snackbar = _context.Services.GetRequiredService<ISnackbar>();
+        snackbar.ShownSnackbars.Should().ContainSingle(item =>
+            item.Severity == Severity.Warning
+            && item.Message != null
+            && item.Message.Contains("were kept", StringComparison.Ordinal)
+            && item.Message.Contains("last occurrence", StringComparison.Ordinal));
+    }
+
+    [Then("the partial tracking action is persisted")]
+    public void ThenThePartialTrackingActionIsPersisted()
+    {
+        var request = Requests.Should().ContainSingle(r =>
+            r.Method == HttpMethod.Post
+            && r.Path.EndsWith($"/{SharedConstants.Paths.Actions}", StringComparison.Ordinal)).Subject;
+        using var requestDocument = JsonDocument.Parse(request.Body);
+        var data = requestDocument.RootElement.GetProperty("data").GetString();
+        using var dataDocument = JsonDocument.Parse(data!);
+        dataDocument.RootElement.GetProperty("IsPartial").GetBoolean().Should().BeTrue();
     }
 
     private IReadOnlyList<RequestLog> Requests => _http.Requests;
@@ -304,6 +407,20 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
         return root.GetProperty(pascalName).GetInt32();
     }
 
+    private static Guid GetJsonGuid(string body, string propertyName)
+    {
+        using var document = JsonDocument.Parse(body);
+        var root = document.RootElement;
+
+        if (root.TryGetProperty(propertyName, out var value))
+        {
+            return value.GetGuid();
+        }
+
+        var pascalName = char.ToUpperInvariant(propertyName[0]) + propertyName[1..];
+        return root.GetProperty(pascalName).GetGuid();
+    }
+
     private sealed class RecordingHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) =>
@@ -326,6 +443,34 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
                 : await request.Content.ReadAsStringAsync(cancellationToken);
 
             _requests.Enqueue(new RequestLog(request.Method, request.RequestUri!.PathAndQuery, body));
+
+            if (request.RequestUri.AbsolutePath.EndsWith(
+                    $"/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}",
+                    StringComparison.Ordinal))
+            {
+                var jobId = GetJsonGuid(body, "jobId");
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { Payload = new { JobId = jobId } }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
+
+            if (request.Method == HttpMethod.Post
+                && request.RequestUri.AbsolutePath.EndsWith(
+                    $"/{SharedConstants.Paths.Actions}",
+                    StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { Payload = new { Id = Guid.NewGuid() } }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
 
             return new HttpResponseMessage(HttpStatusCode.OK)
             {

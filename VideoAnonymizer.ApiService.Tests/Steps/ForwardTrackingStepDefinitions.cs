@@ -247,6 +247,26 @@ public sealed class ForwardTrackingStepDefinitions
         TrackingStreamBody = CompleteEvent + CompleteEvent;
     }
 
+    [Given("the seed face does not have a track id")]
+    public async Task GivenTheSeedFaceDoesNotHaveATrackId()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var seed = await db.DetectedObjects.SingleAsync(obj => obj.Id == SeedObjectId);
+        seed.TrackId = null;
+        await db.SaveChangesAsync();
+    }
+
+    [Given("the Python forward tracker fails after returning one box")]
+    public void GivenThePythonForwardTrackerFailsAfterReturningOneBox()
+    {
+        FakeClient.Response = CreatePythonResponse(
+        [
+            CreatePythonDetection(frameIndex: 10, x: 12),
+            CreatePythonDetection(frameIndex: 20, x: 16)
+        ]);
+        FakeClient.FailAfterDetectionCount = 1;
+    }
+
     [When("the reviewer tracks the seed face forward")]
     public async Task WhenTheReviewerTracksTheSeedFaceForward()
     {
@@ -387,6 +407,42 @@ public sealed class ForwardTrackingStepDefinitions
         TrackingStreamEvents.Should().ContainSingle(streamEvent => streamEvent.Type == "complete");
     }
 
+    [Then("the streamed face remains in persistence")]
+    public async Task ThenTheStreamedFaceRemainsInPersistence()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var generated = await db.DetectedObjects.SingleAsync(obj =>
+            obj.AnalyzedFrameId == FirstFutureFrameId || obj.AnalyzedFrameId == SecondFutureFrameId);
+        generated.TrackId.Should().Be(1);
+    }
+
+    [Then("the seed face keeps its assigned track id")]
+    public async Task ThenTheSeedFaceKeepsItsAssignedTrackId()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var trackId = await db.DetectedObjects
+            .Where(obj => obj.Id == SeedObjectId)
+            .Select(obj => obj.TrackId)
+            .SingleAsync();
+        trackId.Should().Be(1);
+    }
+
+    [Then("the tracking failure reports the retained face")]
+    public async Task ThenTheTrackingFailureReportsTheRetainedFace()
+    {
+        var failure = LastException.Should().BeOfType<TrackForwardFailedException>().Subject;
+        failure.TrackId.Should().Be(1);
+        failure.CreatedObjectIds.Should().ContainSingle();
+        failure.InnerException.Should().BeOfType<InvalidOperationException>();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var retainedId = await db.DetectedObjects
+            .Where(obj => obj.AnalyzedFrameId == FirstFutureFrameId || obj.AnalyzedFrameId == SecondFutureFrameId)
+            .Select(obj => obj.Id)
+            .SingleAsync();
+        failure.CreatedObjectIds.Should().Equal(retainedId);
+    }
+
     private async Task TrackForwardDirectlyAsync(TrackForwardJob job)
     {
         try
@@ -489,6 +545,8 @@ public sealed class ForwardTrackingStepDefinitions
 
         public TrackForwardPythonResponse Response { get; set; } = CreatePythonResponse([]);
 
+        public int? FailAfterDetectionCount { get; set; }
+
         public override Task<TrackForwardPythonResponse> TrackForwardAsync(
             TrackForwardPythonRequest body,
             CancellationToken cancellationToken)
@@ -502,6 +560,7 @@ public sealed class ForwardTrackingStepDefinitions
             [EnumeratorCancellation] CancellationToken cancellationToken)
         {
             LastRequest = body;
+            var yieldedDetections = 0;
             foreach (var detection in Response.Detections)
             {
                 yield return new TrackForwardStreamEvent
@@ -522,6 +581,12 @@ public sealed class ForwardTrackingStepDefinitions
                         Reacquired = detection.Reacquired
                     }
                 };
+
+                yieldedDetections++;
+                if (FailAfterDetectionCount == yieldedDetections)
+                {
+                    throw new InvalidOperationException("Python tracking stream failed after returning a detection.");
+                }
             }
             foreach (var gap in Response.Gaps)
             {

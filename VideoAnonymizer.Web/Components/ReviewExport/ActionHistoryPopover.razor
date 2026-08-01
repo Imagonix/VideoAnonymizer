@@ -55,6 +55,14 @@
                                 @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
                             </MudText>
                         }
+                        else if (item.Status == ActionStatus.Partial)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.caption">@item.Description</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="margin-left: auto;">
+                                @item.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                            </MudText>
+                        }
                         else if (item.Status == ActionStatus.Failed)
                         {
                             <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error" />

@@ -97,7 +97,7 @@ public sealed class VideoEditorUndoRedoState
             var description = GetDescription(dto.ActionType, dto.Data);
             var item = new ActionHistoryItem(description, dto.CreatedAt)
             {
-                Status = ActionStatus.Success,
+                Status = GetStatus(dto.ActionType, dto.Data),
                 Undone = dto.Undone,
                 CreatedObjectDtos = ExtractCreatedDtos(dto.ActionType, dto.Data)
             };
@@ -212,6 +212,21 @@ public sealed class VideoEditorUndoRedoState
             "track-forward" => "Tracked object forward",
             _ => actionType
         };
+    }
+
+    private static ActionStatus GetStatus(string actionType, string data)
+    {
+        if (actionType != "track-forward") return ActionStatus.Success;
+
+        try
+        {
+            var d = JsonSerializer.Deserialize<ActionDataTrackForward>(data)!;
+            return d.IsPartial ? ActionStatus.Partial : ActionStatus.Success;
+        }
+        catch
+        {
+            return ActionStatus.Success;
+        }
     }
 
     private static List<DetectedObjectDto> ExtractCreatedDtos(string actionType, string data)

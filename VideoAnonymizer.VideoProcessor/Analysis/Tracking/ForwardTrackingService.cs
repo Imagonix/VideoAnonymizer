@@ -78,16 +78,46 @@ public sealed class ForwardTrackingService(
             .Select(frame => frame.FrameIndex)
             .ToList();
 
+        var allCreatedIds = new List<Guid>();
+
         if (persistFrameIndexes.Count == 0)
         {
-            await db.SaveChangesAsync(cancellationToken);
-            await onGapCompleted(new TrackForwardGapResult(trackId, ToMilliseconds(seed.Frame.TimeSeconds), ToMilliseconds(seed.Frame.TimeSeconds), [], true));
-            return new TrackForwardResult(trackId, 0, 0, 0, "no_future_frames", [], []);
+            try
+            {
+                await db.SaveChangesAsync(cancellationToken);
+                if (seed.WasCreated)
+                {
+                    allCreatedIds.Add(seed.Object.Id);
+                }
+
+                await onGapCompleted(new TrackForwardGapResult(
+                    trackId,
+                    ToMilliseconds(seed.Frame.TimeSeconds),
+                    ToMilliseconds(seed.Frame.TimeSeconds),
+                    allCreatedIds,
+                    true));
+                return new TrackForwardResult(
+                    trackId,
+                    allCreatedIds.Count,
+                    0,
+                    0,
+                    "no_future_frames",
+                    [],
+                    allCreatedIds);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                throw new TrackForwardFailedException(
+                    ex.Message, ex, trackId, allCreatedIds.ToArray());
+            }
         }
 
         // Subscribe to streaming Python results — processes frames one by one
         // and yields events as the tracker runs in real-time.
-        var allCreatedIds = new List<Guid>();
         var gaps = new List<TrackForwardGap>();
         var skippedConflicts = 0;
         var request = new TrackForwardPythonRequest
@@ -116,110 +146,150 @@ public sealed class ForwardTrackingService(
         var stoppedEarly = false;
         TrackForwardStreamEvent? completionEvent = null;
 
-        await foreach (var streamEvent in objectDetectionClient.TrackForwardStreamingAsync(request, cancellationToken))
+        try
         {
-            if (completionEvent is not null)
+            await foreach (var streamEvent in objectDetectionClient.TrackForwardStreamingAsync(request, cancellationToken))
+            {
+                if (completionEvent is not null)
+                {
+                    throw new InvalidDataException(
+                        "The forward tracking stream sent an event after its terminal complete event.");
+                }
+
+                switch (streamEvent.Type)
+                {
+                    case "detection" when streamEvent.Detection is not null:
+                        {
+                            var detection = streamEvent.Detection;
+                            var frame = frames.FirstOrDefault(f => f.FrameIndex == detection.FrameIndex);
+                            if (frame is null) break;
+
+                            var timeMs = detection.TimeMs > 0 ? detection.TimeMs : ToMilliseconds(frame.TimeSeconds);
+
+                            if (HasSameTrackInFrame(frame, trackId))
+                            {
+                                await onGapCompleted(new TrackForwardGapResult(
+                                    trackId, timeMs, timeMs, [], false));
+                                stoppedEarly = true;
+                                break;
+                            }
+
+                            Guid? createdId = null;
+                            if (!HasDifferentTrackConflict(frame, detection, trackId))
+                            {
+                                var entity = new DetectedObject
+                                {
+                                    AnalyzedFrameId = frame.Id,
+                                    Confidence = detection.Confidence,
+                                    ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
+                                    BlurShape = detection.BlurShape ?? seed.Object.BlurShape,
+                                    Selected = true,
+                                    TrackId = trackId,
+                                    X = detection.X,
+                                    Y = detection.Y,
+                                    Width = detection.Width,
+                                    Height = detection.Height
+                                };
+
+                                db.DetectedObjects.Add(entity);
+                                frame.DetectedObjects.Add(entity);
+                                createdId = entity.Id;
+                            }
+                            else
+                            {
+                                skippedConflicts++;
+                            }
+
+                            await db.SaveChangesAsync(cancellationToken);
+
+                            var createdInUpdate = new List<Guid>();
+                            if (seed.WasCreated && !allCreatedIds.Contains(seed.Object.Id))
+                            {
+                                allCreatedIds.Add(seed.Object.Id);
+                                createdInUpdate.Add(seed.Object.Id);
+                            }
+
+                            if (createdId.HasValue)
+                            {
+                                allCreatedIds.Add(createdId.Value);
+                                createdInUpdate.Add(createdId.Value);
+                            }
+
+                            db.ChangeTracker.Clear();
+
+                            await onGapCompleted(new TrackForwardGapResult(
+                                trackId, timeMs, timeMs, createdInUpdate, false));
+                            break;
+                        }
+
+                    case "progress":
+                        {
+                            var frameIndex = streamEvent.FrameIndex;
+                            var frame = frames.FirstOrDefault(f => f.FrameIndex == frameIndex);
+                            if (frame is null) break;
+
+                            var progressMs = ToMilliseconds(frame.TimeSeconds);
+
+                            if (HasSameTrackInFrame(frame, trackId))
+                            {
+                                await onGapCompleted(new TrackForwardGapResult(
+                                    trackId, progressMs, progressMs, [], false));
+                                stoppedEarly = true;
+                                break;
+                            }
+
+                            await onGapCompleted(new TrackForwardGapResult(
+                                trackId, progressMs, progressMs, [], false));
+                            break;
+                        }
+
+                    case "gap" when streamEvent.Gap is not null:
+                        {
+                            // Tracking was lost and recovered — record gap
+                            var gap = streamEvent.Gap;
+                            gaps.Add(new TrackForwardGap(gap.StartTimeMs, gap.EndTimeMs));
+                            await onGapCompleted(new TrackForwardGapResult(
+                                trackId, gap.EndTimeMs, gap.EndTimeMs, [], false));
+                            break;
+                        }
+
+                    case "complete":
+                        {
+                            completionEvent = streamEvent;
+                            break;
+                        }
+                }
+
+                if (stoppedEarly) break;
+            }
+
+            if (stoppedEarly)
+            {
+                await onGapCompleted(new TrackForwardGapResult(
+                    trackId, 0, 0, allCreatedIds, true));
+
+                return new TrackForwardResult(
+                    trackId,
+                    allCreatedIds.Count,
+                    skippedConflicts,
+                    0,
+                    "existing_track",
+                    gaps,
+                    allCreatedIds);
+            }
+
+            if (completionEvent is null)
             {
                 throw new InvalidDataException(
-                    "The forward tracking stream sent an event after its terminal complete event.");
+                    "The forward tracking stream ended before its terminal complete event.");
             }
 
-            switch (streamEvent.Type)
+            if (string.IsNullOrWhiteSpace(completionEvent.StoppedReason))
             {
-                case "detection" when streamEvent.Detection is not null:
-                {
-                    var detection = streamEvent.Detection;
-                    var frame = frames.FirstOrDefault(f => f.FrameIndex == detection.FrameIndex);
-                    if (frame is null) break;
-
-                    var timeMs = detection.TimeMs > 0 ? detection.TimeMs : ToMilliseconds(frame.TimeSeconds);
-
-                    if (HasSameTrackInFrame(frame, trackId))
-                    {
-                        await onGapCompleted(new TrackForwardGapResult(
-                            trackId, timeMs, timeMs, [], false));
-                        stoppedEarly = true;
-                        break;
-                    }
-
-                    Guid? createdId = null;
-                    if (!HasDifferentTrackConflict(frame, detection, trackId))
-                    {
-                        var entity = new DetectedObject
-                        {
-                            AnalyzedFrameId = frame.Id,
-                            Confidence = detection.Confidence,
-                            ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
-                            BlurShape = detection.BlurShape ?? seed.Object.BlurShape,
-                            Selected = true,
-                            TrackId = trackId,
-                            X = detection.X,
-                            Y = detection.Y,
-                            Width = detection.Width,
-                            Height = detection.Height
-                        };
-
-                        db.DetectedObjects.Add(entity);
-                        frame.DetectedObjects.Add(entity);
-                        allCreatedIds.Add(entity.Id);
-                        createdId = entity.Id;
-                    }
-                    else
-                    {
-                        skippedConflicts++;
-                    }
-
-                    await db.SaveChangesAsync(cancellationToken);
-                    db.ChangeTracker.Clear();
-
-                    await onGapCompleted(new TrackForwardGapResult(
-                        trackId, timeMs, timeMs, createdId is not null ? [createdId.Value] : [], false));
-                    break;
-                }
-
-                case "progress":
-                {
-                    var frameIndex = streamEvent.FrameIndex;
-                    var frame = frames.FirstOrDefault(f => f.FrameIndex == frameIndex);
-                    if (frame is null) break;
-
-                    var progressMs = ToMilliseconds(frame.TimeSeconds);
-
-                    if (HasSameTrackInFrame(frame, trackId))
-                    {
-                        await onGapCompleted(new TrackForwardGapResult(
-                            trackId, progressMs, progressMs, [], false));
-                        stoppedEarly = true;
-                        break;
-                    }
-
-                    await onGapCompleted(new TrackForwardGapResult(
-                        trackId, progressMs, progressMs, [], false));
-                    break;
-                }
-
-                case "gap" when streamEvent.Gap is not null:
-                {
-                    // Tracking was lost and recovered — record gap
-                    var gap = streamEvent.Gap;
-                    gaps.Add(new TrackForwardGap(gap.StartTimeMs, gap.EndTimeMs));
-                    await onGapCompleted(new TrackForwardGapResult(
-                        trackId, gap.EndTimeMs, gap.EndTimeMs, [], false));
-                    break;
-                }
-
-                case "complete":
-                {
-                    completionEvent = streamEvent;
-                    break;
-                }
+                throw new InvalidDataException(
+                    "The terminal forward tracking event did not include a stop reason.");
             }
 
-            if (stoppedEarly) break;
-        }
-
-        if (stoppedEarly)
-        {
             await onGapCompleted(new TrackForwardGapResult(
                 trackId, 0, 0, allCreatedIds, true));
 
@@ -227,35 +297,20 @@ public sealed class ForwardTrackingService(
                 trackId,
                 allCreatedIds.Count,
                 skippedConflicts,
-                0,
-                "existing_track",
+                completionEvent.ReacquiredCount,
+                completionEvent.StoppedReason,
                 gaps,
                 allCreatedIds);
         }
-
-        if (completionEvent is null)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            throw new InvalidDataException(
-                "The forward tracking stream ended before its terminal complete event.");
+            throw;
         }
-
-        if (string.IsNullOrWhiteSpace(completionEvent.StoppedReason))
+        catch (Exception ex)
         {
-            throw new InvalidDataException(
-                "The terminal forward tracking event did not include a stop reason.");
+            throw new TrackForwardFailedException(
+                ex.Message, ex, trackId, allCreatedIds.ToArray());
         }
-
-        await onGapCompleted(new TrackForwardGapResult(
-            trackId, 0, 0, allCreatedIds, true));
-
-        return new TrackForwardResult(
-            trackId,
-            allCreatedIds.Count,
-            skippedConflicts,
-            completionEvent.ReacquiredCount,
-            completionEvent.StoppedReason,
-            gaps,
-            allCreatedIds);
     }
 
     private static void ValidateOptions(TrackForwardJob job)

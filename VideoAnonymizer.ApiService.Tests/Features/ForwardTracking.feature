@@ -48,3 +48,12 @@ Feature: Forward-only single-object tracking
     Given the Python tracking stream completes twice
     When the tracking stream is read
     Then the tracking stream fails because completion is duplicated
+
+  Scenario: Technical failures retain streamed detections
+    Given a reviewed video has trackable analyzed frames
+    And the seed face does not have a track id
+    And the Python forward tracker fails after returning one box
+    When the reviewer tracks the seed face forward
+    Then the streamed face remains in persistence
+    And the seed face keeps its assigned track id
+    And the tracking failure reports the retained face

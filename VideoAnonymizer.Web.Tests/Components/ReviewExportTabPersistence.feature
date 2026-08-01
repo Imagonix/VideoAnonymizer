@@ -53,3 +53,11 @@ Feature: Persisting review editor actions
     Given the review editor has moved a face, undone the move, and added another face
     When the reviewer tries to redo
     Then no extra persistence request is sent
+
+  @tracking_failure_ui
+  Scenario: Failed tracking retains streamed faces
+    Given tracking has streamed a new face into the review editor
+    When tracking fails after retaining the streamed face
+    Then the streamed face remains in the review editor
+    And a warning says tracking can continue from the last occurrence
+    And the partial tracking action is persisted

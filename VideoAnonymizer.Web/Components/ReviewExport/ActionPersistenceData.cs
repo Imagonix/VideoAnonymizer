@@ -12,4 +12,9 @@ internal sealed record ActionDataDelete(string FrameId, DetectedObjectDto Object
 
 internal sealed record ActionDataSettings(AnonymizationSettingsDto Before, AnonymizationSettingsDto After);
 
-internal sealed record ActionDataTrackForward(string SeedFrameId, DetectedObjectDto Seed, List<DetectedObjectDto> CreatedObjects, int? TrackId);
+internal sealed record ActionDataTrackForward(
+    string SeedFrameId,
+    DetectedObjectDto Seed,
+    List<DetectedObjectDto> CreatedObjects,
+    int? TrackId,
+    bool IsPartial = false);
