@@ -109,7 +109,7 @@ namespace VideoAnonymizer.Web.Tests.Components
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportTabPersistence.feature.ndjson", 14);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportTabPersistence.feature.ndjson", 15);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -479,11 +479,11 @@ namespace VideoAnonymizer.Web.Tests.Components
         
         [global::NUnit.Framework.TestAttribute()]
         [global::NUnit.Framework.DescriptionAttribute("Failed tracking retains streamed faces")]
-        [global::NUnit.Framework.CategoryAttribute("tracking_failure_ui")]
+        [global::NUnit.Framework.CategoryAttribute("tracking_ui")]
         public async global::System.Threading.Tasks.Task FailedTrackingRetainsStreamedFaces()
         {
             string[] tagsOfScenario = new string[] {
-                    "tracking_failure_ui"};
+                    "tracking_ui"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "11";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Failed tracking retains streamed faces", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
@@ -513,6 +513,42 @@ namespace VideoAnonymizer.Web.Tests.Components
 #line hidden
 #line 68
     await testRunner.AndAsync("the partial tracking action is persisted", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Undoing completed tracking removes faces from every streamed batch")]
+        [global::NUnit.Framework.CategoryAttribute("tracking_ui")]
+        public async global::System.Threading.Tasks.Task UndoingCompletedTrackingRemovesFacesFromEveryStreamedBatch()
+        {
+            string[] tagsOfScenario = new string[] {
+                    "tracking_ui"};
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "12";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing completed tracking removes faces from every streamed batch", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 71
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 72
+    await testRunner.GivenAsync("tracking has completed after streaming faces in two batches into the review edito" +
+                        "r", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 73
+    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 74
+    await testRunner.ThenAsync("all streamed tracked faces are removed from persistence", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

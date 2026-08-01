@@ -59,10 +59,16 @@ Feature: Persisting review editor actions
     When the reviewer tries to redo
     Then no extra persistence request is sent
 
-  @tracking_failure_ui
+  @tracking_ui
   Scenario: Failed tracking retains streamed faces
     Given tracking has streamed a new face into the review editor
     When tracking fails after retaining the streamed face
     Then the streamed face remains in the review editor
     And a warning says tracking can continue from the last occurrence
     And the partial tracking action is persisted
+
+  @tracking_ui
+  Scenario: Undoing completed tracking removes faces from every streamed batch
+    Given tracking has completed after streaming faces in two batches into the review editor
+    When the reviewer undoes the last review action
+    Then all streamed tracked faces are removed from persistence

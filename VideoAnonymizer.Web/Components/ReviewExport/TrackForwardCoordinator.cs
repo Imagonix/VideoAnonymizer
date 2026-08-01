@@ -79,6 +79,8 @@ public sealed class TrackForwardCoordinator(
             return;
         }
 
+        trackingJob.AddCreatedObjects(message.CreatedObjects);
+
         if (message.CreatedObjects.Count > 0 && getVideoEditor() is { } editor)
         {
             await editor.PushChangesToVue(new DetectedObjectChangeSet
@@ -108,6 +110,8 @@ public sealed class TrackForwardCoordinator(
 
         _pendingJobs.Remove(message.JobId);
         ActiveCount = Math.Max(0, ActiveCount - 1);
+        trackingJob.AddCreatedObjects(message.CreatedObjects);
+        var createdObjects = trackingJob.CreatedObjects.Values.ToList();
 
         var completedSuccessfully =
             string.Equals(message.Status, SharedConstants.SignalR.Status.Completed, StringComparison.OrdinalIgnoreCase)
@@ -115,7 +119,7 @@ public sealed class TrackForwardCoordinator(
         var retainedPartialResults =
             !completedSuccessfully
             && message.Result is not null
-            && message.CreatedObjects.Count > 0;
+            && createdObjects.Count > 0;
 
         if (!completedSuccessfully && !retainedPartialResults)
         {
@@ -138,13 +142,13 @@ public sealed class TrackForwardCoordinator(
         }
 
         trackingJob.Item.Status = retainedPartialResults ? ActionStatus.Partial : ActionStatus.Success;
-        trackingJob.Item.CreatedObjectIds = message.CreatedObjects.Select(o => o.Id).ToList();
-        trackingJob.Item.CreatedObjectDtos = message.CreatedObjects;
+        trackingJob.Item.CreatedObjectIds = createdObjects.Select(o => o.Id).ToList();
+        trackingJob.Item.CreatedObjectDtos = createdObjects;
 
         var trackForwardData = JsonSerializer.Serialize(new ActionDataTrackForward(
             trackingJob.Action.AnalyzedFrameId,
             trackingJob.Action.Object,
-            message.CreatedObjects,
+            createdObjects,
             message.Result!.TrackId,
             retainedPartialResults));
         using var recordClient = httpClientFactory.CreateClient("ApiService");
@@ -161,9 +165,9 @@ public sealed class TrackForwardCoordinator(
         if (retainedPartialResults)
         {
             HasErrors = true;
-            var matchLabel = message.CreatedObjects.Count == 1 ? "match" : "matches";
+            var matchLabel = createdObjects.Count == 1 ? "match" : "matches";
             snackbar.Add(
-                $"Tracking stopped unexpectedly. {message.CreatedObjects.Count} {matchLabel} found so far were kept. "
+                $"Tracking stopped unexpectedly. {createdObjects.Count} {matchLabel} found so far were kept. "
                 + "You can continue tracking from the last occurrence.",
                 Severity.Warning);
         }
@@ -177,5 +181,17 @@ public sealed class TrackForwardCoordinator(
     private bool IsForCurrentVideo(Guid videoId) =>
         !getVideoId().HasValue || getVideoId() == videoId;
 
-    private sealed record TrackingJob(ActionHistoryItem Item, string SeedObjectId, TrackForwardAction Action);
+    private sealed class TrackingJob(ActionHistoryItem item, string seedObjectId, TrackForwardAction action)
+    {
+        public ActionHistoryItem Item { get; } = item;
+        public string SeedObjectId { get; } = seedObjectId;
+        public TrackForwardAction Action { get; } = action;
+        public Dictionary<Guid, DetectedObjectDto> CreatedObjects { get; } = [];
+
+        public void AddCreatedObjects(IEnumerable<DetectedObjectDto> objects)
+        {
+            foreach (var detectedObject in objects)
+                CreatedObjects[detectedObject.Id] = detectedObject;
+        }
+    }
 }

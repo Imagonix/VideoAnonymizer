@@ -285,6 +285,39 @@ const steps: StepDefinition[] = [
         },
     },
     {
+        pattern: /^Blazor adds tracked face "([^"]+)" twice and then removes it$/,
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            const trackedFace: DetectedObjectDto = {
+                id: match[1],
+                confidence: 1,
+                className: 'face',
+                selected: true,
+                trackId: 9,
+                x: 1,
+                y: 2,
+                width: 3,
+                height: 4,
+                analyzedFrameId: 'f2',
+            };
+
+            vm.applyChanges({ objectsToUpdate: [], objectsToRemove: [], objectsToAdd: [trackedFace] });
+            vm.applyChanges({ objectsToUpdate: [], objectsToRemove: [], objectsToAdd: [trackedFace] });
+            vm.applyChanges({ objectsToUpdate: [], objectsToRemove: [trackedFace.id], objectsToAdd: [] });
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^no timeline occurrence remains for face "([^"]+)"$/,
+        handler: (world, match) => {
+            const timelineOccurrences = (world.wrapper!.vm as any).timelineObjects
+                .flatMap((timelineObject: any) => timelineObject.type === 'tracked'
+                    ? timelineObject.occurences.map(([, object]: [number, DetectedObjectDto]) => object)
+                    : [timelineObject.detectedObj]);
+            expect(timelineOccurrences.some((object: DetectedObjectDto) => object.id === match[1])).toBe(false);
+        },
+    },
+    {
         pattern: /^the editor is tracking tracks (\d+) and (\d+)$/,
         handler: async (world, match) => {
             openEditor(world);

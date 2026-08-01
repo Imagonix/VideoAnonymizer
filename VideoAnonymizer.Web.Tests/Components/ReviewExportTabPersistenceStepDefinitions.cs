@@ -43,6 +43,12 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
         set => scenarioContext.Set(value, nameof(RestoredTrackedFaceId));
     }
 
+    private List<Guid> StreamedTrackedFaceIds
+    {
+        get => scenarioContext.Get<List<Guid>>(nameof(StreamedTrackedFaceIds));
+        set => scenarioContext.Set(value, nameof(StreamedTrackedFaceIds));
+    }
+
     [BeforeScenario("review_editor_persistence", Order = 0)]
     public void SetUp()
     {
@@ -57,7 +63,7 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
         _context.Render<MudBlazor.MudPopoverProvider>();
     }
 
-    [BeforeScenario("tracking_failure_ui", Order = 1)]
+    [BeforeScenario("tracking_ui", Order = 1)]
     public void SetUpTrackingFailureEditorModule()
     {
         _editorModule = _context.JSInterop.SetupModule(
@@ -217,6 +223,52 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
             _editorModule.Invocations["applyDetectedObjectChanges"].Should().ContainSingle());
     }
 
+    [Given("tracking has completed after streaming faces in two batches into the review editor")]
+    public async Task GivenTrackingHasCompletedAfterStreamingFacesInTwoBatchesIntoTheReviewEditor()
+    {
+        GivenTheReviewEditorIsOpenForAPersistedVideoWithOneFaceAtX(10);
+
+        await _cut.InvokeAsync(() => Editor.OnTrackForward(
+            _videoId.ToString(),
+            _frameId.ToString(),
+            CreateObject(_faceId, _frameId, trackId: 3)));
+
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Should().ContainSingle(r =>
+                r.Method == HttpMethod.Post && r.Path.Contains($"/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}"))
+                .Subject;
+            _trackingJobId = GetJsonGuid(request.Body, "jobId");
+        });
+
+        StreamedTrackedFaceIds = [Guid.NewGuid(), Guid.NewGuid()];
+        foreach (var faceId in StreamedTrackedFaceIds)
+        {
+            await _jobHubClient.RaiseTrackForwardProgressAsync(new TrackForwardProgressMessage
+            {
+                JobId = _trackingJobId,
+                VideoId = _videoId,
+                Status = SharedConstants.SignalR.Status.Completed,
+                TrackId = 3,
+                CreatedObjects = [CreateObject(faceId, _frameId, trackId: 3)]
+            });
+        }
+
+        await _jobHubClient.RaiseTrackForwardCompletedAsync(new TrackForwardCompletedMessage
+        {
+            JobId = _trackingJobId,
+            VideoId = _videoId,
+            Status = SharedConstants.SignalR.Status.Completed,
+            Result = new TrackForwardResponseDto
+            {
+                TrackId = 3,
+                CreatedDetections = StreamedTrackedFaceIds.Count,
+                StoppedReason = "end_of_video"
+            },
+            CreatedObjects = []
+        });
+    }
+
     [When("the reviewer adds a face")]
     public async Task WhenTheReviewerAddsAFace()
     {
@@ -272,6 +324,22 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
                 .EnumerateArray()
                 .Select(element => element.GetGuid());
             objectIds.Should().Equal(RestoredTrackedFaceId);
+        });
+    }
+
+    [Then("all streamed tracked faces are removed from persistence")]
+    public void ThenAllStreamedTrackedFacesAreRemovedFromPersistence()
+    {
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Should().ContainSingle(r =>
+                r.Method == HttpMethod.Post
+                && r.Path == $"/{SharedConstants.Paths.Video}/{_videoId}/{SharedConstants.Paths.DetectedObjects}/delete").Subject;
+            using var document = JsonDocument.Parse(request.Body);
+            var objectIds = document.RootElement.GetProperty("objectIds")
+                .EnumerateArray()
+                .Select(element => element.GetGuid());
+            objectIds.Should().BeEquivalentTo(StreamedTrackedFaceIds);
         });
     }
 

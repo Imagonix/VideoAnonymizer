@@ -159,15 +159,17 @@ function applyChanges(changes: DetectedObjectChangeSet) {
         const existing = frame.detectedObjects.find(o => o.id === obj.id);
         if (existing) Object.assign(existing, obj);
     }
-    for (const id of changes.objectsToRemove) {
-        for (const frame of props.state.frames) {
-            const idx = frame.detectedObjects.findIndex(o => o.id === id);
-            if (idx >= 0) frame.detectedObjects.splice(idx, 1);
-        }
+    const objectIdsToRemove = new Set(changes.objectsToRemove);
+    for (const frame of props.state.frames) {
+        frame.detectedObjects = frame.detectedObjects.filter(obj => !objectIdsToRemove.has(obj.id));
     }
     for (const obj of changes.objectsToAdd) {
         const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
-        if (frame) frame.detectedObjects.push(obj);
+        if (frame) {
+            const existing = frame.detectedObjects.find(existingObject => existingObject.id === obj.id);
+            if (existing) Object.assign(existing, obj);
+            else frame.detectedObjects.push(obj);
+        }
     }
 }
 
