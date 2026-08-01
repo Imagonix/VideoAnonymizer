@@ -16,14 +16,10 @@ internal sealed class SingleObjectTracker(
 
         try
         {
-            TrackForwardGapResult? lastResult = null;
-
-            await forwardTrackingService.TrackForwardIncrementalAsync(
+            var result = await forwardTrackingService.TrackForwardIncrementalAsync(
                 job.VideoId, job,
                 async gapResult =>
                 {
-                    lastResult = gapResult;
-
                     await messagePublisher.PublishAsync(
                         RabbitMQConstants.RoutingKeys.TrackForwardProgress,
                         new TrackForwardProgress(
@@ -35,16 +31,25 @@ internal sealed class SingleObjectTracker(
                 },
                 stoppingToken);
 
-            if (lastResult is not null)
-            {
-                await messagePublisher.PublishAsync(
-                    RabbitMQConstants.RoutingKeys.TrackForwardCompleted,
-                    new TrackForwardCompleted(
-                        job.JobId, job.VideoId, DateTimeOffset.UtcNow,
-                        "completed", string.Empty, lastResult.TrackId,
-                        lastResult.CreatedObjectIds.ToList()),
-                    stoppingToken);
-            }
+            await messagePublisher.PublishAsync(
+                RabbitMQConstants.RoutingKeys.TrackForwardCompleted,
+                new TrackForwardCompleted
+                {
+                    JobId = job.JobId,
+                    VideoId = job.VideoId,
+                    AddedAt = DateTimeOffset.UtcNow,
+                    Status = "completed",
+                    TrackId = result.TrackId,
+                    CreatedObjectIds = result.CreatedObjectIds.ToList(),
+                    CreatedDetections = result.CreatedDetections,
+                    SkippedConflicts = result.SkippedConflicts,
+                    ReacquiredCount = result.ReacquiredCount,
+                    StoppedReason = result.StoppedReason,
+                    Gaps = result.Gaps
+                        .Select(gap => new TrackForwardGapSummary(gap.StartTimeMs, gap.EndTimeMs))
+                        .ToList()
+                },
+                stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {

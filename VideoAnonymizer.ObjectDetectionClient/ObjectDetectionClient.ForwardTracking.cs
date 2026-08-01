@@ -46,8 +46,9 @@ public partial class ObjectDetectionClient
 
         using var stream_ = await response_.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var reader_ = new System.IO.StreamReader(stream_);
+        var completed_ = false;
 
-        while (!reader_.EndOfStream)
+        while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var line_ = await reader_.ReadLineAsync(cancellationToken).ConfigureAwait(false);
@@ -57,6 +58,12 @@ public partial class ObjectDetectionClient
             var jsonStr_ = line_.Substring(6);
             using var doc_ = System.Text.Json.JsonDocument.Parse(jsonStr_);
             var type_ = doc_.RootElement.GetProperty("type").GetString();
+
+            if (completed_)
+            {
+                throw new System.IO.InvalidDataException(
+                    "The forward tracking stream sent an event after its terminal complete event.");
+            }
 
             if (type_ == "detection")
             {
@@ -88,6 +95,7 @@ public partial class ObjectDetectionClient
             }
             else if (type_ == "complete")
             {
+                completed_ = true;
                 yield return new TrackForwardStreamEvent
                 {
                     Type = "complete",
@@ -95,6 +103,25 @@ public partial class ObjectDetectionClient
                     ReacquiredCount = doc_.RootElement.GetProperty("reacquiredCount").GetInt32()
                 };
             }
+            else if (type_ == "error")
+            {
+                var message_ = doc_.RootElement.TryGetProperty("message", out var messageElement_)
+                    ? messageElement_.GetString()
+                    : null;
+                throw new System.InvalidOperationException(
+                    $"Forward tracking failed: {message_ ?? "The Python service did not provide an error message."}");
+            }
+            else
+            {
+                throw new System.IO.InvalidDataException(
+                    $"The forward tracking stream contained an unsupported event type '{type_ ?? "<missing>"}'.");
+            }
+        }
+
+        if (!completed_)
+        {
+            throw new System.IO.InvalidDataException(
+                "The forward tracking stream ended before its terminal complete event.");
         }
     }
 

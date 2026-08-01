@@ -23,8 +23,28 @@ Feature: Forward-only single-object tracking
     When track forward is requested with replace conflicts
     Then the track forward request is rejected
 
-  Scenario: Reacquisition summary is returned
+  Scenario: Object loss completes with a reacquisition summary
     Given a reviewed video has trackable analyzed frames
     And the Python forward tracker reports reacquisition and lost timeout
     When the reviewer tracks the seed face forward
     Then the response includes the reacquisition summary
+
+  Scenario: Python tracking errors are surfaced
+    Given the Python tracking stream reports an error
+    When the tracking stream is read
+    Then the tracking stream fails with the Python error
+
+  Scenario: Completed tracking streams are accepted
+    Given the Python tracking stream completes normally
+    When the tracking stream is read
+    Then the tracking stream returns its completion metadata
+
+  Scenario: Truncated tracking streams are rejected
+    Given the Python tracking stream ends without completion
+    When the tracking stream is read
+    Then the tracking stream fails because completion is missing
+
+  Scenario: Duplicate tracking completion is rejected
+    Given the Python tracking stream completes twice
+    When the tracking stream is read
+    Then the tracking stream fails because completion is duplicated

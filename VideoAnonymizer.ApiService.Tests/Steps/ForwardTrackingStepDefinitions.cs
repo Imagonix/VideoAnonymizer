@@ -91,6 +91,18 @@ public sealed class ForwardTrackingStepDefinitions
         }
     }
 
+    private string TrackingStreamBody
+    {
+        get => _scenarioContext.Get<string>(nameof(TrackingStreamBody));
+        set => _scenarioContext.Set(value, nameof(TrackingStreamBody));
+    }
+
+    private List<TrackForwardStreamEvent> TrackingStreamEvents
+    {
+        get => _scenarioContext.Get<List<TrackForwardStreamEvent>>(nameof(TrackingStreamEvents));
+        set => _scenarioContext.Set(value, nameof(TrackingStreamEvents));
+    }
+
     public ForwardTrackingStepDefinitions(ScenarioContext scenarioContext)
     {
         _scenarioContext = scenarioContext;
@@ -208,6 +220,33 @@ public sealed class ForwardTrackingStepDefinitions
         FakeClient.Response.Gaps.Add(new TrackForwardPythonGap { StartTimeMs = 1200, EndTimeMs = 6200 });
     }
 
+    [Given("the Python tracking stream reports an error")]
+    public void GivenThePythonTrackingStreamReportsAnError()
+    {
+        TrackingStreamBody = "data: {\"type\":\"error\",\"message\":\"Could not open video.\"}\n\n";
+    }
+
+    [Given("the Python tracking stream ends without completion")]
+    public void GivenThePythonTrackingStreamEndsWithoutCompletion()
+    {
+        TrackingStreamBody = "data: {\"type\":\"progress\",\"frameIndex\":1,\"timeMs\":40}\n\n";
+    }
+
+    [Given("the Python tracking stream completes normally")]
+    public void GivenThePythonTrackingStreamCompletesNormally()
+    {
+        TrackingStreamBody =
+            "data: {\"type\":\"progress\",\"frameIndex\":1,\"timeMs\":40}\n\n" +
+            "data: {\"type\":\"complete\",\"stoppedReason\":\"lost_timeout\",\"reacquiredCount\":2}\n\n";
+    }
+
+    [Given("the Python tracking stream completes twice")]
+    public void GivenThePythonTrackingStreamCompletesTwice()
+    {
+        const string CompleteEvent = "data: {\"type\":\"complete\",\"stoppedReason\":\"end_of_video\",\"reacquiredCount\":0}\n\n";
+        TrackingStreamBody = CompleteEvent + CompleteEvent;
+    }
+
     [When("the reviewer tracks the seed face forward")]
     public async Task WhenTheReviewerTracksTheSeedFaceForward()
     {
@@ -225,6 +264,29 @@ public sealed class ForwardTrackingStepDefinitions
             SeedDetectionId = SeedObjectId,
             ConflictMode = "replace"
         });
+    }
+
+    [When("the tracking stream is read")]
+    public async Task WhenTheTrackingStreamIsRead()
+    {
+        TrackingStreamEvents = [];
+        LastException = null;
+
+        using var httpClient = new HttpClient(new SseResponseHandler(TrackingStreamBody));
+        var client = new DetectionClient("http://localhost/", httpClient);
+
+        try
+        {
+            await foreach (var streamEvent in client.TrackForwardStreamingAsync(
+                               new TrackForwardPythonRequest(), CancellationToken.None))
+            {
+                TrackingStreamEvents.Add(streamEvent);
+            }
+        }
+        catch (Exception ex)
+        {
+            LastException = ex;
+        }
     }
 
     [Then("generated faces use the seed track id")]
@@ -281,6 +343,7 @@ public sealed class ForwardTrackingStepDefinitions
     [Then("the response includes the reacquisition summary")]
     public void ThenTheResponseIncludesTheReacquisitionSummary()
     {
+        LastException.Should().BeNull();
         LastResult.Should().NotBeNull();
         LastResult!.ReacquiredCount.Should().Be(1);
         LastResult.StoppedReason.Should().Be("lost_timeout");
@@ -290,60 +353,52 @@ public sealed class ForwardTrackingStepDefinitions
         LastResult.TrackId.Should().Be(7);
     }
 
+    [Then("the tracking stream fails with the Python error")]
+    public void ThenTheTrackingStreamFailsWithThePythonError()
+    {
+        LastException.Should().BeOfType<InvalidOperationException>()
+            .Which.Message.Should().Contain("Could not open video.");
+        TrackingStreamEvents.Should().BeEmpty();
+    }
+
+    [Then("the tracking stream fails because completion is missing")]
+    public void ThenTheTrackingStreamFailsBecauseCompletionIsMissing()
+    {
+        LastException.Should().BeOfType<InvalidDataException>()
+            .Which.Message.Should().Contain("ended before its terminal complete event");
+        TrackingStreamEvents.Should().ContainSingle(streamEvent => streamEvent.Type == "progress");
+    }
+
+    [Then("the tracking stream returns its completion metadata")]
+    public void ThenTheTrackingStreamReturnsItsCompletionMetadata()
+    {
+        LastException.Should().BeNull();
+        TrackingStreamEvents.Should().HaveCount(2);
+        TrackingStreamEvents[^1].Type.Should().Be("complete");
+        TrackingStreamEvents[^1].StoppedReason.Should().Be("lost_timeout");
+        TrackingStreamEvents[^1].ReacquiredCount.Should().Be(2);
+    }
+
+    [Then("the tracking stream fails because completion is duplicated")]
+    public void ThenTheTrackingStreamFailsBecauseCompletionIsDuplicated()
+    {
+        LastException.Should().BeOfType<InvalidDataException>()
+            .Which.Message.Should().Contain("after its terminal complete event");
+        TrackingStreamEvents.Should().ContainSingle(streamEvent => streamEvent.Type == "complete");
+    }
+
     private async Task TrackForwardDirectlyAsync(TrackForwardJob job)
     {
         try
         {
             job.VideoId = VideoId;
-            var createdIds = new HashSet<Guid>();
-
             var service = new ForwardTrackingService(DbFactory, FakeClient);
-            // Collect results from incremental streaming
-            // Note: this calls TrackForwardIncrementalAsync which uses the streaming client.
-            // The fake streams all detections from the canned response.
-            var capturedException = default(Exception);
-
-            try
-            {
-                await service.TrackForwardIncrementalAsync(
-                    VideoId, job,
-                    gapResult =>
-                    {
-                        foreach (var objectId in gapResult.CreatedObjectIds)
-                        {
-                            createdIds.Add(objectId);
-                        }
-
-                        return Task.CompletedTask;
-                    },
-                    CancellationToken.None);
-            }
-            catch (ArgumentException ex)
-            {
-                capturedException = ex;
-            }
-
-            if (capturedException is not null)
-            {
-                LastException = capturedException;
-            }
-            else
-            {
-                var persistedResponseCount = FakeClient.Response.Detections.Count(detection =>
-                    FakeClient.LastRequest?.PersistFrameIndexes.Contains(detection.FrameIndex) == true);
-                LastResult = new TrackForwardResult(
-                    FakeClient.LastRequest?.TrackId ?? 0,
-                    createdIds.Count,
-                    persistedResponseCount - createdIds.Count,
-                    FakeClient.Response.ReacquiredCount,
-                    FakeClient.Response.StoppedReason,
-                    FakeClient.Response.Gaps
-                        .Select(g => new TrackForwardGap(g.StartTimeMs, g.EndTimeMs))
-                        .ToList(),
-                    createdIds.ToList());
-            }
+            LastResult = await service.TrackForwardIncrementalAsync(
+                VideoId, job,
+                _ => Task.CompletedTask,
+                CancellationToken.None);
         }
-        catch (ArgumentException ex)
+        catch (Exception ex)
         {
             LastException = ex;
         }
@@ -486,6 +541,21 @@ public sealed class ForwardTrackingStepDefinitions
                 StoppedReason = Response.StoppedReason,
                 ReacquiredCount = Response.ReacquiredCount
             };
+        }
+    }
+
+    private sealed class SseResponseHandler(string responseBody) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            var response = new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseBody)
+            };
+            response.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/event-stream");
+            return Task.FromResult(response);
         }
     }
 }

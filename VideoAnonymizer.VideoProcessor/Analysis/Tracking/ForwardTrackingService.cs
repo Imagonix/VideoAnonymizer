@@ -29,7 +29,7 @@ public sealed class ForwardTrackingService(
 {
     private const double ConflictIouThreshold = 0.30;
 
-    public async Task TrackForwardIncrementalAsync(
+    public async Task<TrackForwardResult> TrackForwardIncrementalAsync(
         Guid videoId,
         TrackForwardJob job,
         Func<TrackForwardGapResult, Task> onGapCompleted,
@@ -82,12 +82,14 @@ public sealed class ForwardTrackingService(
         {
             await db.SaveChangesAsync(cancellationToken);
             await onGapCompleted(new TrackForwardGapResult(trackId, ToMilliseconds(seed.Frame.TimeSeconds), ToMilliseconds(seed.Frame.TimeSeconds), [], true));
-            return;
+            return new TrackForwardResult(trackId, 0, 0, 0, "no_future_frames", [], []);
         }
 
         // Subscribe to streaming Python results — processes frames one by one
         // and yields events as the tracker runs in real-time.
         var allCreatedIds = new List<Guid>();
+        var gaps = new List<TrackForwardGap>();
+        var skippedConflicts = 0;
         var request = new TrackForwardPythonRequest
         {
             VideoPath = video.SourcePath,
@@ -112,10 +114,15 @@ public sealed class ForwardTrackingService(
         };
 
         var stoppedEarly = false;
+        TrackForwardStreamEvent? completionEvent = null;
 
         await foreach (var streamEvent in objectDetectionClient.TrackForwardStreamingAsync(request, cancellationToken))
         {
-            if (stoppedEarly) break;
+            if (completionEvent is not null)
+            {
+                throw new InvalidDataException(
+                    "The forward tracking stream sent an event after its terminal complete event.");
+            }
 
             switch (streamEvent.Type)
             {
@@ -157,6 +164,10 @@ public sealed class ForwardTrackingService(
                         allCreatedIds.Add(entity.Id);
                         createdId = entity.Id;
                     }
+                    else
+                    {
+                        skippedConflicts++;
+                    }
 
                     await db.SaveChangesAsync(cancellationToken);
                     db.ChangeTracker.Clear();
@@ -191,6 +202,7 @@ public sealed class ForwardTrackingService(
                 {
                     // Tracking was lost and recovered — record gap
                     var gap = streamEvent.Gap;
+                    gaps.Add(new TrackForwardGap(gap.StartTimeMs, gap.EndTimeMs));
                     await onGapCompleted(new TrackForwardGapResult(
                         trackId, gap.EndTimeMs, gap.EndTimeMs, [], false));
                     break;
@@ -198,18 +210,52 @@ public sealed class ForwardTrackingService(
 
                 case "complete":
                 {
-                    await onGapCompleted(new TrackForwardGapResult(
-                        trackId, 0, 0, allCreatedIds, true));
+                    completionEvent = streamEvent;
                     break;
                 }
             }
+
+            if (stoppedEarly) break;
         }
 
         if (stoppedEarly)
         {
             await onGapCompleted(new TrackForwardGapResult(
                 trackId, 0, 0, allCreatedIds, true));
+
+            return new TrackForwardResult(
+                trackId,
+                allCreatedIds.Count,
+                skippedConflicts,
+                0,
+                "existing_track",
+                gaps,
+                allCreatedIds);
         }
+
+        if (completionEvent is null)
+        {
+            throw new InvalidDataException(
+                "The forward tracking stream ended before its terminal complete event.");
+        }
+
+        if (string.IsNullOrWhiteSpace(completionEvent.StoppedReason))
+        {
+            throw new InvalidDataException(
+                "The terminal forward tracking event did not include a stop reason.");
+        }
+
+        await onGapCompleted(new TrackForwardGapResult(
+            trackId, 0, 0, allCreatedIds, true));
+
+        return new TrackForwardResult(
+            trackId,
+            allCreatedIds.Count,
+            skippedConflicts,
+            completionEvent.ReacquiredCount,
+            completionEvent.StoppedReason,
+            gaps,
+            allCreatedIds);
     }
 
     private static void ValidateOptions(TrackForwardJob job)

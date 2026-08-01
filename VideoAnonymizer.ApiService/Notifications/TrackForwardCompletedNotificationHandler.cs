@@ -35,7 +35,21 @@ public sealed class TrackForwardCompletedNotificationHandler(
                 Status = message.Status,
                 Error = message.Error,
                 Result = message.TrackId.HasValue
-                    ? new TrackForwardResponseDto { TrackId = message.TrackId.Value }
+                    ? new TrackForwardResponseDto
+                    {
+                        TrackId = message.TrackId.Value,
+                        CreatedDetections = message.CreatedDetections,
+                        SkippedConflicts = message.SkippedConflicts,
+                        ReacquiredCount = message.ReacquiredCount,
+                        StoppedReason = message.StoppedReason,
+                        Gaps = message.Gaps
+                            .Select(gap => new TrackForwardGapDto
+                            {
+                                StartTimeMs = gap.StartTimeMs,
+                                EndTimeMs = gap.EndTimeMs
+                            })
+                            .ToList()
+                    }
                     : null,
                 CreatedObjects = createdObjects
             },
