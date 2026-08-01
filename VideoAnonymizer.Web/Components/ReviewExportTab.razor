@@ -257,7 +257,7 @@
                 if (_videoEditor is not null)
                 {
                     await _videoEditor.ClearTrackingObjectId(seedObjectId);
-                    await _videoEditor.PushTrackingProgress(0, 0);
+                    await _videoEditor.PushTrackingProgress(message.TrackId ?? action.Object.TrackId, 0, 0);
                 }
                 StateHasChanged();
                 return;
@@ -276,6 +276,7 @@
             if (_videoEditor is not null)
             {
                 await _videoEditor.PushTrackingProgress(
+                    message.TrackId ?? action.Object.TrackId,
                     message.IsFinal ? 0 : message.GapStartTimeMs,
                     message.IsFinal ? 0 : message.GapEndTimeMs);
             }
@@ -319,7 +320,7 @@
                 if (_videoEditor is not null)
                 {
                     await _videoEditor.ClearTrackingObjectId(seedObjectId);
-                    await _videoEditor.PushTrackingProgress(0, 0);
+                    await _videoEditor.PushTrackingProgress(message.Result?.TrackId ?? action.Object.TrackId, 0, 0);
                 }
 
                 StateHasChanged();
@@ -345,7 +346,7 @@
             if (_videoEditor is not null)
             {
                 await _videoEditor.ClearTrackingObjectId(seedObjectId);
-                await _videoEditor.PushTrackingProgress(0, 0);
+                await _videoEditor.PushTrackingProgress(message.Result.TrackId, 0, 0);
             }
 
             if (retainedPartialResults)

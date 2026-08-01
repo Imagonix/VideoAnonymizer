@@ -11,7 +11,6 @@ const props = defineProps<{
     mode: EditorMode;
     mergeSelectedKeys: Set<string>;
     hoveredTimelineKey: string | null;
-    trackingTrackIds: Set<number>;
 }>()
 const emit = defineEmits<{
     (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void;
@@ -32,11 +31,6 @@ function getTimelineKey(obj: TimelineObject): string {
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
 const isMergeHovered = computed(() => props.mode === 'merge' && props.hoveredTimelineKey === timelineKey.value);
-const isTracking = computed(() => {
-    if (props.timelineObject.type !== 'tracked') return false;
-    const tid = props.timelineObject.occurences[0]?.[1].trackId;
-    return tid != null && props.trackingTrackIds.has(tid);
-});
 
 const mergeHighlightStyle = computed(() => {
     if (!isMergeSelected.value && !isMergeHovered.value) return {};
@@ -109,7 +103,7 @@ function onRowClick() {
 <template>
     <div
       class="label-container"
-      :class="{ 'label-container--merge-mode': mode === 'merge', 'label-container--tracking': isTracking }"
+      :class="{ 'label-container--merge-mode': mode === 'merge' }"
       :style="mergeHighlightStyle"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
@@ -135,7 +129,7 @@ function onRowClick() {
             @click.stop
           />
         </MudLikeCheckbox>
-        <div class="color-dot-wrapper" :class="{ 'color-dot-wrapper--tracking': isTracking }">
+        <div class="color-dot-wrapper">
           <ColorDot :detected-object="sampleDetectedObject" :alignRight="true" />
         </div>
     </div>
@@ -181,23 +175,9 @@ function onRowClick() {
 }
 
 .color-dot-wrapper {
-    position: relative;
     display: inline-flex;
     margin-left: auto;
     flex-shrink: 0;
 }
 
-.color-dot-wrapper--tracking::after {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    animation: dot-ring-spin 0.75s linear infinite;
-}
-
-@keyframes dot-ring-spin {
-    to { transform: rotate(360deg); }
-}
 </style>

@@ -10,7 +10,6 @@ const props = defineProps<{
     mergeSelectedKeys: Set<string>;
     selectedOccurrences: Map<string, Set<number>>;
     hoveredTimelineKey: string | null;
-    trackingTrackIds: Set<number>;
     activeGapRange: { startMs: number; endMs: number } | null;
 }>();
 
@@ -34,11 +33,6 @@ function getTimelineKey(obj: TimelineObject): string {
 const timelineKey = computed(() => getTimelineKey(props.timelineObject));
 const isMergeSelected = computed(() => props.mode === 'merge' && props.mergeSelectedKeys.has(timelineKey.value));
 const isMergeHovered = computed(() => props.mode === 'merge' && props.hoveredTimelineKey === timelineKey.value);
-const isTracking = computed(() => {
-    if (props.timelineObject.type !== 'tracked') return false;
-    const tid = props.timelineObject.occurences[0]?.[1].trackId;
-    return tid != null && props.trackingTrackIds.has(tid);
-});
 
 const mergeHighlightStyle = computed(() => {
     if (!isMergeSelected.value && !isMergeHovered.value) return {};
@@ -107,12 +101,11 @@ function onDotClick(time: number, event: MouseEvent) {
 <template>
     <div
       class="timeline-row-wrapper"
-      :class="{ 'timeline-row-wrapper--tracking': isTracking }"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
       @mouseleave="emit('hover-row', null)"
     >
-        <div class="timeline-row" :class="{ 'timeline-row--tracking': isTracking }" :style="mergeHighlightStyle">
+        <div class="timeline-row" :style="mergeHighlightStyle">
             <template v-if="props.timelineObject.type === 'single'">
                 <div class="dot" :style="{
                     left: toPercent(props.timelineObject.timeSeconds),
@@ -137,7 +130,7 @@ function onDotClick(time: number, event: MouseEvent) {
                   @click.stop="onDotClick(time, $event)"
                 />
             </template>
-            <div v-if="isTracking && gapDotStyle" class="dot dot--pulsing" :style="gapDotStyle" />
+            <div v-if="gapDotStyle" class="dot dot--pulsing" :style="gapDotStyle" />
         </div>
     </div>
 </template>
@@ -186,27 +179,6 @@ function onDotClick(time: number, event: MouseEvent) {
 .dot--dimmed {
   width: 6px;
   height: 6px;
-}
-
-.timeline-row--tracking {
-  position: relative;
-}
-
-.timeline-row--tracking::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 2px;
-  bottom: 2px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--mud-palette-primary);
-  animation: tracking-pulse 1s ease-in-out infinite;
-}
-
-@keyframes tracking-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
 }
 
 .dot--pulsing {

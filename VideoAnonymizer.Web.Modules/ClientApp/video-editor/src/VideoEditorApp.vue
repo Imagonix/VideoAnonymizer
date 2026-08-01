@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
-import type { VideoDimensions } from './types';
+import type { TimelineObject, VideoDimensions } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
 import { useMerge } from './composables/useMerge';
@@ -102,7 +102,7 @@ onUnmounted(() => {
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const trackingObjectIds = ref(new Set<string>());
-const activeGapRange = ref<{ startMs: number; endMs: number } | null>(null);
+const trackingProgressByTrackId = ref(new Map<number, { startMs: number; endMs: number }>());
 const trackingTrackIds = computed(() => {
     const trackIds = new Set<number>();
     for (const frame of frames.value) {
@@ -140,7 +140,11 @@ function trackForward(obj: DetectedObjectDto) {
             .sort((a, b) => a.timeSeconds - b.timeSeconds)[0];
         if (nextFrame) {
             const t = nextFrame.timeSeconds * 1000;
-            activeGapRange.value = { startMs: t, endMs: t };
+            if (obj.trackId != null) {
+                const nextProgress = new Map(trackingProgressByTrackId.value);
+                nextProgress.set(obj.trackId, { startMs: t, endMs: t });
+                trackingProgressByTrackId.value = nextProgress;
+            }
         }
     }
     props.state.onTrackForward?.(props.state.videoId, obj.analyzedFrameId, obj);
@@ -168,16 +172,34 @@ function applyChanges(changes: DetectedObjectChangeSet) {
 }
 
 function clearTrackingObjectId(objectId: string) {
+    const trackedObject = frames.value
+        .flatMap(frame => frame.detectedObjects)
+        .find(obj => obj.id === objectId);
     trackingObjectIds.value.delete(objectId);
     trackingObjectIds.value = new Set(trackingObjectIds.value);
+    if (trackedObject?.trackId != null) {
+        const nextProgress = new Map(trackingProgressByTrackId.value);
+        nextProgress.delete(trackedObject.trackId);
+        trackingProgressByTrackId.value = nextProgress;
+    }
 }
 
-function updateTrackingProgress(gapStartMs: number, gapEndMs: number) {
+function updateTrackingProgress(trackId: number | null, gapStartMs: number, gapEndMs: number) {
+    if (trackId == null) return;
+
+    const nextProgress = new Map(trackingProgressByTrackId.value);
     if (gapStartMs === 0 && gapEndMs === 0) {
-        activeGapRange.value = null;
+        nextProgress.delete(trackId);
     } else {
-        activeGapRange.value = { startMs: gapStartMs, endMs: gapEndMs };
+        nextProgress.set(trackId, { startMs: gapStartMs, endMs: gapEndMs });
     }
+    trackingProgressByTrackId.value = nextProgress;
+}
+
+function getTrackingProgress(timelineObject: TimelineObject) {
+    if (timelineObject.type !== 'tracked') return null;
+    const trackId = timelineObject.occurences[0]?.[1].trackId;
+    return trackId == null ? null : trackingProgressByTrackId.value.get(trackId) ?? null;
 }
 
 defineExpose({ getFrames, applyChanges, clearTrackingObjectId, updateTrackingProgress });
@@ -282,7 +304,6 @@ function setVideoVolume(volume: number) {
                   :mode="isMerge ? 'merge' : 'select'"
                   :merge-selected-keys="mergeSelectedTimelineKeys"
                   :hovered-timeline-key="hoveredTimelineKey"
-                  :tracking-track-ids="trackingTrackIds"
                   @toggle="toggleTrackedObject"
                   @set-track-id="setTrackId"
                   @merge-toggle="mergeToggle"
@@ -299,8 +320,7 @@ function setVideoVolume(volume: number) {
                         :merge-selected-keys="mergeSelectedTimelineKeys"
                         :selected-occurrences="selectedOccurrences"
                         :hovered-timeline-key="hoveredTimelineKey"
-                        :tracking-track-ids="trackingTrackIds"
-                        :active-gap-range="activeGapRange"
+                        :active-gap-range="getTrackingProgress(obj)"
                         @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
                         @merge-toggle="mergeToggle"
                         @hover-row="hoveredTimelineKey = $event" />

@@ -284,6 +284,52 @@ const steps: StepDefinition[] = [
             expect(findFace(world, match[1]).trackId).toBe(Number(match[2]));
         },
     },
+    {
+        pattern: /^the editor is tracking tracks (\d+) and (\d+)$/,
+        handler: async (world, match) => {
+            openEditor(world);
+            const vm = world.wrapper!.vm as any;
+            vm.onVideoLoaded(10);
+
+            for (const trackId of [Number(match[1]), Number(match[2])]) {
+                const trackedObject = world.state!.frames
+                    .flatMap(frame => frame.detectedObjects)
+                    .find(obj => obj.trackId === trackId)!;
+                vm.trackForward(trackedObject);
+            }
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^Blazor reports track (\d+) at (\d+) ms and track (\d+) at (\d+) ms$/,
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            vm.updateTrackingProgress(Number(match[1]), Number(match[2]), Number(match[2]));
+            vm.updateTrackingProgress(Number(match[3]), Number(match[4]), Number(match[4]));
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^track (\d+) has its moving tracking dot at (\d+) percent$/,
+        handler: (world, match) => {
+            const trackId = Number(match[1]);
+            const row = world.wrapper!.findAllComponents({ name: 'TimelineRow' })
+                .find(candidate => candidate.props('timelineObject').occurences?.[0]?.[1].trackId === trackId);
+            expect(row).toBeDefined();
+
+            const movingDot = row!.find('.dot--pulsing');
+            expect(movingDot.exists()).toBe(true);
+            expect((movingDot.element as HTMLElement).style.left).toBe(`${match[2]}%`);
+        },
+    },
+    {
+        pattern: /^the moving dots are the only timeline tracking indicators$/,
+        handler: world => {
+            expect(world.wrapper!.findAll('.dot--pulsing')).toHaveLength(2);
+            expect(world.wrapper!.find('.timeline-row--tracking').exists()).toBe(false);
+            expect(world.wrapper!.find('.color-dot-wrapper--tracking').exists()).toBe(false);
+        },
+    },
 ];
 
 runFeature(featureText, steps);

@@ -2,16 +2,11 @@ import { createApp, reactive } from 'vue';
 import VideoEditorApp from './VideoEditorApp.vue';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 
-type ActiveGapRange = {
-    startMs: number;
-    endMs: number;
-};
-
 type AppHandle = {
     update: (nextProps: VideoEditorProps) => void;
     updateSettings: (settings: AnonymizationSettings) => void;
     clearTrackingObjectId: (objectId: string) => void;
-    updateTrackingProgress: (gapStartMs: number, gapEndMs: number) => void;
+    updateTrackingProgress: (trackId: number | null, gapStartMs: number, gapEndMs: number) => void;
     applyChanges: (changes: DetectedObjectChangeSet) => void;
     unmount: () => void;
     getFrames: () => any[]
@@ -60,7 +55,7 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
     const vm = app.mount(element) as {
         getFrames?: () => any[],
         clearTrackingObjectId?: (objectId: string) => void,
-        updateTrackingProgress?: (gapStartMs: number, gapEndMs: number) => void,
+        updateTrackingProgress?: (trackId: number | null, gapStartMs: number, gapEndMs: number) => void,
     };
 
     return {
@@ -78,8 +73,8 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         clearTrackingObjectId(objectId: string) {
             (vm as any)?.clearTrackingObjectId?.(objectId);
         },
-        updateTrackingProgress(gapStartMs: number, gapEndMs: number) {
-            (vm as any)?.updateTrackingProgress?.(gapStartMs, gapEndMs);
+        updateTrackingProgress(trackId: number | null, gapStartMs: number, gapEndMs: number) {
+            (vm as any)?.updateTrackingProgress?.(trackId, gapStartMs, gapEndMs);
         },
         applyChanges(changes: DetectedObjectChangeSet) {
             (vm as any)?.applyChanges?.(changes);
