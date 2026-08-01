@@ -183,7 +183,7 @@ public sealed class ForwardTrackingStepDefinitions
     [Given("the Python forward tracker returns boxes on analyzed frames and a decoded-only frame")]
     public void GivenThePythonForwardTrackerReturnsBoxesOnAnalyzedFramesAndADecodedOnlyFrame()
     {
-        FakeClient.Response = CreatePythonResponse(
+        FakeClient.StreamEvents = CreateTrackingStreamEvents(
         [
             CreatePythonDetection(frameIndex: 10, x: 12),
             CreatePythonDetection(frameIndex: 11, x: 13),
@@ -194,7 +194,7 @@ public sealed class ForwardTrackingStepDefinitions
     [Given("the Python forward tracker returns boxes on analyzed frames")]
     public void GivenThePythonForwardTrackerReturnsBoxesOnAnalyzedFrames()
     {
-        FakeClient.Response = CreatePythonResponse(
+        FakeClient.StreamEvents = CreateTrackingStreamEvents(
         [
             CreatePythonDetection(frameIndex: 10, x: 12),
             CreatePythonDetection(frameIndex: 20, x: 80)
@@ -213,11 +213,15 @@ public sealed class ForwardTrackingStepDefinitions
     [Given("the Python forward tracker reports reacquisition and lost timeout")]
     public void GivenThePythonForwardTrackerReportsReacquisitionAndLostTimeout()
     {
-        FakeClient.Response = CreatePythonResponse(
+        FakeClient.StreamEvents = CreateTrackingStreamEvents(
             [CreatePythonDetection(frameIndex: 10, x: 12, reacquired: true)],
             reacquiredCount: 1,
             stoppedReason: "lost_timeout");
-        FakeClient.Response.Gaps.Add(new TrackForwardPythonGap { StartTimeMs = 1200, EndTimeMs = 6200 });
+        FakeClient.StreamEvents.Insert(FakeClient.StreamEvents.Count - 1, new TrackForwardStreamEvent
+        {
+            Type = "gap",
+            Gap = new TrackForwardPythonGap { StartTimeMs = 1200, EndTimeMs = 6200 }
+        });
     }
 
     [Given("the Python tracking stream reports an error")]
@@ -259,7 +263,7 @@ public sealed class ForwardTrackingStepDefinitions
     [Given("the Python forward tracker fails after returning one box")]
     public void GivenThePythonForwardTrackerFailsAfterReturningOneBox()
     {
-        FakeClient.Response = CreatePythonResponse(
+        FakeClient.StreamEvents = CreateTrackingStreamEvents(
         [
             CreatePythonDetection(frameIndex: 10, x: 12),
             CreatePythonDetection(frameIndex: 20, x: 16)
@@ -460,17 +464,23 @@ public sealed class ForwardTrackingStepDefinitions
         }
     }
 
-    private static TrackForwardPythonResponse CreatePythonResponse(
+    private static List<TrackForwardStreamEvent> CreateTrackingStreamEvents(
         IReadOnlyList<TrackForwardPythonDetectionResult> detections,
         int reacquiredCount = 0,
         string stoppedReason = "end_of_video") =>
-        new()
-        {
-            TrackId = 7,
-            Detections = detections.ToList(),
-            ReacquiredCount = reacquiredCount,
-            StoppedReason = stoppedReason
-        };
+        [
+            .. detections.Select(detection => new TrackForwardStreamEvent
+            {
+                Type = "detection",
+                Detection = detection
+            }),
+            new TrackForwardStreamEvent
+            {
+                Type = "complete",
+                ReacquiredCount = reacquiredCount,
+                StoppedReason = stoppedReason
+            }
+        ];
 
     private static TrackForwardPythonDetectionResult CreatePythonDetection(
         int frameIndex,
@@ -543,17 +553,9 @@ public sealed class ForwardTrackingStepDefinitions
 
         public TrackForwardPythonRequest? LastRequest { get; private set; }
 
-        public TrackForwardPythonResponse Response { get; set; } = CreatePythonResponse([]);
+        public List<TrackForwardStreamEvent> StreamEvents { get; set; } = CreateTrackingStreamEvents([]);
 
         public int? FailAfterDetectionCount { get; set; }
-
-        public override Task<TrackForwardPythonResponse> TrackForwardAsync(
-            TrackForwardPythonRequest body,
-            CancellationToken cancellationToken)
-        {
-            LastRequest = body;
-            return Task.FromResult(Response);
-        }
 
         public override async IAsyncEnumerable<TrackForwardStreamEvent> TrackForwardStreamingAsync(
             TrackForwardPythonRequest body,
@@ -561,51 +563,16 @@ public sealed class ForwardTrackingStepDefinitions
         {
             LastRequest = body;
             var yieldedDetections = 0;
-            foreach (var detection in Response.Detections)
+            foreach (var streamEvent in StreamEvents)
             {
-                yield return new TrackForwardStreamEvent
-                {
-                    Type = "detection",
-                    Detection = new TrackForwardPythonDetectionResult
-                    {
-                        FrameIndex = detection.FrameIndex,
-                        TimeMs = detection.TimeMs,
-                        ClassName = detection.ClassName,
-                        Confidence = detection.Confidence,
-                        X = detection.X,
-                        Y = detection.Y,
-                        Width = detection.Width,
-                        Height = detection.Height,
-                        BlurShape = detection.BlurShape,
-                        TrackId = detection.TrackId,
-                        Reacquired = detection.Reacquired
-                    }
-                };
+                yield return streamEvent;
 
-                yieldedDetections++;
-                if (FailAfterDetectionCount == yieldedDetections)
+                if (streamEvent.Type == "detection"
+                    && FailAfterDetectionCount == ++yieldedDetections)
                 {
                     throw new InvalidOperationException("Python tracking stream failed after returning a detection.");
                 }
             }
-            foreach (var gap in Response.Gaps)
-            {
-                yield return new TrackForwardStreamEvent
-                {
-                    Type = "gap",
-                    Gap = new TrackForwardPythonGap
-                    {
-                        StartTimeMs = gap.StartTimeMs,
-                        EndTimeMs = gap.EndTimeMs
-                    }
-                };
-            }
-            yield return new TrackForwardStreamEvent
-            {
-                Type = "complete",
-                StoppedReason = Response.StoppedReason,
-                ReacquiredCount = Response.ReacquiredCount
-            };
         }
     }
 

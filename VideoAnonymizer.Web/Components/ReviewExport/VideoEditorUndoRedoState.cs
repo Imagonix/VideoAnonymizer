@@ -37,13 +37,6 @@ public sealed class VideoEditorUndoRedoState
         _historyIndex = _history.Count - 1;
     }
 
-    public void SetActionId(VideoEditorAction action, Guid actionId)
-    {
-        var idx = _history.IndexOf(action);
-        if (idx >= 0)
-            _actionIds[idx] = actionId;
-    }
-
     public PendingUndoRedo? Begin(bool isRedo)
     {
         if (isRedo)

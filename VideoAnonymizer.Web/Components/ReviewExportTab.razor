@@ -443,19 +443,6 @@
         Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
     }
 
-    private static string BuildTrackForwardSummary(TrackForwardResponseDto result)
-    {
-        var summary = $"Track {result.TrackId}: created {result.CreatedDetections}, skipped {result.SkippedConflicts}";
-        if (result.ReacquiredCount > 0)
-        {
-            summary += $", reacquired {result.ReacquiredCount}";
-        }
-
-        return string.IsNullOrWhiteSpace(result.StoppedReason)
-            ? summary
-            : $"{summary}, stopped: {result.StoppedReason}";
-    }
-
     private async Task OnStartAnonymizationClicked()
     {
         if (_videoEditor is null)
