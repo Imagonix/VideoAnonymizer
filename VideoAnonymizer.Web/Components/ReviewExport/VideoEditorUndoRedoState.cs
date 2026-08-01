@@ -95,11 +95,13 @@ public sealed class VideoEditorUndoRedoState
             if (action is null) continue;
 
             var description = GetDescription(dto.ActionType, dto.Data);
+            var createdObjectDtos = ExtractCreatedDtos(dto.ActionType, dto.Data);
             var item = new ActionHistoryItem(description, dto.CreatedAt)
             {
                 Status = GetStatus(dto.ActionType, dto.Data),
                 Undone = dto.Undone,
-                CreatedObjectDtos = ExtractCreatedDtos(dto.ActionType, dto.Data)
+                CreatedObjectIds = createdObjectDtos.Select(obj => obj.Id).ToList(),
+                CreatedObjectDtos = createdObjectDtos
             };
 
             _history.Add(action);

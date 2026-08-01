@@ -19,6 +19,11 @@ Feature: Persisting review editor actions
     When the reviewer redoes the review action
     Then the new face is posted to persistence again
 
+  Scenario: Undoing restored tracking removes its detected faces
+    Given the review editor is reopened with a completed tracking action
+    When the reviewer undoes the last review action
+    Then the restored tracked face is removed from persistence
+
   Scenario: Moving a face is persisted
     Given the review editor is open for a persisted video with one face at x 10
     When the reviewer moves the face to x 90

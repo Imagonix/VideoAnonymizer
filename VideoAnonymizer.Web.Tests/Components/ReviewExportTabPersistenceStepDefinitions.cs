@@ -20,7 +20,7 @@ using VideoAnonymizer.Web.Tests.TestDoubles;
 namespace VideoAnonymizer.Web.Tests.Components;
 
 [Binding]
-public sealed class ReviewExportTabPersistenceStepDefinitions
+public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext scenarioContext)
 {
     private BunitContext _context = default!;
     private BunitJSModuleInterop _editorModule = default!;
@@ -36,6 +36,12 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
     private int _requestCountBeforeRedo;
     private Guid _trackingJobId;
     private Guid _streamedFaceId;
+
+    private Guid RestoredTrackedFaceId
+    {
+        get => scenarioContext.Get<Guid>(nameof(RestoredTrackedFaceId));
+        set => scenarioContext.Set(value, nameof(RestoredTrackedFaceId));
+    }
 
     [BeforeScenario("review_editor_persistence", Order = 0)]
     public void SetUp()
@@ -105,6 +111,39 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
         await GivenTheReviewEditorHasSavedANewlyAddedFace();
         await WhenTheReviewerUndoesTheLastReviewAction();
         ThenTheNewFaceIsDeletedFromPersistence();
+    }
+
+    [Given("the review editor is reopened with a completed tracking action")]
+    public void GivenTheReviewEditorIsReopenedWithACompletedTrackingAction()
+    {
+        _videoId = Guid.NewGuid();
+        _frameId = Guid.NewGuid();
+        _faceId = Guid.NewGuid();
+        RestoredTrackedFaceId = Guid.NewGuid();
+
+        var seed = CreateObject(_faceId, _frameId, trackId: 3);
+        var trackedFace = CreateObject(RestoredTrackedFaceId, _frameId, trackId: 3);
+        _http.ActionHistory =
+        [
+            new EditorActionDto
+            {
+                Id = Guid.NewGuid(),
+                VideoId = _videoId,
+                ActionType = "track-forward",
+                SequenceNumber = 1,
+                CreatedAt = DateTime.UtcNow,
+                Data = JsonSerializer.Serialize(new
+                {
+                    SeedFrameId = _frameId.ToString(),
+                    Seed = seed,
+                    CreatedObjects = new[] { trackedFace },
+                    TrackId = 3,
+                    IsPartial = false
+                })
+            }
+        ];
+
+        _cut = RenderReviewTab(_videoId, _frameId, trackedFace);
     }
 
     [Given("the review editor has saved a face moved from x {int} to x {int}")]
@@ -218,6 +257,22 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
     public void ThenTheNewFaceIsDeletedFromPersistence()
     {
         _cut.WaitForAssertion(() => Requests.Should().ContainSingle(r => r.Method == HttpMethod.Delete && r.Path == ObjectRoute(_addedFaceId)));
+    }
+
+    [Then("the restored tracked face is removed from persistence")]
+    public void ThenTheRestoredTrackedFaceIsRemovedFromPersistence()
+    {
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Should().ContainSingle(r =>
+                r.Method == HttpMethod.Post
+                && r.Path == $"/{SharedConstants.Paths.Video}/{_videoId}/{SharedConstants.Paths.DetectedObjects}/delete").Subject;
+            using var document = JsonDocument.Parse(request.Body);
+            var objectIds = document.RootElement.GetProperty("objectIds")
+                .EnumerateArray()
+                .Select(element => element.GetGuid());
+            objectIds.Should().Equal(RestoredTrackedFaceId);
+        });
     }
 
     [When("the reviewer redoes the review action")]
@@ -435,6 +490,7 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
         private readonly ConcurrentQueue<RequestLog> _requests = [];
 
         public IReadOnlyList<RequestLog> Requests => _requests.ToArray();
+        public IReadOnlyList<EditorActionDto> ActionHistory { get; set; } = [];
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -443,6 +499,20 @@ public sealed class ReviewExportTabPersistenceStepDefinitions
                 : await request.Content.ReadAsStringAsync(cancellationToken);
 
             _requests.Enqueue(new RequestLog(request.Method, request.RequestUri!.PathAndQuery, body));
+
+            if (request.Method == HttpMethod.Get
+                && request.RequestUri.AbsolutePath.EndsWith(
+                    $"/{SharedConstants.Paths.Actions}",
+                    StringComparison.Ordinal))
+            {
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        JsonSerializer.Serialize(new { Payload = ActionHistory }),
+                        Encoding.UTF8,
+                        "application/json")
+                };
+            }
 
             if (request.RequestUri.AbsolutePath.EndsWith(
                     $"/{SharedConstants.Paths.Tracks}/{SharedConstants.Paths.TrackForward}",

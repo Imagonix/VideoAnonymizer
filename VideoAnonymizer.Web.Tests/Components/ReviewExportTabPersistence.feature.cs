@@ -109,7 +109,7 @@ namespace VideoAnonymizer.Web.Tests.Components
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportTabPersistence.feature.ndjson", 13);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportTabPersistence.feature.ndjson", 14);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -212,13 +212,13 @@ namespace VideoAnonymizer.Web.Tests.Components
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Moving a face is persisted")]
-        public async global::System.Threading.Tasks.Task MovingAFaceIsPersisted()
+        [global::NUnit.Framework.DescriptionAttribute("Undoing restored tracking removes its detected faces")]
+        public async global::System.Threading.Tasks.Task UndoingRestoredTrackingRemovesItsDetectedFaces()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "3";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Moving a face is persisted", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing restored tracking removes its detected faces", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 22
@@ -232,26 +232,26 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 23
-    await testRunner.GivenAsync("the review editor is open for a persisted video with one face at x 10", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor is reopened with a completed tracking action", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 24
-    await testRunner.WhenAsync("the reviewer moves the face to x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 25
-    await testRunner.ThenAsync("the face is saved at x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the restored tracked face is removed from persistence", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Undoing a moved face restores the saved before state")]
-        public async global::System.Threading.Tasks.Task UndoingAMovedFaceRestoresTheSavedBeforeState()
+        [global::NUnit.Framework.DescriptionAttribute("Moving a face is persisted")]
+        public async global::System.Threading.Tasks.Task MovingAFaceIsPersisted()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "4";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing a moved face restores the saved before state", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Moving a face is persisted", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 27
@@ -265,26 +265,26 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 28
-    await testRunner.GivenAsync("the review editor has saved a face moved from x 10 to x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor is open for a persisted video with one face at x 10", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 29
-    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer moves the face to x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 30
-    await testRunner.ThenAsync("the face is saved at x 10", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the face is saved at x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Redoing an undone move saves the moved state again")]
-        public async global::System.Threading.Tasks.Task RedoingAnUndoneMoveSavesTheMovedStateAgain()
+        [global::NUnit.Framework.DescriptionAttribute("Undoing a moved face restores the saved before state")]
+        public async global::System.Threading.Tasks.Task UndoingAMovedFaceRestoresTheSavedBeforeState()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "5";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Redoing an undone move saves the moved state again", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing a moved face restores the saved before state", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 32
@@ -298,26 +298,26 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 33
-    await testRunner.GivenAsync("the review editor has undone a face move from x 10 to x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor has saved a face moved from x 10 to x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 34
-    await testRunner.WhenAsync("the reviewer redoes the review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 35
-    await testRunner.ThenAsync("the face is saved at x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the face is saved at x 10", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Blur settings are persisted")]
-        public async global::System.Threading.Tasks.Task BlurSettingsArePersisted()
+        [global::NUnit.Framework.DescriptionAttribute("Redoing an undone move saves the moved state again")]
+        public async global::System.Threading.Tasks.Task RedoingAnUndoneMoveSavesTheMovedStateAgain()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "6";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Blur settings are persisted", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Redoing an undone move saves the moved state again", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 37
@@ -331,26 +331,26 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 38
-    await testRunner.GivenAsync("the review editor is open with blur size 120 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor has undone a face move from x 10 to x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 39
-    await testRunner.WhenAsync("the reviewer changes the blur size to 180 percent", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer redoes the review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 40
-    await testRunner.ThenAsync("the settings are saved with blur size 180 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the face is saved at x 90", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Undoing blur settings restores the previous settings")]
-        public async global::System.Threading.Tasks.Task UndoingBlurSettingsRestoresThePreviousSettings()
+        [global::NUnit.Framework.DescriptionAttribute("Blur settings are persisted")]
+        public async global::System.Threading.Tasks.Task BlurSettingsArePersisted()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "7";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing blur settings restores the previous settings", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Blur settings are persisted", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 42
@@ -364,27 +364,26 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 43
-    await testRunner.GivenAsync("the review editor has saved blur size 180 percent from 120 percent with time buff" +
-                        "er 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor is open with blur size 120 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 44
-    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer changes the blur size to 180 percent", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 45
-    await testRunner.ThenAsync("the settings are saved with blur size 120 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the settings are saved with blur size 180 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Redoing blur settings saves the changed settings again")]
-        public async global::System.Threading.Tasks.Task RedoingBlurSettingsSavesTheChangedSettingsAgain()
+        [global::NUnit.Framework.DescriptionAttribute("Undoing blur settings restores the previous settings")]
+        public async global::System.Threading.Tasks.Task UndoingBlurSettingsRestoresThePreviousSettings()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "8";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Redoing blur settings saves the changed settings again", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing blur settings restores the previous settings", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 47
@@ -398,27 +397,27 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 48
-    await testRunner.GivenAsync("the review editor has undone blur size 180 percent back to 120 percent with time " +
-                        "buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor has saved blur size 180 percent from 120 percent with time buff" +
+                        "er 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 49
-    await testRunner.WhenAsync("the reviewer redoes the review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 50
-    await testRunner.ThenAsync("the settings are saved with blur size 180 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the settings are saved with blur size 120 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("New edits clear redo history")]
-        public async global::System.Threading.Tasks.Task NewEditsClearRedoHistory()
+        [global::NUnit.Framework.DescriptionAttribute("Redoing blur settings saves the changed settings again")]
+        public async global::System.Threading.Tasks.Task RedoingBlurSettingsSavesTheChangedSettingsAgain()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "9";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("New edits clear redo history", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Redoing blur settings saves the changed settings again", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 52
@@ -432,12 +431,46 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 53
-    await testRunner.GivenAsync("the review editor has moved a face, undone the move, and added another face", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the review editor has undone blur size 180 percent back to 120 percent with time " +
+                        "buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 54
-    await testRunner.WhenAsync("the reviewer tries to redo", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer redoes the review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 55
+    await testRunner.ThenAsync("the settings are saved with blur size 180 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("New edits clear redo history")]
+        public async global::System.Threading.Tasks.Task NewEditsClearRedoHistory()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "10";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("New edits clear redo history", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 57
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 58
+    await testRunner.GivenAsync("the review editor has moved a face, undone the move, and added another face", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 59
+    await testRunner.WhenAsync("the reviewer tries to redo", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 60
     await testRunner.ThenAsync("no extra persistence request is sent", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -452,11 +485,11 @@ namespace VideoAnonymizer.Web.Tests.Components
             string[] tagsOfScenario = new string[] {
                     "tracking_failure_ui"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "10";
+            string pickleIndex = "11";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Failed tracking retains streamed faces", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 58
+#line 63
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -466,19 +499,19 @@ namespace VideoAnonymizer.Web.Tests.Components
             else
             {
                 await this.ScenarioStartAsync();
-#line 59
+#line 64
     await testRunner.GivenAsync("tracking has streamed a new face into the review editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 60
+#line 65
     await testRunner.WhenAsync("tracking fails after retaining the streamed face", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 61
+#line 66
     await testRunner.ThenAsync("the streamed face remains in the review editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 62
+#line 67
     await testRunner.AndAsync("a warning says tracking can continue from the last occurrence", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 63
+#line 68
     await testRunner.AndAsync("the partial tracking action is persisted", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
