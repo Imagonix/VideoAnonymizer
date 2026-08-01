@@ -27,8 +27,6 @@ public sealed class ForwardTrackingService(
     IDbContextFactory<VideoAnonymizerDbContext> dbFactory,
     global::VideoAnonymizer.ObjectDetectionClient.ObjectDetectionClient objectDetectionClient)
 {
-    private const double ConflictIouThreshold = 0.30;
-
     public async Task<TrackForwardResult> TrackForwardIncrementalAsync(
         Guid videoId,
         TrackForwardJob job,
@@ -175,7 +173,7 @@ public sealed class ForwardTrackingService(
                             }
 
                             Guid? createdId = null;
-                            if (!HasDifferentTrackConflict(frame, detection, trackId))
+                            if (!TrackingConflictDetector.HasDifferentTrackConflict(frame, detection, trackId))
                             {
                                 var entity = new DetectedObject
                                 {
@@ -425,31 +423,6 @@ public sealed class ForwardTrackingService(
 
     private static bool HasSameTrackInFrame(AnalyzedFrame frame, int trackId) =>
         frame.DetectedObjects.Any(obj => obj.TrackId == trackId);
-
-    private static bool HasDifferentTrackConflict(
-        AnalyzedFrame frame,
-        TrackForwardPythonDetectionResult detection,
-        int trackId) =>
-        frame.DetectedObjects.Any(existing =>
-            existing.TrackId != trackId
-            && CalculateIntersectionOverUnion(existing, detection) >= ConflictIouThreshold);
-
-    private static double CalculateIntersectionOverUnion(
-        DetectedObject existing,
-        TrackForwardPythonDetectionResult detection)
-    {
-        var x1 = Math.Max(existing.X, detection.X);
-        var y1 = Math.Max(existing.Y, detection.Y);
-        var x2 = Math.Min(existing.X + existing.Width, detection.X + detection.Width);
-        var y2 = Math.Min(existing.Y + existing.Height, detection.Y + detection.Height);
-
-        var intersection = Math.Max(0, x2 - x1) * Math.Max(0, y2 - y1);
-        var existingArea = Math.Max(0, existing.Width) * Math.Max(0, existing.Height);
-        var detectionArea = Math.Max(0, detection.Width) * Math.Max(0, detection.Height);
-        var union = existingArea + detectionArea - intersection;
-
-        return union <= 0 ? 0 : (double)intersection / union;
-    }
 
     private static int ToMilliseconds(double timeSeconds) =>
         (int)Math.Round(timeSeconds * 1000.0);
