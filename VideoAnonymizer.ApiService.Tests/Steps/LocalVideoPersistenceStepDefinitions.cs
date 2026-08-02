@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using NUnit.Framework;
@@ -521,7 +522,16 @@ public sealed class LocalVideoPersistenceStepDefinitions
         new(
             publisher ?? new RecordingMessagePublisher(),
             new TestWebHostEnvironment(ContentRoot),
-            new VideoDataService(DbFactory));
+            new VideoDataService(DbFactory),
+            CreateConfiguration());
+
+    private static IConfiguration CreateConfiguration() =>
+        new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Anonymization:InterpolateTrackedObjects"] = "true"
+            })
+            .Build();
 
     private DetectedObjectsController CreateDetectedObjectsController() =>
         new(new DetectedObjectDataService(DbFactory));

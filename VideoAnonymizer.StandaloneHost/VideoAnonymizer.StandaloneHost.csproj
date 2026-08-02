@@ -10,14 +10,12 @@
   </PropertyGroup>
 
   <Target Name="KeepStandaloneConfigurationLast" AfterTargets="Publish">
-    <Copy
-      SourceFiles="$(MSBuildProjectDirectory)\appsettings.json"
-      DestinationFiles="$(PublishDir)appsettings.json"
-      SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\appsettings.json" DestinationFiles="$(PublishDir)appsettings.json" SkipUnchangedFiles="false" />
   </Target>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.10" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
   <ItemGroup>

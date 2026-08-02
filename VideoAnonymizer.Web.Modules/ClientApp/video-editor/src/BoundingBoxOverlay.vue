@@ -113,6 +113,7 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
 .overlay {
   position: absolute;
   inset: 0;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -140,4 +141,5 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
 .blur-area-outline--rectangle {
   border-radius: 0;
 }
+
 </style>

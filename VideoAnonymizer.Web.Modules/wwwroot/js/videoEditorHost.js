@@ -44,6 +44,8 @@ export async function mountVideoEditor(element, props, dotNetRef) {
             dotNetRef.invokeMethodAsync('OnDetectedObjectsBulkUpdated', videoId, dtos, operationType ?? '', beforeState),
         onDetectedObjectDeleted: (videoId, analyzedFrameId, dto) =>
             dotNetRef.invokeMethodAsync('OnDetectedObjectDeleted', videoId, analyzedFrameId, dto),
+        onTrackForward: (videoId, analyzedFrameId, dto) =>
+            dotNetRef.invokeMethodAsync('OnTrackForward', videoId, analyzedFrameId, dto),
         onUndo: () =>
             dotNetRef.invokeMethodAsync('OnUndo'),
         onRedo: () =>
@@ -70,6 +72,18 @@ export async function applyDetectedObjectChanges(element, changes) {
     const appHandle = mountedApps.get(element);
     if (!appHandle || typeof appHandle.applyChanges !== 'function') return;
     appHandle.applyChanges(changes);
+}
+
+export async function clearTrackingObjectId(element, objectId) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.clearTrackingObjectId !== 'function') return;
+    appHandle.clearTrackingObjectId(objectId);
+}
+
+export async function updateTrackingProgress(element, trackId, gapStartMs, gapEndMs) {
+    const appHandle = mountedApps.get(element);
+    if (!appHandle || typeof appHandle.updateTrackingProgress !== 'function') return;
+    appHandle.updateTrackingProgress(trackId, gapStartMs, gapEndMs);
 }
 
 export async function unmountVideoEditor(element) {

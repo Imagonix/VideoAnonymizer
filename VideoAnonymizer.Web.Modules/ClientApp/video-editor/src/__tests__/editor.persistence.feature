@@ -30,3 +30,16 @@ Feature: Persisting Vue editor changes through Blazor callbacks
     Then face "o1" is deselected at x 77
     And face "o2" is no longer in the editor state
     And face "added-from-blazor" is present on track 9
+
+  Scenario: Removing repeated tracking updates clears every timeline occurrence
+    Given the editor is open with persisted frames
+    When Blazor adds tracked face "streamed-face" twice and then removes it
+    Then face "streamed-face" is no longer in the editor state
+    And no timeline occurrence remains for face "streamed-face"
+
+  Scenario: Concurrent tracking progress is shown independently
+    Given the editor is tracking tracks 1 and 2
+    When Blazor reports track 1 at 1000 ms and track 2 at 2000 ms
+    Then track 1 has its moving tracking dot at 10 percent
+    And track 2 has its moving tracking dot at 20 percent
+    And the moving dots are the only timeline tracking indicators

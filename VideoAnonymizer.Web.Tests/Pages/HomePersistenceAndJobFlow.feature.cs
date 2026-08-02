@@ -109,7 +109,7 @@ namespace VideoAnonymizer.Web.Tests.Pages
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Pages/HomePersistenceAndJobFlow.feature.ndjson", 7);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Pages/HomePersistenceAndJobFlow.feature.ndjson", 8);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -133,8 +133,8 @@ namespace VideoAnonymizer.Web.Tests.Pages
             {
                 await this.ScenarioStartAsync();
 #line 8
-    await testRunner.GivenAsync("the saved video list contains \"persisted-family-video.mp4\" with blur size 180 per" +
-                        "cent and time buffer 650 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the saved video list contains \"persisted-video.mp4\" with blur size 180 percent an" +
+                        "d time buffer 650 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 9
     await testRunner.AndAsync("the saved video has one analyzed frame with one face", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
@@ -154,13 +154,13 @@ namespace VideoAnonymizer.Web.Tests.Pages
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Unrelated analysis completion messages are ignored")]
-        public async global::System.Threading.Tasks.Task UnrelatedAnalysisCompletionMessagesAreIgnored()
+        [global::NUnit.Framework.DescriptionAttribute("Opening an existing video uses the current interpolation setting")]
+        public async global::System.Threading.Tasks.Task OpeningAnExistingVideoUsesTheCurrentInterpolationSetting()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "1";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Unrelated analysis completion messages are ignored", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Opening an existing video uses the current interpolation setting", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 14
@@ -174,12 +174,52 @@ namespace VideoAnonymizer.Web.Tests.Pages
             {
                 await this.ScenarioStartAsync();
 #line 15
-    await testRunner.GivenAsync("the reviewer starts object detection for \"new-video.mp4\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("the saved video list contains \"persisted-video.mp4\" with blur size 180 percent an" +
+                        "d time buffer 650 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 16
-    await testRunner.WhenAsync("an unrelated analysis completion message arrives", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.AndAsync("the saved video has one analyzed frame with one face", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 17
+    await testRunner.AndAsync("app state disables object interpolation", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 18
+    await testRunner.WhenAsync("the reviewer opens the saved video from the library", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 19
+    await testRunner.ThenAsync("the review tab opens with interpolation disabled", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Unrelated analysis completion messages are ignored")]
+        public async global::System.Threading.Tasks.Task UnrelatedAnalysisCompletionMessagesAreIgnored()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "2";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Unrelated analysis completion messages are ignored", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 21
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 22
+    await testRunner.GivenAsync("the reviewer starts object detection for \"new-video.mp4\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 23
+    await testRunner.WhenAsync("an unrelated analysis completion message arrives", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 24
     await testRunner.ThenAsync("the reviewer is not moved to review", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -192,11 +232,11 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "2";
+            string pickleIndex = "3";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Current analysis completion opens review", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 19
+#line 26
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -206,13 +246,13 @@ namespace VideoAnonymizer.Web.Tests.Pages
             else
             {
                 await this.ScenarioStartAsync();
-#line 20
+#line 27
     await testRunner.GivenAsync("the reviewer starts object detection for \"new-video.mp4\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 21
+#line 28
     await testRunner.WhenAsync("the current analysis completion message arrives", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 22
+#line 29
     await testRunner.ThenAsync("the reviewer is moved to review", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -225,11 +265,11 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "3";
+            string pickleIndex = "4";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Unrelated export completion messages are ignored", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 24
+#line 31
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -239,14 +279,14 @@ namespace VideoAnonymizer.Web.Tests.Pages
             else
             {
                 await this.ScenarioStartAsync();
-#line 25
+#line 32
     await testRunner.GivenAsync("the reviewer is reviewing analyzed results for \"new-video.mp4\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 26
+#line 33
     await testRunner.WhenAsync("the reviewer starts anonymization and an unrelated export completion message arri" +
                         "ves", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 27
+#line 34
     await testRunner.ThenAsync("no anonymized video is downloaded", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -259,11 +299,11 @@ namespace VideoAnonymizer.Web.Tests.Pages
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "4";
+            string pickleIndex = "5";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Current export completion downloads the anonymized video", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 29
+#line 36
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -273,13 +313,13 @@ namespace VideoAnonymizer.Web.Tests.Pages
             else
             {
                 await this.ScenarioStartAsync();
-#line 30
+#line 37
     await testRunner.GivenAsync("the reviewer has started anonymization for analyzed results in \"new-video.mp4\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 31
+#line 38
     await testRunner.WhenAsync("the current export completion message arrives", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 32
+#line 39
     await testRunner.ThenAsync("the anonymized video is downloaded for the current video", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }

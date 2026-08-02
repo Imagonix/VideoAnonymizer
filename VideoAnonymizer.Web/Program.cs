@@ -17,6 +17,8 @@ builder.Services.AddHttpClient("ApiService", client =>
 {
     var baseUrl = builder.Configuration.GetApiServiceBaseUrl(builder.HostEnvironment.BaseAddress);
     client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(
+        builder.Configuration.GetValue("ApiService:RequestTimeoutSeconds", 300));
 });
 
 builder.Services.AddScoped<IJobHubClient, JobHubClient>();

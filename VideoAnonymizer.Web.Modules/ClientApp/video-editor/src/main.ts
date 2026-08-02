@@ -5,6 +5,8 @@ import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 type AppHandle = {
     update: (nextProps: VideoEditorProps) => void;
     updateSettings: (settings: AnonymizationSettings) => void;
+    clearTrackingObjectId: (objectId: string) => void;
+    updateTrackingProgress: (trackId: number | null, gapStartMs: number, gapEndMs: number) => void;
     applyChanges: (changes: DetectedObjectChangeSet) => void;
     unmount: () => void;
     getFrames: () => any[]
@@ -13,6 +15,7 @@ type AppHandle = {
 type AnonymizationSettings = {
     blurSizePercent: number;
     timeBufferMs: number;
+    interpolateTrackedObjects: boolean;
 };
 
 declare global {
@@ -27,6 +30,7 @@ const callbackKeys: (keyof VideoEditorProps)[] = [
     'onDetectedObjectUpdated',
     'onDetectedObjectsBulkUpdated',
     'onDetectedObjectDeleted',
+    'onTrackForward',
     'onUndo',
     'onRedo',
 ];
@@ -49,7 +53,9 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
 
     const app = createApp(VideoEditorApp, { state });
     const vm = app.mount(element) as {
-        getFrames?: () => any[]
+        getFrames?: () => any[],
+        clearTrackingObjectId?: (objectId: string) => void,
+        updateTrackingProgress?: (trackId: number | null, gapStartMs: number, gapEndMs: number) => void,
     };
 
     return {
@@ -62,6 +68,13 @@ window.mountVideoEditorVueApp = (element: HTMLElement, props: VideoEditorProps):
         updateSettings(settings: AnonymizationSettings) {
             state.anonymizationSettings.blurSizePercent = settings.blurSizePercent;
             state.anonymizationSettings.timeBufferMs = settings.timeBufferMs;
+            state.anonymizationSettings.interpolateTrackedObjects = settings.interpolateTrackedObjects;
+        },
+        clearTrackingObjectId(objectId: string) {
+            (vm as any)?.clearTrackingObjectId?.(objectId);
+        },
+        updateTrackingProgress(trackId: number | null, gapStartMs: number, gapEndMs: number) {
+            (vm as any)?.updateTrackingProgress?.(trackId, gapStartMs, gapEndMs);
         },
         applyChanges(changes: DetectedObjectChangeSet) {
             (vm as any)?.applyChanges?.(changes);

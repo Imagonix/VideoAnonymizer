@@ -104,7 +104,8 @@ public class VideoAnonymizer(
                     frameWidth,
                     frameHeight,
                     fps,
-                    timeBufferSeconds);
+                    timeBufferSeconds,
+                    job.InterpolateTrackedObjects);
 
                 foreach (var obj in objectsToBlur)
                 {
@@ -303,20 +304,18 @@ public class VideoAnonymizer(
     {
         var scale = blurSizePercent / 100.0;
 
-        int originalCenterX = detectedObject.X + detectedObject.Width / 2;
-        int originalCenterY = detectedObject.Y + detectedObject.Height / 2;
+        var originalCenterX = detectedObject.X + detectedObject.Width / 2.0;
+        var originalCenterY = detectedObject.Y + detectedObject.Height / 2.0;
 
         int expandedWidth = (int)(detectedObject.Width * scale);
         int expandedHeight = (int)(detectedObject.Height * scale);
 
-        var rect = ClampRect(
-            new Rect(
-                originalCenterX - expandedWidth / 2,
-                originalCenterY - expandedHeight / 2,
-                expandedWidth,
-                expandedHeight),
-            frame.Width,
-            frame.Height);
+        var virtualRect = new Rect(
+            (int)Math.Floor(originalCenterX - expandedWidth / 2.0),
+            (int)Math.Floor(originalCenterY - expandedHeight / 2.0),
+            expandedWidth,
+            expandedHeight);
+        var rect = ClampRect(virtualRect, frame.Width, frame.Height);
 
         if (rect.Width <= 0 || rect.Height <= 0)
         {
@@ -344,8 +343,12 @@ public class VideoAnonymizer(
 
         using var mask = Mat.Zeros(rect.Height, rect.Width, MatType.CV_8UC1).ToMat();
 
-        var center = new Point(rect.Width / 2, rect.Height / 2);
-        var axes = new OpenCvSharp.Size(rect.Width / 2, rect.Height / 2);
+        var center = new Point(
+            (int)Math.Round(originalCenterX - rect.X),
+            (int)Math.Round(originalCenterY - rect.Y));
+        var axes = new OpenCvSharp.Size(
+            Math.Max(1, expandedWidth / 2),
+            Math.Max(1, expandedHeight / 2));
 
         Cv2.Ellipse(
             mask,

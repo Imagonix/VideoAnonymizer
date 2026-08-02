@@ -11,6 +11,7 @@ namespace VideoAnonymizer.Database
         public DbSet<Video> Videos { get; set; }
         public DbSet<AnalyzedFrame> AnalyzedFrames { get; set; }
         public DbSet<DetectedObject> DetectedObjects { get; set; }
+        public DbSet<EditorAction> EditorActions { get; set; }
 
         public VideoAnonymizerDbContext(DbContextOptions options) : base(options)
         {

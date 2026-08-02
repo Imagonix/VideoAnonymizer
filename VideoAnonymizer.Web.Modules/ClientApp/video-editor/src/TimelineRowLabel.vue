@@ -129,7 +129,9 @@ function onRowClick() {
             @click.stop
           />
         </MudLikeCheckbox>
-        <ColorDot :detected-object="sampleDetectedObject" :alignRight="true" />
+        <div class="color-dot-wrapper">
+          <ColorDot :detected-object="sampleDetectedObject" :alignRight="true" />
+        </div>
     </div>
 </template>
 
@@ -171,4 +173,11 @@ function onRowClick() {
 .track-id-input:focus {
     border-color: var(--mud-palette-primary);
 }
+
+.color-dot-wrapper {
+    display: inline-flex;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
 </style>

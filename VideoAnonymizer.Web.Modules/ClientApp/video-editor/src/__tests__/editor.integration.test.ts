@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { reactive } from 'vue';
 import VideoEditorApp from '../VideoEditorApp.vue';
@@ -47,7 +47,7 @@ function createMockState(): VideoEditorProps {
     return {
         videoId: 'v1',
         videoSourceUrl: 'http://example.com/v.mp4',
-        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300 },
+        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300, interpolateTrackedObjects: true },
         frames,
     };
 }
@@ -356,7 +356,7 @@ describe('VideoEditorApp integration', () => {
             expect(wrapper.text()).toContain('✕');
 
             const modeBtns = wrapper.findAll('.mode-switch-btn');
-            expect(modeBtns.length).toBe(3);
+            expect(modeBtns.length).toBe(4);
 
             await modeBtns[0].trigger('click');
             expect(wrapper.text()).toContain('✕');
@@ -366,6 +366,57 @@ describe('VideoEditorApp integration', () => {
 
             await modeBtns[2].trigger('click');
             expect(wrapper.text()).toContain('✕');
+
+            await modeBtns[3].trigger('click');
+            expect(wrapper.text()).toContain('✕');
+        });
+    });
+
+    describe('track forward', () => {
+        it('opens DetailedView in Track mode and tracks the clicked box', async () => {
+            const onTrackForward = vi.fn();
+            const mounted = mountEditor({ onTrackForward });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await clickButton(wrapper, 'Track');
+            expect(wrapper.text()).toContain('Exit Track');
+
+            const box = wrapper.find('.move-box');
+            expect(box.exists()).toBe(true);
+            await box.trigger('click');
+
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
+            expect(onTrackForward).toHaveBeenCalledWith('v1', 'f1', state.frames[0].detectedObjects[0]);
+        });
+
+        it('shows per-box spinner and blocks duplicate tracking for the same object', async () => {
+            const onTrackForward = vi.fn();
+            const mounted = mountEditor({ onTrackForward });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await clickButton(wrapper, 'Track');
+
+            // Click a box to start tracking - this adds the object to trackingObjectIds
+            const box = wrapper.find('.move-box');
+            expect(box.exists()).toBe(true);
+            await box.trigger('click');
+
+            await wrapper.vm.$nextTick();
+
+            // The track button shows disabled styling but is still clickable
+            const trackBtn = wrapper.findAll('button').filter(b => b.text() === 'Exit Track')[0];
+            expect(trackBtn.classes()).toContain('control-btn--track-disabled');
+
+            // The tracked box shows a spinner overlay
+            const trackedBox = wrapper.find('.move-box--tracking');
+            expect(trackedBox.exists()).toBe(true);
+
+            // Clicking the same box again does not trigger another track-forward
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
+            await box.trigger('click');
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
         });
     });
 

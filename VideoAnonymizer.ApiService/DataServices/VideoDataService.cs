@@ -89,7 +89,7 @@ namespace VideoAnonymizer.ApiService.DataServices
             return (video.Id, fullPath);
         }
 
-        public async Task<Video> UpdateFramesAndObjects(Guid videoId, AnonymizeVideoRequestDto request)
+        public async Task UpdateFramesAndObjects(Guid videoId, AnonymizeVideoRequestDto request)
         {
             using var db = await dbFactory.CreateDbContextAsync();
             var existingVideo = db.Videos.Where(x => x.Id.Equals(videoId)).Include(x => x.AnalyzedFrames).ThenInclude(x => x.DetectedObjects).SingleOrDefault();
@@ -111,7 +111,6 @@ namespace VideoAnonymizer.ApiService.DataServices
             var framesEntities = Mapper.ToEntities(request.Frames);
             await db.AddRangeAsync(framesEntities);
             await db.SaveChangesAsync();
-            return existingVideo;
         }
 
         public async Task<string> LoadAnonomyzedVideoPath(Guid id)

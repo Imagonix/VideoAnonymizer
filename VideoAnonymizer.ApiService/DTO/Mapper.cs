@@ -42,6 +42,22 @@ namespace VideoAnonymizer.ApiService.DTO
             };
         }
 
+        public static EditorActionDto ToDto(this EditorAction entity)
+        {
+            ArgumentNullException.ThrowIfNull(entity);
+
+            return new EditorActionDto
+            {
+                Id = entity.Id,
+                VideoId = entity.VideoId,
+                ActionType = entity.ActionType,
+                Data = entity.Data,
+                Undone = entity.Undone,
+                SequenceNumber = entity.SequenceNumber,
+                CreatedAt = entity.CreatedAt
+            };
+        }
+
         public static AnalyzedFrame ToEntity(this AnalyzedFrameDto dto)
         {
             ArgumentNullException.ThrowIfNull(dto);
@@ -93,6 +109,12 @@ namespace VideoAnonymizer.ApiService.DTO
         }
 
         public static List<DetectedObjectDto> ToDtos(this IEnumerable<DetectedObject> entities)
+        {
+            ArgumentNullException.ThrowIfNull(entities);
+            return entities.Select(x => x.ToDto()).ToList();
+        }
+
+        public static List<EditorActionDto> ToDtos(this IEnumerable<EditorAction> entities)
         {
             ArgumentNullException.ThrowIfNull(entities);
             return entities.Select(x => x.ToDto()).ToList();

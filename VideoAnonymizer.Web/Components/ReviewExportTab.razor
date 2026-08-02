@@ -1,9 +1,12 @@
 @using VideoAnonymizer.Web.Components.ReviewExport
 @using VideoAnonymizer.Web.Modules.Actions
 @using VideoAnonymizer.Web.Modules.Components
+@using VideoAnonymizer.Web.Services
+@using VideoAnonymizer.Web.Shared
 @using VideoAnonymizer.Web.Shared.DTO
 @implements IAsyncDisposable
 @inject IHttpClientFactory HttpClientFactory
+@inject IJobHubClient JobHubClient
 @inject ISnackbar Snackbar
 
 <MudPaper Class="pa-6" Style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
@@ -13,9 +16,9 @@
                                TimeBufferMs="TimeBufferMs"
                                TimeBufferMsChanged="OnTimeBufferChanged">
             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                <ActionHistoryPopover IsProcessing="_videoEditorProcessing"
-                                      HasErrors="_hasErrors"
-                                      Items="_actionHistory" />
+                <ActionHistoryPopover IsProcessing="_actionCoordinator.HasPendingActions || _trackForwardCoordinator.ActiveCount > 0"
+                                      HasErrors="_actionCoordinator.HasErrors || _trackForwardCoordinator.HasErrors"
+                                      Items="_actionCoordinator.ActionHistory" />
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Secondary"
                            Size="Size.Small"
@@ -35,6 +38,7 @@
                              Frames="@Frames"
                              BlurSizePercent="@BlurSizePercent"
                              TimeBufferMs="@TimeBufferMs"
+                             InterpolateTrackedObjects="@InterpolateTrackedObjects"
                              OnAction="OnVideoEditorAction" />
 
                 @if (_editorInputBlocked)
@@ -52,19 +56,14 @@
 </MudPaper>
 
 @code {
-    private readonly List<ActionHistoryItem> _actionHistory = [];
-    private readonly VideoEditorActionQueue _actionQueue;
-    private readonly VideoEditorUndoRedoState _undoRedoState = new();
     private VideoEditor? _videoEditor;
+    private EditorActionCoordinator _actionCoordinator = default!;
+    private TrackForwardCoordinator _trackForwardCoordinator = default!;
+    private IDisposable? _trackForwardCompletedSubscription;
+    private IDisposable? _trackForwardProgressSubscription;
     private List<AnalyzedFrameDto> _capturedFrames = [];
-    private bool _videoEditorProcessing;
     private bool _editorInputBlocked;
-    private bool _hasErrors;
-
-    public ReviewExportTab()
-    {
-        _actionQueue = new VideoEditorActionQueue(OnQueueProcessingChangedAsync);
-    }
+    private Guid? _lastVideoId;
 
     [Parameter]
     public Guid? VideoId { get; set; }
@@ -78,8 +77,14 @@
     [Parameter]
     public bool ShowEditor { get; set; }
 
+    [Parameter]
+    public bool InterpolateTrackedObjects { get; set; } = true;
+
     [Parameter, EditorRequired]
     public EventCallback StartAnonymization { get; set; }
+
+    [Parameter]
+    public EventCallback TrackingCompleted { get; set; }
 
     [Parameter]
     public int BlurSizePercent { get; set; } = 120;
@@ -95,10 +100,49 @@
 
     public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
 
+    protected override void OnInitialized()
+    {
+        _actionCoordinator = new EditorActionCoordinator(
+            HttpClientFactory,
+            Snackbar,
+            () => _videoEditor,
+            ApplySettingsFromHistoryAsync,
+            action => _trackForwardCoordinator.StartAsync(action),
+            () => TrackingCompleted.InvokeAsync(),
+            OnQueueProcessingChangedAsync,
+            () => InvokeAsync(StateHasChanged));
+        _trackForwardCoordinator = new TrackForwardCoordinator(
+            HttpClientFactory,
+            Snackbar,
+            () => VideoId,
+            () => _videoEditor,
+            _actionCoordinator.AddAction,
+            _actionCoordinator.AddUndoRedoAction,
+            () => InvokeAsync(StateHasChanged),
+            () => TrackingCompleted.InvokeAsync());
+        _trackForwardCompletedSubscription = JobHubClient.OnTrackForwardCompleted(OnTrackForwardCompletedAsync);
+        _trackForwardProgressSubscription = JobHubClient.OnTrackForwardProgress(OnTrackForwardProgressAsync);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (VideoId.HasValue)
+        {
+            if (_lastVideoId != VideoId)
+            {
+                _lastVideoId = VideoId;
+                await _actionCoordinator.LoadAsync(VideoId.Value);
+            }
+        }
+        else
+        {
+            _lastVideoId = null;
+        }
+    }
+
     private Task OnQueueProcessingChangedAsync(bool isProcessing) =>
         InvokeAsync(() =>
         {
-            _videoEditorProcessing = isProcessing;
             if (!isProcessing)
             {
                 _editorInputBlocked = false;
@@ -112,73 +156,21 @@
         if (_editorInputBlocked && action is UndoAction or RedoAction)
             return Task.CompletedTask;
 
-        if (action is UndoAction or RedoAction && _actionQueue.HasPendingActions)
+        if (action is UndoAction or RedoAction && _actionCoordinator.HasPendingActions)
         {
             _editorInputBlocked = true;
             _ = InvokeAsync(StateHasChanged);
         }
 
-        _actionQueue.Enqueue(() => ProcessVideoEditorActionAsync(action));
+        _actionCoordinator.Enqueue(action, VideoId!.Value);
         return Task.CompletedTask;
     }
 
-    private async Task ProcessVideoEditorActionAsync(VideoEditorAction action)
-    {
-        using var client = HttpClientFactory.CreateClient("ApiService");
-        var persister = new VideoEditorActionPersister(client);
+    private Task OnTrackForwardProgressAsync(TrackForwardProgressMessage message) =>
+        InvokeAsync(() => _trackForwardCoordinator.HandleProgressAsync(message));
 
-        switch (action)
-        {
-            case UndoAction:
-                await ApplyUndoRedoAsync(persister, isRedo: false);
-                break;
-
-            case RedoAction:
-                await ApplyUndoRedoAsync(persister, isRedo: true);
-                break;
-
-            default:
-                await PersistActionAsync(persister, action);
-                break;
-        }
-    }
-
-    private async Task PersistActionAsync(VideoEditorActionPersister persister, VideoEditorAction action)
-    {
-        var item = AddAction(VideoEditorActionDescriptions.Get(action));
-
-        try
-        {
-            await persister.SaveAsync(action);
-            item.Status = ActionStatus.Success;
-            _undoRedoState.Add(action, item);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            MarkActionFailed(item);
-        }
-    }
-
-    private async Task ApplyUndoRedoAsync(VideoEditorActionPersister persister, bool isRedo)
-    {
-        var operation = _undoRedoState.Begin(isRedo);
-        if (operation is null)
-            return;
-
-        try
-        {
-            await persister.ApplyUndoRedoAsync(operation.Action, isRedo, _videoEditor, ApplySettingsFromHistoryAsync);
-            _undoRedoState.Complete(operation, isRedo);
-            await InvokeAsync(StateHasChanged);
-        }
-        catch
-        {
-            _undoRedoState.Rollback(isRedo);
-            Snackbar.Add(isRedo ? "Failed to redo changes." : "Failed to undo changes.", Severity.Error);
-            await InvokeAsync(StateHasChanged);
-        }
-    }
+    private Task OnTrackForwardCompletedAsync(TrackForwardCompletedMessage message) =>
+        InvokeAsync(() => _trackForwardCoordinator.HandleCompletedAsync(message));
 
     private async Task ApplySettingsFromHistoryAsync(AnonymizationSettingsDto settings)
     {
@@ -188,26 +180,6 @@
         await BlurSizePercentChanged.InvokeAsync(settings.BlurSizePercent);
         await TimeBufferMsChanged.InvokeAsync(settings.TimeBufferMs);
         await InvokeAsync(StateHasChanged);
-    }
-
-    private ActionHistoryItem AddAction(string description)
-    {
-        var item = new ActionHistoryItem(description, DateTime.UtcNow);
-        _actionHistory.Add(item);
-        if (_actionHistory.Count > 20)
-        {
-            _actionHistory.RemoveAt(0);
-        }
-
-        return item;
-    }
-
-    private void MarkActionFailed(ActionHistoryItem item)
-    {
-        item.Status = ActionStatus.Failed;
-        _hasErrors = true;
-        _ = InvokeAsync(StateHasChanged);
-        Snackbar.Add("Failed to save changes. Please refresh the page.", Severity.Error);
     }
 
     private async Task OnStartAnonymizationClicked()
@@ -253,6 +225,9 @@
 
     public async ValueTask DisposeAsync()
     {
-        await _actionQueue.DisposeAsync();
+        _trackForwardCompletedSubscription?.Dispose();
+        _trackForwardProgressSubscription?.Dispose();
+        _trackForwardCoordinator.Dispose();
+        await _actionCoordinator.DisposeAsync();
     }
 }

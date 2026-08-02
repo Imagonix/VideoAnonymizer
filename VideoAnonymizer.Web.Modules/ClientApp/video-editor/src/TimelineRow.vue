@@ -10,6 +10,7 @@ const props = defineProps<{
     mergeSelectedKeys: Set<string>;
     selectedOccurrences: Map<string, Set<number>>;
     hoveredTimelineKey: string | null;
+    activeGapRange: { startMs: number; endMs: number } | null;
 }>();
 
 const emit = defineEmits<{
@@ -63,6 +64,28 @@ const otherRowsHaveSelection = computed(() =>
     hasAnySelection.value && !selectedTimesForThisRow.value.size
 );
 
+const sampleObj = computed(() => {
+    if (props.timelineObject.type === 'single')
+        return props.timelineObject.detectedObj;
+    return props.timelineObject.occurences[0][1];
+});
+
+const trackColor = computed(() => colorManager.getColor(sampleObj.value));
+
+const gapDotStyle = computed(() => {
+    const range = props.activeGapRange;
+    if (!range || range.startMs < 0) return null;
+    const duration = props.videoDuration;
+    if (!duration || duration <= 0) return null;
+    const left = (range.startMs / 1000 / duration) * 100;
+    const color = trackColor.value;
+    return {
+        left: `${left}%`,
+        background: color,
+        boxShadow: `0 0 0 4px ${color.replace('hsl(', 'hsla(').replace(')', ', 0.4)')}`
+    };
+});
+
 function onRowClick() {
     if (props.mode === 'merge') {
         emit('merge-toggle', timelineKey.value);
@@ -107,6 +130,7 @@ function onDotClick(time: number, event: MouseEvent) {
                   @click.stop="onDotClick(time, $event)"
                 />
             </template>
+            <div v-if="gapDotStyle" class="dot dot--pulsing" :style="gapDotStyle" />
         </div>
     </div>
 </template>
@@ -155,5 +179,18 @@ function onDotClick(time: number, event: MouseEvent) {
 .dot--dimmed {
   width: 6px;
   height: 6px;
+}
+
+.dot--pulsing {
+  width: 10px;
+  height: 10px;
+  z-index: 25;
+  animation: pulse-dot 1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%, -50%) scale(1.4); opacity: 0.7; }
 }
 </style>

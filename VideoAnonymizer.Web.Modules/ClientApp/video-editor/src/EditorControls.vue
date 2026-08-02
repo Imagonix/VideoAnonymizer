@@ -3,6 +3,8 @@ defineProps<{
     moveMode: boolean;
     resizeMode: boolean;
     addMode: boolean;
+    trackMode: boolean;
+    hasActiveTracking: boolean;
     mergeMode: boolean;
     mergeCount: number;
     splitMode: boolean;
@@ -13,6 +15,7 @@ const emit = defineEmits<{
     (e: 'toggle-move-mode'): void;
     (e: 'toggle-resize-mode'): void;
     (e: 'toggle-add-mode'): void;
+    (e: 'toggle-track-mode'): void;
     (e: 'toggle-merge-mode'): void;
     (e: 'merge'): void;
     (e: 'toggle-split-mode'): void;
@@ -66,6 +69,21 @@ const emit = defineEmits<{
 
         <div class="section-divider"></div>
         <div class="section-label">Tracking actions</div>
+        <div class="control-row">
+            <button
+              class="control-btn"
+              :class="{ active: trackMode, 'control-btn--track-disabled': hasActiveTracking }"
+              @click="emit('toggle-track-mode')"
+              :title="hasActiveTracking ? 'Tracking in progress - click to toggle track mode' : 'Click a bounding box in detailed view to track it forward'"
+            >
+                <svg class="btn-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                    <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+                    <circle cx="12" cy="12" r="2" fill="currentColor" />
+                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span>{{ trackMode ? 'Exit Track' : 'Track' }}</span>
+            </button>
+        </div>
         <div class="control-row">
             <button
               class="control-btn"
@@ -177,6 +195,17 @@ const emit = defineEmits<{
 .control-btn:hover {
     border-color: var(--mud-palette-primary);
     background: color-mix(in srgb, var(--mud-palette-primary) 14%, var(--mud-palette-surface));
+    color: var(--mud-palette-text-primary);
+}
+
+.control-btn--track-disabled {
+    opacity: 0.72;
+    cursor: default;
+}
+
+.control-btn--track-disabled:hover {
+    border-color: var(--mud-palette-lines-inputs);
+    background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
     color: var(--mud-palette-text-primary);
 }
 

@@ -1,11 +1,12 @@
 <script setup lang="ts">
 defineProps<{
-    mode: 'move' | 'resize' | 'add';
+    mode: 'move' | 'resize' | 'add' | 'track';
+    hasActiveTracking: boolean;
 }>();
 
 const emit = defineEmits<{
     (e: 'done'): void;
-    (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
+    (e: 'mode-change', mode: 'move' | 'resize' | 'add' | 'track'): void;
 }>();
 </script>
 
@@ -27,6 +28,11 @@ const emit = defineEmits<{
               :class="{ active: mode === 'add' }"
               @click="emit('mode-change', 'add')"
             >Add</button>
+            <button
+              class="mode-switch-btn"
+              :class="{ active: mode === 'track', 'mode-switch-btn--track-disabled': hasActiveTracking }"
+              @click="emit('mode-change', 'track')"
+            >Track</button>
         </div>
         <div class="move-actions">
             <button class="close-btn" @click="emit('done')" title="Close">✕</button>
@@ -58,6 +64,10 @@ const emit = defineEmits<{
 }
 
 .mode-switch-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 4px 14px;
     border: none;
     background: transparent;
@@ -66,6 +76,16 @@ const emit = defineEmits<{
     font-size: 0.82rem;
     font-weight: 500;
     transition: background 0.15s, color 0.15s;
+}
+
+.mode-switch-btn--track-disabled {
+    opacity: 0.72;
+    cursor: default;
+}
+
+.mode-switch-btn--track-disabled:hover {
+    background: transparent;
+    color: var(--mud-palette-text-secondary);
 }
 
 .mode-switch-btn:not(:last-child) {

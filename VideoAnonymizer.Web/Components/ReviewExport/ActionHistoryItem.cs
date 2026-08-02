@@ -1,3 +1,5 @@
+using VideoAnonymizer.Web.Shared.DTO;
+
 namespace VideoAnonymizer.Web.Components.ReviewExport;
 
 public sealed class ActionHistoryItem(string description, DateTime timestamp)
@@ -6,4 +8,6 @@ public sealed class ActionHistoryItem(string description, DateTime timestamp)
     public ActionStatus Status { get; set; } = ActionStatus.Pending;
     public DateTime Timestamp { get; } = timestamp;
     public bool Undone { get; set; }
+    public List<Guid> CreatedObjectIds { get; set; } = [];
+    public List<DetectedObjectDto> CreatedObjectDtos { get; set; } = [];
 }

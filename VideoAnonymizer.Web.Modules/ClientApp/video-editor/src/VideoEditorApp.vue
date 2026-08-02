@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
-import type { VideoDimensions } from './types';
+import type { TimelineObject, VideoDimensions } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
 import { useMerge } from './composables/useMerge';
@@ -101,10 +101,23 @@ onUnmounted(() => {
 });
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
+const trackingObjectIds = ref(new Set<string>());
+const trackingProgressByTrackId = ref(new Map<number, { startMs: number; endMs: number }>());
+const trackingTrackIds = computed(() => {
+    const trackIds = new Set<number>();
+    for (const frame of frames.value) {
+        for (const obj of frame.detectedObjects) {
+            if (trackingObjectIds.value.has(obj.id) && obj.trackId != null) {
+                trackIds.add(obj.trackId);
+            }
+        }
+    }
+    return trackIds;
+});
 const hoveredTimelineKey = ref<string | null>(null);
 const hoveredObjectKey = ref<string | null>(null);
 
-const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isOverlayOpen } = useEditorModes();
+const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isTrack, isOverlayOpen } = useEditorModes();
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
@@ -117,6 +130,26 @@ const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onB
     activeMode
 );
 
+function trackForward(obj: DetectedObjectDto) {
+    trackingObjectIds.value.add(obj.id);
+    trackingObjectIds.value = new Set(trackingObjectIds.value);
+    const seedFrame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
+    if (seedFrame) {
+        const nextFrame = props.state.frames
+            .filter(f => f.timeSeconds > seedFrame.timeSeconds)
+            .sort((a, b) => a.timeSeconds - b.timeSeconds)[0];
+        if (nextFrame) {
+            const t = nextFrame.timeSeconds * 1000;
+            if (obj.trackId != null) {
+                const nextProgress = new Map(trackingProgressByTrackId.value);
+                nextProgress.set(obj.trackId, { startMs: t, endMs: t });
+                trackingProgressByTrackId.value = nextProgress;
+            }
+        }
+    }
+    props.state.onTrackForward?.(props.state.videoId, obj.analyzedFrameId, obj);
+}
+
 useKeyboardUndoRedo(props.state);
 
 function applyChanges(changes: DetectedObjectChangeSet) {
@@ -126,19 +159,52 @@ function applyChanges(changes: DetectedObjectChangeSet) {
         const existing = frame.detectedObjects.find(o => o.id === obj.id);
         if (existing) Object.assign(existing, obj);
     }
-    for (const id of changes.objectsToRemove) {
-        for (const frame of props.state.frames) {
-            const idx = frame.detectedObjects.findIndex(o => o.id === id);
-            if (idx >= 0) frame.detectedObjects.splice(idx, 1);
-        }
+    const objectIdsToRemove = new Set(changes.objectsToRemove);
+    for (const frame of props.state.frames) {
+        frame.detectedObjects = frame.detectedObjects.filter(obj => !objectIdsToRemove.has(obj.id));
     }
     for (const obj of changes.objectsToAdd) {
         const frame = props.state.frames.find(f => f.id === obj.analyzedFrameId);
-        if (frame) frame.detectedObjects.push(obj);
+        if (frame) {
+            const existing = frame.detectedObjects.find(existingObject => existingObject.id === obj.id);
+            if (existing) Object.assign(existing, obj);
+            else frame.detectedObjects.push(obj);
+        }
     }
 }
 
-defineExpose({ getFrames, applyChanges });
+function clearTrackingObjectId(objectId: string) {
+    const trackedObject = frames.value
+        .flatMap(frame => frame.detectedObjects)
+        .find(obj => obj.id === objectId);
+    trackingObjectIds.value.delete(objectId);
+    trackingObjectIds.value = new Set(trackingObjectIds.value);
+    if (trackedObject?.trackId != null) {
+        const nextProgress = new Map(trackingProgressByTrackId.value);
+        nextProgress.delete(trackedObject.trackId);
+        trackingProgressByTrackId.value = nextProgress;
+    }
+}
+
+function updateTrackingProgress(trackId: number | null, gapStartMs: number, gapEndMs: number) {
+    if (trackId == null) return;
+
+    const nextProgress = new Map(trackingProgressByTrackId.value);
+    if (gapStartMs === 0 && gapEndMs === 0) {
+        nextProgress.delete(trackId);
+    } else {
+        nextProgress.set(trackId, { startMs: gapStartMs, endMs: gapEndMs });
+    }
+    trackingProgressByTrackId.value = nextProgress;
+}
+
+function getTrackingProgress(timelineObject: TimelineObject) {
+    if (timelineObject.type !== 'tracked') return null;
+    const trackId = timelineObject.occurences[0]?.[1].trackId;
+    return trackId == null ? null : trackingProgressByTrackId.value.get(trackId) ?? null;
+}
+
+defineExpose({ getFrames, applyChanges, clearTrackingObjectId, updateTrackingProgress });
 
 function getFrames() {
     return JSON.parse(JSON.stringify(props.state.frames))
@@ -161,9 +227,9 @@ function splitAction() {
     }
 }
 
-function modeToggle(mode: 'merge' | 'split' | 'move' | 'resize' | 'add') {
+function modeToggle(mode: 'merge' | 'split' | 'move' | 'resize' | 'add' | 'track') {
     if (activeMode.value === mode) { deactivate(); return; }
-    if (mode === 'merge' || mode === 'split' || mode === 'move' || mode === 'resize' || mode === 'add') {
+    if (mode === 'merge' || mode === 'split' || mode === 'move' || mode === 'resize' || mode === 'add' || mode === 'track') {
         if (mode !== 'merge') clearOccurrences();
         if (mode !== 'split') mergeSelectedTimelineKeys.value = new Set();
         activate(mode);
@@ -210,6 +276,8 @@ function setVideoVolume(volume: number) {
                   :move-mode="isMove"
                   :resize-mode="isResize"
                   :add-mode="isAdd"
+                  :track-mode="isTrack"
+                  :has-active-tracking="trackingObjectIds.size > 0"
                   :merge-mode="isMerge"
                   :merge-count="mergeSelectedTimelineKeys.size"
                   :split-mode="isSplit"
@@ -218,6 +286,7 @@ function setVideoVolume(volume: number) {
                   @toggle-move-mode="modeToggle('move')"
                   @toggle-resize-mode="modeToggle('resize')"
                   @toggle-add-mode="modeToggle('add')"
+                  @toggle-track-mode="modeToggle('track')"
                   @toggle-merge-mode="modeToggle('merge')"
                   @merge="mergeAction"
                   @toggle-split-mode="modeToggle('split')"
@@ -253,6 +322,7 @@ function setVideoVolume(volume: number) {
                         :merge-selected-keys="mergeSelectedTimelineKeys"
                         :selected-occurrences="selectedOccurrences"
                         :hovered-timeline-key="hoveredTimelineKey"
+                        :active-gap-range="getTrackingProgress(obj)"
                         @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
                         @merge-toggle="mergeToggle"
                         @hover-row="hoveredTimelineKey = $event" />
@@ -266,11 +336,14 @@ function setVideoVolume(volume: number) {
       :frames="frames"
       :video-ref="videoPlayerRef?.videoRef ?? null"
       :anonymization-settings="state.anonymizationSettings"
-      :mode="isAdd ? 'add' : isResize ? 'resize' : 'move'"
+      :mode="isTrack ? 'track' : isAdd ? 'add' : isResize ? 'resize' : 'move'"
+      :tracking-object-ids="trackingObjectIds"
+      :tracking-track-ids="trackingTrackIds"
       @done="deactivate"
       @mode-change="(m: any) => activate(m)"
       @add-box="addBox"
       @box-updated="onBoxUpdated"
+      @track-forward="trackForward"
     />
 </template>
 

@@ -1,7 +1,15 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from typing import List
-from models import BatchDetectRequest, BatchDetectionResult, DetectRequest, DetectionResult
+from models import (
+    BatchDetectRequest,
+    BatchDetectionResult,
+    DetectRequest,
+    DetectionResult,
+    TrackForwardRequest,
+)
 from services.detection_service import detect_objects, detect_objects_batch
+from services.forward_tracker import track_forward_stream
 from services.model_session import cuda_available
 from services.model_session import registry
 from services.model_session import runtime_status
@@ -24,3 +32,11 @@ def detect_objects_endpoint(request: DetectRequest):
 @router.post("/detectObjectsBatch", response_model=List[BatchDetectionResult])
 def detect_objects_batch_endpoint(request: BatchDetectRequest):
     return detect_objects_batch(request)
+
+
+@router.post("/trackForward")
+async def track_forward_endpoint(request: TrackForwardRequest):
+    return StreamingResponse(
+        (f"data: {event}\n\n" async for event in track_forward_stream(request)),
+        media_type="text/event-stream",
+    )

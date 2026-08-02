@@ -9,18 +9,21 @@ const props = defineProps<{
     frame: AnalyzedFrameDto;
     videoRef: HTMLVideoElement | null;
     anonymizationSettings: AnonymizationSettings;
-    mode: 'move' | 'resize' | 'add';
+    mode: 'move' | 'resize' | 'add' | 'track';
     frames: AnalyzedFrameDto[];
+    trackingObjectIds: Set<string>;
+    trackingTrackIds: Set<number>;
 }>();
 
 const emit = defineEmits<{
     (e: 'done'): void;
-    (e: 'mode-change', mode: 'move' | 'resize' | 'add'): void;
+    (e: 'mode-change', mode: 'move' | 'resize' | 'add' | 'track'): void;
     (e: 'add-box', x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number): void;
     (e: 'box-updated', obj: DetectedObjectDto, beforeState: DetectedObjectDto[]): void;
+    (e: 'track-forward', obj: DetectedObjectDto): void;
 }>();
 
-
+const hasActiveTracking = computed(() => props.trackingObjectIds.size > 0 || props.trackingTrackIds.size > 0);
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
 const overlayRef = ref<HTMLDivElement | null>(null);
@@ -235,6 +238,16 @@ function confirmAdd(label: string, selectedTrackId: 'new' | number) {
 function cancelAdd() {
     pendingLabel.value = null;
 }
+
+function isBeingTracked(obj: DetectedObjectDto): boolean {
+    return props.trackingObjectIds.has(obj.id) || (obj.trackId != null && props.trackingTrackIds.has(obj.trackId));
+}
+
+function onBoxClick(obj: DetectedObjectDto) {
+    if (props.mode === 'track' && !isBeingTracked(obj)) {
+        emit('track-forward', obj);
+    }
+}
 </script>
 
 <template>
@@ -242,6 +255,7 @@ function cancelAdd() {
         <div class="move-modal">
             <DetailedViewHeader
               :mode="mode"
+              :has-active-tracking="hasActiveTracking"
               @done="emit('done')"
               @mode-change="(nextMode) => emit('mode-change', nextMode)"
             />
@@ -260,13 +274,26 @@ function cancelAdd() {
                         :class="{
                           'move-box--dragging': dragState?.id === obj.id,
                           'move-box--active': activeBoxId === obj.id,
-                          'move-box--no-move': mode !== 'move'
+                          'move-box--no-move': mode !== 'move',
+                          'move-box--track': mode === 'track',
+                          'move-box--tracking': mode === 'track' && isBeingTracked(obj)
                         }"
                         :style="getBoxPct(obj)"
+                        :title="mode === 'track' ? isBeingTracked(obj) ? 'Tracking forward in progress' : 'Track this object forward' : null"
                         @mouseenter="activeBoxId = obj.id"
                         @mouseleave="activeBoxId = null"
                         @mousedown.prevent="mode === 'move' ? onBoxMouseDown($event, obj) : undefined"
-                      />
+                        @click.stop="onBoxClick(obj)"
+                      >
+                        <span v-if="mode === 'track' && !isBeingTracked(obj)" class="tracking-icon" aria-hidden="true">
+                          <svg viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="7" fill="none" stroke="currentColor" stroke-width="2" />
+                            <circle cx="12" cy="12" r="2" fill="currentColor" />
+                            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                          </svg>
+                        </span>
+                        <span v-if="mode === 'track' && isBeingTracked(obj)" class="tracking-spinner" aria-hidden="true"></span>
+                      </div>
                       <template v-if="mode === 'resize'">
                         <div
                           v-for="pos in handlePositions"
@@ -358,6 +385,9 @@ function cancelAdd() {
 
 .move-box {
     position: absolute;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: 2px solid;
     box-sizing: border-box;
     cursor: move;
@@ -377,6 +407,52 @@ function cancelAdd() {
 
 .move-box--no-move {
     cursor: default;
+}
+
+.move-box--track {
+    cursor: pointer;
+}
+
+.move-box--tracking {
+    cursor: progress;
+    opacity: 0.7;
+}
+
+.move-box--track:hover {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mud-palette-primary) 28%, transparent);
+}
+
+.tracking-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(22px, 35%, 42px);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    background: var(--mud-palette-primary);
+    color: var(--mud-palette-primary-contrast-text);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.32);
+    pointer-events: none;
+}
+
+.tracking-icon svg {
+    width: 70%;
+    height: 70%;
+}
+
+.tracking-spinner {
+    width: clamp(22px, 35%, 42px);
+    aspect-ratio: 1;
+    border-radius: 999px;
+    border: 3px solid var(--mud-palette-primary);
+    border-right-color: transparent;
+    animation: spin 0.75s linear infinite;
+    pointer-events: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.32);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 .resize-handle {
@@ -421,5 +497,6 @@ function cancelAdd() {
 .move-boxes--add .move-blur {
     opacity: 0.3;
 }
+
 .resize-handle--e { cursor: ew-resize; }
 </style>

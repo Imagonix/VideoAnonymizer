@@ -24,7 +24,7 @@ describe('BoundingBoxOverlay', () => {
         const wrapper = mount(BoundingBoxOverlay, {
             props: {
                 objects: [object],
-                anonymizationSettings: { blurSizePercent: 100, timeBufferMs: 300 },
+                anonymizationSettings: { blurSizePercent: 100, timeBufferMs: 300, interpolateTrackedObjects: true },
                 videoDimensions: {
                     videoWidth: 1280,
                     videoHeight: 720,
@@ -66,7 +66,7 @@ describe('BoundingBoxOverlay', () => {
         const wrapper = mount(BoundingBoxOverlay, {
             props: {
                 objects: [object],
-                anonymizationSettings: { blurSizePercent: 100, timeBufferMs: 300 },
+                anonymizationSettings: { blurSizePercent: 100, timeBufferMs: 300, interpolateTrackedObjects: true },
                 videoDimensions: null,
                 highlightedRowKey: null,
                 splitSourceKey: null,

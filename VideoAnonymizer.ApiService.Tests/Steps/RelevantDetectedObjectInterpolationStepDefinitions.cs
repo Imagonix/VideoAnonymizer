@@ -23,6 +23,12 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         set => _scenarioContext.Set(value, nameof(PredictedObjects));
     }
 
+    private bool InterpolateTrackedObjects
+    {
+        get => _scenarioContext.Get<bool>(nameof(InterpolateTrackedObjects));
+        set => _scenarioContext.Set(value, nameof(InterpolateTrackedObjects));
+    }
+
     public RelevantDetectedObjectInterpolationStepDefinitions(ScenarioContext scenarioContext)
     {
         _scenarioContext = scenarioContext;
@@ -32,6 +38,7 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
     public void GivenAnalyzedDetectionsForPrediction(Table table)
     {
         AnalyzedFrames = [];
+        InterpolateTrackedObjects = true;
 
         foreach (var row in table.Rows)
         {
@@ -53,6 +60,12 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         }
     }
 
+    [Given("object interpolation is disabled")]
+    public void GivenObjectInterpolationIsDisabled()
+    {
+        InterpolateTrackedObjects = false;
+    }
+
     [When("the processor predicts objects at {double} seconds with a {double} second buffer")]
     public void WhenTheProcessorPredictsObjectsAtSecondsWithBuffer(
         double currentTimeSeconds,
@@ -61,11 +74,14 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         const double fps = 100;
         var frameIndex = (int)Math.Round(currentTimeSeconds * fps);
 
-        PredictedObjects = RelevantDetectedObjectSelector.GetPredictedObjectsFromRelevantAnalyzedFrames(
+        PredictedObjects = RelevantDetectedObjectSelector.GetObjectsForFrame(
             AnalyzedFrames,
             frameIndex,
+            1920,
+            1080,
             fps,
-            timeBufferSeconds);
+            timeBufferSeconds,
+            InterpolateTrackedObjects);
     }
 
     [Then("the predicted objects are")]
