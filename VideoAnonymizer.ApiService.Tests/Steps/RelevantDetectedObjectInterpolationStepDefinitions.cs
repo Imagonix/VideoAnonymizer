@@ -11,9 +11,9 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
 {
     private readonly ScenarioContext _scenarioContext;
 
-    private Dictionary<double, List<DetectedObject>> AnalyzedFrames
+    private List<AnalyzedFrame> AnalyzedFrames
     {
-        get => _scenarioContext.Get<Dictionary<double, List<DetectedObject>>>(nameof(AnalyzedFrames));
+        get => _scenarioContext.Get<List<AnalyzedFrame>>(nameof(AnalyzedFrames));
         set => _scenarioContext.Set(value, nameof(AnalyzedFrames));
     }
 
@@ -37,27 +37,8 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
     [Given("analyzed detections for prediction")]
     public void GivenAnalyzedDetectionsForPrediction(Table table)
     {
-        AnalyzedFrames = [];
+        AnalyzedFrames = BuildFrames(table);
         InterpolateTrackedObjects = true;
-
-        foreach (var row in table.Rows)
-        {
-            var timeSeconds = ParseRequiredDouble(row, "timeSeconds");
-
-            if (!AnalyzedFrames.TryGetValue(timeSeconds, out var objects))
-            {
-                objects = [];
-                AnalyzedFrames[timeSeconds] = objects;
-            }
-
-            objects.Add(CreateObject(
-                ParseOptionalInt(row, "trackId"),
-                ParseRequiredInt(row, "x"),
-                ParseOptionalInt(row, "y") ?? 20,
-                ParseOptionalInt(row, "width") ?? 30,
-                ParseOptionalInt(row, "height") ?? 40,
-                GetOptional(row, "blurShape")));
-        }
     }
 
     [Given("object interpolation is disabled")]
@@ -77,10 +58,8 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         PredictedObjects = RelevantDetectedObjectSelector.GetObjectsForFrame(
             AnalyzedFrames,
             frameIndex,
-            1920,
-            1080,
             fps,
-            timeBufferSeconds,
+            (int)Math.Round(timeBufferSeconds * 1000),
             InterpolateTrackedObjects);
     }
 
@@ -112,19 +91,74 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         PredictedObjects.Should().BeEmpty();
     }
 
+    private static List<AnalyzedFrame> BuildFrames(Table table)
+    {
+        var framesByIndex = new Dictionary<int, AnalyzedFrame>();
+        var sequentialByTime = new Dictionary<double, int>();
+        var nextSequential = 0;
+
+        foreach (var row in table.Rows)
+        {
+            var timeSeconds = ParseRequiredDouble(row, "timeSeconds");
+
+            if (!sequentialByTime.TryGetValue(timeSeconds, out _))
+            {
+                sequentialByTime[timeSeconds] = nextSequential++;
+            }
+
+            var frameIndex = GetOptional(row, "frameIndex") is { } rawIndex
+                ? int.Parse(rawIndex, CultureInfo.InvariantCulture)
+                : sequentialByTime[timeSeconds];
+
+            if (!framesByIndex.TryGetValue(frameIndex, out var frame))
+            {
+                frame = new AnalyzedFrame
+                {
+                    Id = Guid.NewGuid(),
+                    VideoId = Guid.NewGuid(),
+                    FrameIndex = frameIndex,
+                    TimeSeconds = timeSeconds,
+                    DetectedObjects = []
+                };
+                framesByIndex[frameIndex] = frame;
+            }
+
+            var obj = CreateObject(
+                ParseOptionalInt(row, "trackId"),
+                ParseRequiredInt(row, "x"),
+                ParseOptionalInt(row, "y") ?? 20,
+                ParseOptionalInt(row, "width") ?? 30,
+                ParseOptionalInt(row, "height") ?? 40,
+                GetOptional(row, "blurShape"),
+                ParseOptionalInt(row, "blurSizePercentOverride"),
+                ParseOptionalInt(row, "preOverrideMs"),
+                ParseOptionalInt(row, "postOverrideMs"));
+            obj.AnalyzedFrame = frame;
+            frame.DetectedObjects.Add(obj);
+        }
+
+        return framesByIndex.Values.OrderBy(frame => frame.FrameIndex).ToList();
+    }
+
     private static DetectedObject CreateObject(
         int? trackId,
         int x,
         int y,
         int width,
         int height,
-        string? blurShape) =>
+        string? blurShape,
+        int? blurSizePercentOverride,
+        int? preOverrideMs,
+        int? postOverrideMs) =>
         new()
         {
             Id = Guid.NewGuid(),
             Confidence = 0.9,
             ClassName = trackId is null ? "other" : "license_plate",
             BlurShape = blurShape,
+            BlurSizePercentOverride = blurSizePercentOverride,
+            PreBufferMsOverride = preOverrideMs,
+            PostBufferMsOverride = postOverrideMs,
             Selected = true,
             TrackId = trackId,
             X = x,
@@ -149,6 +183,10 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         {
             actual.BlurShape.Should().Be(GetOptional(row, "blurShape"));
         }
+
+        AssertOptionalNullableInt(row, "blurSizePercentOverride", actual.BlurSizePercentOverride);
+        AssertOptionalNullableInt(row, "preOverrideMs", actual.PreBufferMsOverride);
+        AssertOptionalNullableInt(row, "postOverrideMs", actual.PostBufferMsOverride);
     }
 
     private static void AssertOptionalInt(DataTableRow row, string column, int actual)
@@ -156,6 +194,14 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         if (HasColumn(row, column))
         {
             actual.Should().Be(ParseRequiredInt(row, column));
+        }
+    }
+
+    private static void AssertOptionalNullableInt(DataTableRow row, string column, int? actual)
+    {
+        if (HasColumn(row, column))
+        {
+            actual.Should().Be(ParseOptionalInt(row, column));
         }
     }
 

@@ -14,9 +14,9 @@ public sealed record ConsecutiveSegment(IReadOnlyList<DetectedObject> Occurrence
 }
 
 /// <summary>
-/// Resolves the consecutive segment containing a given occurrence from the complete
-/// analyzed-frame sequence ordered by FrameIndex. A missing occurrence in any
-/// analyzed frame ends the segment; no time thresholds are applied.
+/// Resolves consecutive segments from the complete analyzed-frame sequence ordered by
+/// FrameIndex. A missing occurrence in any analyzed frame ends the segment; no time
+/// thresholds are applied and the Selected flag never changes segment identity.
 /// </summary>
 public static class ConsecutiveSegmentResolver
 {
@@ -25,32 +25,64 @@ public static class ConsecutiveSegmentResolver
         ArgumentNullException.ThrowIfNull(analyzedFrames);
         ArgumentNullException.ThrowIfNull(occurrence);
 
-        if (occurrence.TrackId is null)
-            return new ConsecutiveSegment([occurrence]);
-
-        var trackId = occurrence.TrackId.Value;
-        var orderedFrames = analyzedFrames.OrderBy(frame => frame.FrameIndex).ToList();
-
-        var trackOccurrences = new List<(int FrameIndex, DetectedObject Object)>();
-        foreach (var frame in orderedFrames)
-        {
-            var match = frame.DetectedObjects.FirstOrDefault(obj => obj.TrackId == trackId);
-            if (match is not null)
-                trackOccurrences.Add((frame.FrameIndex, match));
-        }
-
-        var anchorIndex = trackOccurrences.FindIndex(item => item.Object.Id == occurrence.Id);
-        if (anchorIndex < 0)
+        var segment = BuildAll(analyzedFrames)
+            .FirstOrDefault(candidate => candidate.Occurrences.Any(obj => obj.Id == occurrence.Id));
+        if (segment is null)
             throw new ArgumentException("The occurrence was not found in the provided analyzed frames.", nameof(occurrence));
 
-        var start = anchorIndex;
-        while (start > 0 && trackOccurrences[start - 1].FrameIndex == trackOccurrences[start].FrameIndex - 1)
-            start--;
+        return segment;
+    }
 
-        var end = anchorIndex;
-        while (end < trackOccurrences.Count - 1 && trackOccurrences[end + 1].FrameIndex == trackOccurrences[end].FrameIndex + 1)
-            end++;
+    public static List<ConsecutiveSegment> BuildAll(IReadOnlyList<AnalyzedFrame> analyzedFrames)
+    {
+        ArgumentNullException.ThrowIfNull(analyzedFrames);
 
-        return new ConsecutiveSegment(trackOccurrences[start..(end + 1)].Select(item => item.Object).ToList());
+        var orderedFrames = analyzedFrames.OrderBy(frame => frame.FrameIndex).ToList();
+        var segments = new List<ConsecutiveSegment>();
+
+        var trackIds = orderedFrames
+            .SelectMany(frame => frame.DetectedObjects)
+            .Select(obj => obj.TrackId)
+            .Distinct()
+            .ToList();
+
+        foreach (var trackId in trackIds)
+        {
+            if (trackId is null)
+            {
+                foreach (var obj in orderedFrames
+                    .SelectMany(frame => frame.DetectedObjects)
+                    .Where(obj => obj.TrackId is null))
+                {
+                    segments.Add(new ConsecutiveSegment([obj]));
+                }
+
+                continue;
+            }
+
+            var occurrences = new List<(int FrameIndex, DetectedObject Object)>();
+            foreach (var frame in orderedFrames)
+            {
+                var match = frame.DetectedObjects.FirstOrDefault(obj => obj.TrackId == trackId);
+                if (match is not null)
+                    occurrences.Add((frame.FrameIndex, match));
+            }
+
+            var runStart = 0;
+            for (var index = 1; index <= occurrences.Count; index++)
+            {
+                if (index < occurrences.Count
+                    && occurrences[index].FrameIndex == occurrences[index - 1].FrameIndex + 1)
+                {
+                    continue;
+                }
+
+                segments.Add(new ConsecutiveSegment(
+                    occurrences[runStart..index].Select(item => item.Object).ToList()));
+                runStart = index;
+            }
+        }
+
+        return segments;
     }
 }

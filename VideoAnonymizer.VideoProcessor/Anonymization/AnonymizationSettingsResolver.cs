@@ -1,0 +1,19 @@
+using VideoAnonymizer.Database;
+
+namespace VideoAnonymizer.VideoProcessor.Anonymization;
+
+/// <summary>
+/// Cohesive resolution of effective anonymization settings. Fallback rules live in one
+/// place so the processor, selector and boundary transfers never duplicate them.
+/// </summary>
+public static class AnonymizationSettingsResolver
+{
+    public static (int PreBufferMs, int PostBufferMs) ResolveBuffers(
+        ConsecutiveSegment segment,
+        int globalTimeBufferMs) =>
+        (segment.First.PreBufferMsOverride ?? globalTimeBufferMs,
+            segment.Last.PostBufferMsOverride ?? globalTimeBufferMs);
+
+    public static int ResolveBlurSize(DetectedObject occurrence, int globalBlurSizePercent) =>
+        occurrence.BlurSizePercentOverride ?? globalBlurSizePercent;
+}

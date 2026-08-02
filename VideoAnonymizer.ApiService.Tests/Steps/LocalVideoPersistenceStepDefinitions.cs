@@ -145,6 +145,36 @@ public sealed class LocalVideoPersistenceStepDefinitions
         set => _scenarioContext.Set(value, nameof(ResolvedSegments));
     }
 
+    private List<DetectedObject> NormalizationOccurrences
+    {
+        get => _scenarioContext.Get<List<DetectedObject>>(nameof(NormalizationOccurrences));
+        set => _scenarioContext.Set(value, nameof(NormalizationOccurrences));
+    }
+
+    private DetectedObject OverridingFace
+    {
+        get => _scenarioContext.Get<DetectedObject>(nameof(OverridingFace));
+        set => _scenarioContext.Set(value, nameof(OverridingFace));
+    }
+
+    private DetectedObject PlainFace
+    {
+        get => _scenarioContext.Get<DetectedObject>(nameof(PlainFace));
+        set => _scenarioContext.Set(value, nameof(PlainFace));
+    }
+
+    private int GlobalBlurSize
+    {
+        get => _scenarioContext.Get<int>(nameof(GlobalBlurSize));
+        set => _scenarioContext.Set(value, nameof(GlobalBlurSize));
+    }
+
+    private (int Overriding, int Plain) ResolvedBlurSizes
+    {
+        get => _scenarioContext.Get<(int, int)>(nameof(ResolvedBlurSizes));
+        set => _scenarioContext.Set(value, nameof(ResolvedBlurSizes));
+    }
+
     private string UploadedFileName
     {
         get => _scenarioContext.Get<string>(nameof(UploadedFileName));
@@ -524,6 +554,67 @@ public sealed class LocalVideoPersistenceStepDefinitions
         segment.First.Id.Should().Be(UntrackedOccurrenceId);
         segment.Last.Id.Should().Be(UntrackedOccurrenceId);
         segment.Occurrences.Select(o => o.Id).Should().Equal(UntrackedOccurrenceId);
+    }
+
+    [Given("a segment now spans previously separate runs")]
+    public void GivenASegmentNowSpansPreviouslySeparateRuns()
+    {
+        NormalizationOccurrences =
+        [
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 7, PreBufferMsOverride = 100, PostBufferMsOverride = 200 },
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 7, PreBufferMsOverride = 300, PostBufferMsOverride = 400 },
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 7, PreBufferMsOverride = 500, PostBufferMsOverride = 600 }
+        ];
+    }
+
+    [When("the reviewer normalizes the segment boundaries")]
+    public void WhenTheReviewerNormalizesTheSegmentBoundaries()
+    {
+        SegmentBoundaryNormalizer.Normalize(NormalizationOccurrences);
+    }
+
+    [Then("only the first occurrence stores a pre-buffer override")]
+    public void ThenOnlyTheFirstOccurrenceStoresAPreBufferOverride()
+    {
+        NormalizationOccurrences[0].PreBufferMsOverride.Should().Be(100);
+        NormalizationOccurrences[0].PostBufferMsOverride.Should().BeNull();
+        NormalizationOccurrences.Skip(1).Should().OnlyContain(obj => obj.PreBufferMsOverride == null);
+    }
+
+    [Then("only the last occurrence stores a post-buffer override")]
+    public void ThenOnlyTheLastOccurrenceStoresAPostBufferOverride()
+    {
+        NormalizationOccurrences[^1].PostBufferMsOverride.Should().Be(600);
+        NormalizationOccurrences[^1].PreBufferMsOverride.Should().BeNull();
+        NormalizationOccurrences.Take(NormalizationOccurrences.Count - 1)
+            .Should().OnlyContain(obj => obj.PostBufferMsOverride == null);
+    }
+
+    [Given("a reviewer's video has a global blur size of {int} percent")]
+    public void GivenAGlobalBlurSize(int blurSizePercent)
+    {
+        GlobalBlurSize = blurSizePercent;
+    }
+
+    [Given("one face overrides its blur size while another face has no override")]
+    public void GivenOneFaceOverridesItsBlurSizeWhileAnotherFaceHasNoOverride()
+    {
+        OverridingFace = new DetectedObject { Id = Guid.NewGuid(), BlurSizePercentOverride = 150 };
+        PlainFace = new DetectedObject { Id = Guid.NewGuid(), BlurSizePercentOverride = null };
+    }
+
+    [When("the effective blur sizes are resolved")]
+    public void WhenTheEffectiveBlurSizesAreResolved()
+    {
+        ResolvedBlurSizes = (
+            AnonymizationSettingsResolver.ResolveBlurSize(OverridingFace, GlobalBlurSize),
+            AnonymizationSettingsResolver.ResolveBlurSize(PlainFace, GlobalBlurSize));
+    }
+
+    [Then("the overriding face resolves to {int} percent and the other face resolves to {int} percent")]
+    public void ThenTheResolvedBlurSizes(int overriding, int plain)
+    {
+        ResolvedBlurSizes.Should().Be((overriding, plain));
     }
 
     [When("a bulk edit includes a face from the other video")]

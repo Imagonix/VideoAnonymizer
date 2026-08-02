@@ -35,13 +35,21 @@ Feature: Predicting object positions between analyzed frames
       | trackId | x  |
       | 7       | 10 |
 
-  Scenario: The previous track stays visible briefly when no matching next sample exists
+  Scenario: A track without a next sample stays visible during its own post-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 1       | 10  |
+      | 1.0         | 2       | 100 |
+    When the processor predicts objects at 0.15 seconds with a 0.25 second buffer
+    Then the predicted tracks are 1
+
+  Scenario: A track without a next sample expires after its own post-buffer
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   |
       | 0.0         | 1       | 10  |
       | 1.0         | 2       | 100 |
     When the processor predicts objects at 1.15 seconds with a 0.25 second buffer
-    Then the predicted tracks are 1, 2
+    Then the predicted tracks are 2
 
   Scenario: An upcoming track is used shortly before its first analyzed sample
     Given analyzed detections for prediction
@@ -72,15 +80,13 @@ Feature: Predicting object positions between analyzed frames
       | trackId | x   |
       | 7       | 118 |
 
-  Scenario: A tracked object uses the last analyzed box after the movement buffer has elapsed
+  Scenario: A tracked object is not visible after its post-buffer elapses
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   |
       | 0.0         | 7       | 10  |
       | 1.0         | 7       | 100 |
     When the processor predicts objects at 1.4 seconds with a 0.25 second buffer
-    Then the predicted objects are
-      | trackId | x   |
-      | 7       | 100 |
+    Then no predicted objects are returned
 
   Scenario: A tracked object can move partly outside the frame during extrapolation
     Given analyzed detections for prediction
@@ -106,12 +112,95 @@ Feature: Predicting object positions between analyzed frames
     When the processor predicts objects at 0.85 seconds with a 0.0 second buffer
     Then no predicted objects are returned
 
-  Scenario: Untracked detections keep the latest analyzed box instead of interpolating
+  Scenario: Untracked detections are separate one-object segments
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   |
       | 0.0         |         | 10  |
       | 1.0         |         | 100 |
     When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then no predicted objects are returned
+
+  Scenario: An untracked occurrence uses the inherited global pre-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 1.0         |         | 100 |
+    When the processor predicts objects at 0.85 seconds with a 0.25 second buffer
     Then the predicted objects are
-      | trackId | x  |
-      |         | 10 |
+      | trackId | x   |
+      |         | 100 |
+
+  Scenario: An untracked occurrence uses the inherited global post-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 1.0         |         | 100 |
+    When the processor predicts objects at 1.15 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x   |
+      |         | 100 |
+
+  Scenario: A consecutive segment inherits the global pre-buffer before its first occurrence
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+    When the processor predicts objects at -0.15 seconds with a 0.25 second buffer
+    Then the predicted tracks are 7
+
+  Scenario: A consecutive segment inherits the global post-buffer after its last occurrence
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+    When the processor predicts objects at 1.15 seconds with a 0.25 second buffer
+    Then the predicted tracks are 7
+
+  Scenario: A first-occurrence pre override replaces the global pre-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | preOverrideMs |
+      | 0.0         | 7       | 10  | 100           |
+      | 1.0         | 7       | 100 |               |
+    When the processor predicts objects at -0.05 seconds with a 0.25 second buffer
+    Then the predicted tracks are 7
+
+  Scenario: A segment is not covered before its first-occurrence pre override
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | preOverrideMs |
+      | 0.0         | 7       | 10  | 100           |
+      | 1.0         | 7       | 100 |               |
+    When the processor predicts objects at -0.20 seconds with a 0.25 second buffer
+    Then no predicted objects are returned
+
+  Scenario: A last-occurrence post override replaces the global post-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | postOverrideMs |
+      | 0.0         | 7       | 10  |                |
+      | 1.0         | 7       | 100 | 400            |
+    When the processor predicts objects at 1.3 seconds with a 0.25 second buffer
+    Then the predicted tracks are 7
+
+  Scenario: A segment is not covered after its last-occurrence post override
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | postOverrideMs |
+      | 0.0         | 7       | 10  |                |
+      | 1.0         | 7       | 100 | 400            |
+    When the processor predicts objects at 1.5 seconds with a 0.25 second buffer
+    Then no predicted objects are returned
+
+  Scenario: Interpolation stops at a missing analyzed frame
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex |
+      | 0.0         | 7       | 10  | 0          |
+      | 1.0         | 7       | 100 | 1          |
+      | 3.0         | 7       | 200 | 3          |
+    When the processor predicts objects at 2.0 seconds with a 0.0 second buffer
+    Then no predicted objects are returned
+
+  Scenario: Interpolated boxes copy override metadata and blur shape
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | blurShape | blurSizePercentOverride | preOverrideMs | postOverrideMs |
+      | 0.0         | 7       | 10  | rectangle | 150                     | 100            |                |
+      | 1.0         | 7       | 100 | rectangle | 150                     |                | 400            |
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x  | blurShape | blurSizePercentOverride | postOverrideMs |
+      | 7       | 55 | rectangle | 150                     | 400            |

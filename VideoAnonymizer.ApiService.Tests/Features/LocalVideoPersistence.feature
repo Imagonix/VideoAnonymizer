@@ -59,3 +59,15 @@ Feature: Local video persistence
     And the segment of the second occurrence is unchanged by the missing third frame
     And the fourth occurrence forms a single-occurrence segment after the gap
     And the untracked occurrence forms a single-occurrence segment
+
+  Scenario: Joining runs keeps only the outer boundary overrides
+    Given a segment now spans previously separate runs
+    When the reviewer normalizes the segment boundaries
+    Then only the first occurrence stores a pre-buffer override
+    And only the last occurrence stores a post-buffer override
+
+  Scenario: Effective blur size uses the occurrence override with the global default
+    Given a reviewer's video has a global blur size of 120 percent
+    And one face overrides its blur size while another face has no override
+    When the effective blur sizes are resolved
+    Then the overriding face resolves to 150 percent and the other face resolves to 120 percent

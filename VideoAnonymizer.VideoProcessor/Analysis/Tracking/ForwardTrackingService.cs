@@ -180,7 +180,8 @@ public sealed class ForwardTrackingService(
                                     AnalyzedFrameId = frame.Id,
                                     Confidence = detection.Confidence,
                                     ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
-                                    BlurShape = detection.BlurShape ?? seed.Object.BlurShape,
+                                    BlurShape = seed.Object.BlurShape,
+                                    BlurSizePercentOverride = seed.Object.BlurSizePercentOverride,
                                     Selected = true,
                                     TrackId = trackId,
                                     X = detection.X,
@@ -188,6 +189,24 @@ public sealed class ForwardTrackingService(
                                     Width = detection.Width,
                                     Height = detection.Height
                                 };
+
+                                // Boundary-storage invariant: a consecutive extension of the
+                                // track's last occurrence takes over its PostBufferMsOverride.
+                                // A gap (missing analyzed frame) starts a new segment, leaving
+                                // the new occurrence's boundary overrides null.
+                                var previous = await db.DetectedObjects
+                                    .Include(o => o.AnalyzedFrame)
+                                    .Where(o => o.TrackId == trackId
+                                        && o.AnalyzedFrame.FrameIndex < detection.FrameIndex)
+                                    .OrderByDescending(o => o.AnalyzedFrame.FrameIndex)
+                                    .FirstOrDefaultAsync(cancellationToken);
+
+                                if (previous is not null
+                                    && previous.AnalyzedFrame.FrameIndex == detection.FrameIndex - 1)
+                                {
+                                    entity.PostBufferMsOverride = previous.PostBufferMsOverride;
+                                    previous.PostBufferMsOverride = null;
+                                }
 
                                 db.DetectedObjects.Add(entity);
                                 frame.DetectedObjects.Add(entity);

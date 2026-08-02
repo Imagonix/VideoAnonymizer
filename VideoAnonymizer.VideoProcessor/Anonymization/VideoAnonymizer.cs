@@ -36,12 +36,19 @@ public class VideoAnonymizer(
         if (video is null)
             throw new InvalidOperationException($"Video '{job.VideoId}' not found");
 
-        var selectedObjects = await db.DetectedObjects
+        var analyzedFrames = await db.AnalyzedFrames
             .AsNoTracking()
-            .Where(o => o.Selected && o.AnalyzedFrame.VideoId == video.Id)
-            .Include(o => o.AnalyzedFrame)
-            .OrderBy(o => o.AnalyzedFrame.TimeSeconds)
+            .Where(f => f.VideoId == video.Id)
+            .Include(f => f.DetectedObjects)
+            .OrderBy(f => f.FrameIndex)
             .ToListAsync(stoppingToken);
+        foreach (var frame in analyzedFrames)
+        {
+            foreach (var obj in frame.DetectedObjects)
+            {
+                obj.AnalyzedFrame = frame;
+            }
+        }
         lastReportedProgress = await ReportProgressAsync(
             job.JobId,
             job.VideoId,
@@ -74,7 +81,6 @@ public class VideoAnonymizer(
         capture.Set(VideoCaptureProperties.PosFrames, 0);
 
         var blurSizePercent = video.BlurSizePercent > 0 ? video.BlurSizePercent : 120;
-        var timeBufferSeconds = Math.Max(0, video.TimeBufferMs) / 1000.0;
 
         lastReportedProgress = await ReportProgressAsync(
             job.JobId,
@@ -88,8 +94,6 @@ public class VideoAnonymizer(
         var writer = new VideoWriter(tempPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight));
         try
         {
-            var analyzedFrames = RelevantDetectedObjectSelector.GroupObjectsByAnalyzedFrame(selectedObjects);
-
             using var frameMat = new Mat();
             var currentFrameIndex = 0;
 
@@ -101,15 +105,13 @@ public class VideoAnonymizer(
                 var objectsToBlur = RelevantDetectedObjectSelector.GetObjectsForFrame(
                     analyzedFrames,
                     currentFrameIndex,
-                    frameWidth,
-                    frameHeight,
                     fps,
-                    timeBufferSeconds,
+                    video.TimeBufferMs,
                     job.InterpolateTrackedObjects);
 
                 foreach (var obj in objectsToBlur)
                 {
-                    BlurRegion(frameMat, obj, blurSizePercent);
+                    BlurRegion(frameMat, obj, AnonymizationSettingsResolver.ResolveBlurSize(obj, blurSizePercent));
                 }
 
                 writer.Write(frameMat);

@@ -57,3 +57,17 @@ Feature: Forward-only single-object tracking
     Then the streamed face remains in persistence
     And the seed face keeps its assigned track id
     And the tracking failure reports the retained face
+
+  Scenario: Track forward transfers the post override to a consecutive new last occurrence
+    Given a reviewed video has a trackable seed at the last boundary of its segment
+    And the Python forward tracker returns a box on the consecutive next analyzed frame
+    When the reviewer tracks the seed face forward
+    Then the generated face carries the seed's post override and track-wide settings
+    And the seed face no longer stores the post override
+
+  Scenario: Track forward starts a new segment with null boundary overrides after a gap
+    Given a reviewed video has a trackable seed at the last boundary of its segment
+    And the Python forward tracker returns a box on a frame after a missing analyzed frame
+    When the reviewer tracks the seed face forward
+    Then the generated face keeps null boundary overrides
+    And the seed face keeps its post override
