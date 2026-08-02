@@ -32,6 +32,9 @@ namespace VideoAnonymizer.ApiService.DTO
                 Confidence = entity.Confidence,
                 ClassName = entity.ClassName,
                 BlurShape = entity.BlurShape,
+                BlurSizePercentOverride = entity.BlurSizePercentOverride,
+                PreBufferMsOverride = entity.PreBufferMsOverride,
+                PostBufferMsOverride = entity.PostBufferMsOverride,
                 Selected = entity.Selected,
                 TrackId = entity.TrackId,
                 X = entity.X,
@@ -92,6 +95,9 @@ namespace VideoAnonymizer.ApiService.DTO
                 Confidence = dto.Confidence,
                 ClassName = dto.ClassName,
                 BlurShape = dto.BlurShape,
+                BlurSizePercentOverride = dto.BlurSizePercentOverride,
+                PreBufferMsOverride = dto.PreBufferMsOverride,
+                PostBufferMsOverride = dto.PostBufferMsOverride,
                 Selected = dto.Selected,
                 TrackId = dto.TrackId,
                 X = dto.X,
@@ -160,6 +166,9 @@ namespace VideoAnonymizer.ApiService.DTO
             entity.Confidence = dto.Confidence;
             entity.ClassName = dto.ClassName;
             entity.BlurShape = dto.BlurShape;
+            entity.BlurSizePercentOverride = dto.BlurSizePercentOverride;
+            entity.PreBufferMsOverride = dto.PreBufferMsOverride;
+            entity.PostBufferMsOverride = dto.PostBufferMsOverride;
             entity.Selected = dto.Selected;
             entity.TrackId = dto.TrackId;
             entity.X = dto.X;

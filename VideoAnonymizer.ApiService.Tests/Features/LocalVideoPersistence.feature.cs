@@ -109,7 +109,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/LocalVideoPersistence.feature.ndjson", 10);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/LocalVideoPersistence.feature.ndjson", 12);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -378,6 +378,85 @@ namespace VideoAnonymizer.ApiService.Tests.Features
 #line hidden
 #line 47
     await testRunner.ThenAsync("the saved video, settings, frame and face are still available", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Track-level overrides round-trip and stay nullable")]
+        public async global::System.Threading.Tasks.Task Track_LevelOverridesRound_TripAndStayNullable()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "8";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Track-level overrides round-trip and stay nullable", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 49
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 50
+    await testRunner.GivenAsync("a reviewed video has two detected faces", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 51
+    await testRunner.WhenAsync("the reviewer saves the first face with custom track settings", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 52
+    await testRunner.ThenAsync("the first face keeps its custom track settings when reopening the video", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 53
+    await testRunner.AndAsync("the second face still has no track overrides", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Consecutive segments group adjacent same-track occurrences")]
+        public async global::System.Threading.Tasks.Task ConsecutiveSegmentsGroupAdjacentSame_TrackOccurrences()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "9";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Consecutive segments group adjacent same-track occurrences", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 55
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 56
+    await testRunner.GivenAsync("a reviewed video has a track with occurrences in the first, second, and fourth fr" +
+                        "ames and an untracked occurrence in the fifth frame", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 57
+    await testRunner.WhenAsync("the reviewer resolves the segment of each occurrence", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 58
+    await testRunner.ThenAsync("the segment of the first occurrence spans the second occurrence", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 59
+    await testRunner.AndAsync("the segment of the second occurrence is unchanged by the missing third frame", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 60
+    await testRunner.AndAsync("the fourth occurrence forms a single-occurrence segment after the gap", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 61
+    await testRunner.AndAsync("the untracked occurrence forms a single-occurrence segment", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

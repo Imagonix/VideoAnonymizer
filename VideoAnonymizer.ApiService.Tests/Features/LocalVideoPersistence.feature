@@ -45,3 +45,17 @@ Feature: Local video persistence
     Given a file-backed local database contains a reviewed video
     When the API services are recreated
     Then the saved video, settings, frame and face are still available
+
+  Scenario: Track-level overrides round-trip and stay nullable
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with custom track settings
+    Then the first face keeps its custom track settings when reopening the video
+    And the second face still has no track overrides
+
+  Scenario: Consecutive segments group adjacent same-track occurrences
+    Given a reviewed video has a track with occurrences in the first, second, and fourth frames and an untracked occurrence in the fifth frame
+    When the reviewer resolves the segment of each occurrence
+    Then the segment of the first occurrence spans the second occurrence
+    And the segment of the second occurrence is unchanged by the missing third frame
+    And the fourth occurrence forms a single-occurrence segment after the gap
+    And the untracked occurrence forms a single-occurrence segment
