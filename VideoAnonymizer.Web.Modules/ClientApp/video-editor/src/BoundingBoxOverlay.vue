@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { AnonymizationSettings, DetectedObjectDto, PreviewObject, VideoDimensions } from './types';
 import { colorManager } from './services/ColorManager';
+import { getLabel } from './utils/utils';
 
 const props = defineProps<{
   objects: PreviewObject[];
@@ -108,14 +109,24 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
           class="blur-area-outline"
           :class="{ 'blur-area-outline--rectangle': usesRectangleBlur(obj), 'bbox--selected': isSelected(obj) }"
           :style="getBlurAreaStyle(obj)"
+          :tabindex="0"
+          :role="'button'"
+          :aria-label="`Select ${getLabel(obj.detectedObject)} box`"
           @click.stop="emit('select', obj.detectedObject)"
+          @keydown.enter.prevent="emit('select', obj.detectedObject)"
+          @keydown.space.prevent="emit('select', obj.detectedObject)"
         />
         <div
           data-testid="bounding-box"
           class="bbox"
           :class="{ 'bbox--selected': isSelected(obj) }"
           :style="getBoxStyle(obj)"
+          :tabindex="0"
+          :role="'button'"
+          :aria-label="`Select ${getLabel(obj.detectedObject)} box`"
           @click.stop="emit('select', obj.detectedObject)"
+          @keydown.enter.prevent="emit('select', obj.detectedObject)"
+          @keydown.space.prevent="emit('select', obj.detectedObject)"
         />
       </div>
     </template>
@@ -149,6 +160,12 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
 .bbox--selected {
   border-style: solid;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mud-palette-primary) 40%, transparent);
+}
+
+.blur-area-outline:focus-visible,
+.bbox:focus-visible {
+  outline: 2px solid var(--mud-palette-primary);
+  outline-offset: 2px;
 }
 
 .blur-area-outline {

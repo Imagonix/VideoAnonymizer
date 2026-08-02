@@ -269,7 +269,7 @@ const steps: StepDefinition[] = [
             const vm = world.wrapper!.vm as any;
             expect(vm.selectedTrackSettings.pre).toBe(300);
             expect(vm.selectedTrackSettings.preIsCustom).toBe(false);
-            expect(world.wrapper!.find('.track-settings-badge').text()).toBe('Global');
+            expect(world.wrapper!.find('.details-badge').text()).toBe('Global');
         },
     },
     {

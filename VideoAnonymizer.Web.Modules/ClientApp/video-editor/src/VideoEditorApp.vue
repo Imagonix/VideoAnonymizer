@@ -10,19 +10,19 @@ import { useKeyboardUndoRedo } from './composables/useKeyboardUndoRedo';
 import { useTimelineObjects } from './composables/useTimelineObjects';
 import { useBlurPreviewObjects } from './composables/useBlurPreviewObjects';
 import { useDetectedObjectActions } from './composables/useDetectedObjectActions';
-import { useConsecutiveTrackSegment } from './composables/useConsecutiveTrackSegment';
+import { useConsecutiveTrackSegment, getTrackOccurrences } from './composables/useConsecutiveTrackSegment';
 import { useTrackSettings } from './composables/useTrackSettings';
 import { getTimelineKey, getObjTimelineKey } from './utils/keys';
 import { getLabel } from './utils/utils';
+import { computeVideoFrameSize, centeredRect, computeInspectorPlacement } from './utils/videoLayout';
 import VideoPlayer from './VideoPlayer.vue';
-import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
 import EditorControls from './EditorControls.vue';
 import DetailedView from './DetailedView.vue';
 import TimelineRowLabel from './TimelineRowLabel.vue';
-import TrackSettingsPanel from './TrackSettingsPanel.vue';
+import ObjectDetailsPanel from './ObjectDetailsPanel.vue';
 
 const props = defineProps<{ state: VideoEditorProps }>();
 
@@ -39,70 +39,61 @@ const videoPlayerRef = ref<{
 
 const videoDimensions = computed(() => videoPlayerRef.value?.videoDimensions ?? null);
 
-const topLayoutRef = ref<HTMLElement | null>(null);
-const rightPanelRef = ref<HTMLElement | null>(null);
-const stageWidth = ref(0);
-const stageHeight = ref(0);
+const workspaceRef = ref<HTMLElement | null>(null);
+const workspaceSize = ref({ width: 0, height: 0 });
+const videoFrameSize = ref({ width: 0, height: 0 });
 const videoNaturalWidth = ref(640);
 const videoNaturalHeight = ref(480);
 
-const stageStyle = computed(() => {
-    const w = stageWidth.value;
-    const h = stageHeight.value;
-    return w > 0 && h > 0 ? { width: w + 'px', height: h + 'px' } : undefined;
+const videoRect = computed(() => centeredRect(workspaceSize.value.width, workspaceSize.value.height, videoFrameSize.value));
+
+const videoFrameStyle = computed(() => {
+    const { width, height } = videoFrameSize.value;
+    return width > 0 && height > 0 ? { width: width + 'px', height: height + 'px' } : undefined;
 });
 
 watch(videoDimensions, (dims) => {
     if (dims && dims.videoWidth > 0 && dims.videoHeight > 0) {
         videoNaturalWidth.value = dims.videoWidth;
         videoNaturalHeight.value = dims.videoHeight;
-        scheduleStageSizeUpdate();
+        scheduleWorkspaceSizeUpdate();
     }
 });
 
 let resizeObserver: ResizeObserver | null = null;
 
-function scheduleStageSizeUpdate() {
-    requestAnimationFrame(() => requestAnimationFrame(updateStageSize));
+function scheduleWorkspaceSizeUpdate() {
+    requestAnimationFrame(() => requestAnimationFrame(updateWorkspaceSize));
 }
 
-function updateStageSize() {
-    const top = topLayoutRef.value;
-    const right = rightPanelRef.value;
-    if (!top || !right) return;
+function updateWorkspaceSize() {
+    const el = workspaceRef.value;
+    if (!el) return;
 
-    const topRect = top.getBoundingClientRect();
-    const rightRect = right.getBoundingClientRect();
+    const width = el.clientWidth;
+    const height = el.clientHeight;
+    if (width <= 0 || height <= 0) return;
 
-    const gap = 16;
-    const paddingY = 32;
-
-    const maxWidth = rightRect.left - topRect.left - gap;
-    const maxHeight = topRect.height - paddingY;
-
-    if (maxWidth <= 0 || maxHeight <= 0) return;
-
-    const aspect = videoNaturalWidth.value / videoNaturalHeight.value;
-    let w = maxWidth;
-    let h = w / aspect;
-    if (h > maxHeight) {
-        h = maxHeight;
-        w = h * aspect;
-    }
-
-    stageWidth.value = Math.round(w);
-    stageHeight.value = Math.round(h);
+    workspaceSize.value = { width, height };
+    videoFrameSize.value = computeVideoFrameSize({
+        containerWidth: width,
+        containerHeight: height,
+        videoWidth: videoNaturalWidth.value,
+        videoHeight: videoNaturalHeight.value,
+        margin: 16
+    });
 }
 
 onMounted(() => {
-    scheduleStageSizeUpdate();
-    resizeObserver = new ResizeObserver(updateStageSize);
-    if (topLayoutRef.value) resizeObserver.observe(topLayoutRef.value);
-    if (rightPanelRef.value) resizeObserver.observe(rightPanelRef.value);
+    scheduleWorkspaceSizeUpdate();
+    resizeObserver = new ResizeObserver(updateWorkspaceSize);
+    if (workspaceRef.value) resizeObserver.observe(workspaceRef.value);
+    window.addEventListener('keydown', onKeyDown);
 });
 
 onUnmounted(() => {
     resizeObserver?.disconnect();
+    window.removeEventListener('keydown', onKeyDown);
 });
 const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
@@ -120,13 +111,12 @@ const trackingTrackIds = computed(() => {
     return trackIds;
 });
 const hoveredTimelineKey = ref<string | null>(null);
-const hoveredObjectKey = ref<string | null>(null);
 
 const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isTrack, isOverlayOpen } = useEditorModes();
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
-const { currentFrame, timelineObjects, timelineObjectCounts, orderedCurrentFrameObjects } = useTimelineObjects(frames, currentTime);
+const { currentFrame, timelineObjects, timelineObjectCounts } = useTimelineObjects(frames, currentTime);
 const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isMove);
 const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onBoxUpdated } = useDetectedObjectActions(
     props.state,
@@ -147,15 +137,80 @@ const {
     resetSegmentPost
 } = useTrackSettings(props.state, frames, anonymizationSettings);
 
-const selectedObject = ref<DetectedObjectDto | null>(null);
-const selectedObjectKey = computed(() => selectedObject.value ? getObjTimelineKey(selectedObject.value) : null);
+const allObjects = computed(() => frames.value.flatMap(frame => frame.detectedObjects));
+
+function frameTimeFor(obj: DetectedObjectDto): number {
+    return frames.value.find(frame => frame.id === obj.analyzedFrameId)?.timeSeconds ?? 0;
+}
+
+const selectedKey = ref<string | null>(null);
 
 function selectObject(obj: DetectedObjectDto) {
-    selectedObject.value = obj;
+    selectedKey.value = getObjTimelineKey(obj);
+}
+
+function clearSelection() {
+    selectedKey.value = null;
+}
+
+const selectedOccurrence = computed<DetectedObjectDto | null>(() => {
+    const key = selectedKey.value;
+    if (!key) return null;
+    if (key.startsWith('obj-')) {
+        return allObjects.value.find(obj => obj.id === key.slice(4)) ?? null;
+    }
+    const trackId = Number(key.slice('track-'.length));
+    const occurrences = getTrackOccurrences(frames.value, trackId);
+    if (occurrences.length === 0) return null;
+    let nearest = occurrences[0];
+    let nearestDistance = Math.abs(frameTimeFor(nearest) - currentTime.value);
+    for (const obj of occurrences.slice(1)) {
+        const distance = Math.abs(frameTimeFor(obj) - currentTime.value);
+        if (distance < nearestDistance) {
+            nearest = obj;
+            nearestDistance = distance;
+        }
+    }
+    return nearest;
+});
+
+const selectedTrackOccurrences = computed<DetectedObjectDto[]>(() => {
+    const key = selectedKey.value;
+    if (!key) return [];
+    if (key.startsWith('obj-')) {
+        const id = key.slice(4);
+        return allObjects.value.filter(obj => obj.id === id);
+    }
+    const trackId = Number(key.slice('track-'.length));
+    return getTrackOccurrences(frames.value, trackId);
+});
+
+const selectedOccurrenceIndex = computed(() => {
+    const occurrence = selectedOccurrence.value;
+    if (!occurrence) return -1;
+    return selectedTrackOccurrences.value.findIndex(obj => obj.id === occurrence.id);
+});
+
+const canGoPrevious = computed(() => selectedOccurrenceIndex.value > 0);
+const canGoNext = computed(() =>
+    selectedOccurrenceIndex.value >= 0
+    && selectedOccurrenceIndex.value < selectedTrackOccurrences.value.length - 1
+);
+
+function goToPreviousOccurrence() {
+    const index = selectedOccurrenceIndex.value;
+    if (index <= 0) return;
+    seekTo(frameTimeFor(selectedTrackOccurrences.value[index - 1]));
+}
+
+function goToNextOccurrence() {
+    const index = selectedOccurrenceIndex.value;
+    if (index < 0 || index >= selectedTrackOccurrences.value.length - 1) return;
+    seekTo(frameTimeFor(selectedTrackOccurrences.value[index + 1]));
 }
 
 const selectedTrackSettings = computed(() => {
-    const obj = selectedObject.value;
+    const obj = selectedOccurrence.value;
     if (!obj) return null;
     const segment = findSegmentFor(obj);
     if (!segment) return null;
@@ -178,13 +233,47 @@ const selectedTrackSettings = computed(() => {
     };
 });
 
+const inspectorPlacement = computed(() => {
+    const obj = selectedOccurrence.value;
+    if (!obj) return null;
+    const { width: stageWidth, height: stageHeight } = workspaceSize.value;
+    if (stageWidth <= 0 || stageHeight <= 0) {
+        return { top: 8, left: 8, width: 240 };
+    }
+    return computeInspectorPlacement({
+        stageWidth,
+        stageHeight,
+        videoRect: videoRect.value,
+        box: obj,
+        videoWidth: videoNaturalWidth.value,
+        videoHeight: videoNaturalHeight.value
+    });
+});
+
+const inspectorStyle = computed(() => {
+    const placement = inspectorPlacement.value;
+    return placement ? { top: placement.top + 'px', left: placement.left + 'px', width: placement.width + 'px' } : null;
+});
+
 function getSelectedSegment() {
-    const obj = selectedObject.value;
+    const obj = selectedOccurrence.value;
     return obj ? findSegmentFor(obj) : null;
 }
 
+function handleEmptySpaceClick() {
+    if (activeMode.value === 'select') {
+        clearSelection();
+    }
+}
+
+function onKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape' && activeMode.value === 'select') {
+        clearSelection();
+    }
+}
+
 function handleToggleInclude(checked: boolean) {
-    const obj = selectedObject.value;
+    const obj = selectedOccurrence.value;
     if (!obj) return;
     if (obj.trackId != null) {
         const timelineObject = timelineObjects.value.find(o => getTimelineKey(o) === getObjTimelineKey(obj));
@@ -194,7 +283,7 @@ function handleToggleInclude(checked: boolean) {
 }
 
 function handleUpdateShape(shape: string) {
-    const obj = selectedObject.value;
+    const obj = selectedOccurrence.value;
     if (!obj) return;
     if (obj.trackId != null) { applyTrackBlurShape(obj.trackId, shape); return; }
     const before = [JSON.parse(JSON.stringify(obj))];
@@ -203,7 +292,7 @@ function handleUpdateShape(shape: string) {
 }
 
 function handleUpdateBlurSize(percent: number) {
-    const obj = selectedObject.value;
+    const obj = selectedOccurrence.value;
     if (!obj) return;
     if (obj.trackId != null) { applyTrackBlurSize(obj.trackId, percent); return; }
     const before = [JSON.parse(JSON.stringify(obj))];
@@ -213,7 +302,7 @@ function handleUpdateBlurSize(percent: number) {
 }
 
 function handleResetBlurSize() {
-    const obj = selectedObject.value;
+    const obj = selectedOccurrence.value;
     if (!obj) return;
     if (obj.trackId != null) { resetTrackBlurSize(obj.trackId); return; }
     const before = [JSON.parse(JSON.stringify(obj))];
@@ -239,6 +328,14 @@ function handleResetPre() {
 function handleResetPost() {
     const segment = getSelectedSegment();
     if (segment) resetSegmentPost(segment);
+}
+
+function handleAdjustDetection() {
+    // Placeholder: Command 6 introduces the inline adjust mode.
+}
+
+function handleAdvancedMenu() {
+    // Placeholder: advanced track actions live here in Command 6.
 }
 
 function trackForward(obj: DetectedObjectDto) {
@@ -282,8 +379,14 @@ function applyChanges(changes: DetectedObjectChangeSet) {
             else frame.detectedObjects.push(obj);
         }
     }
-    if (selectedObject.value && objectIdsToRemove.has(selectedObject.value.id)) {
-        selectedObject.value = null;
+    if (selectedKey.value) {
+        if (selectedKey.value.startsWith('obj-')) {
+            const id = selectedKey.value.slice(4);
+            if (objectIdsToRemove.has(id)) selectedKey.value = null;
+        } else {
+            const trackId = Number(selectedKey.value.slice('track-'.length));
+            if (getTrackOccurrences(props.state.frames, trackId).length === 0) selectedKey.value = null;
+        }
     }
 }
 
@@ -367,8 +470,8 @@ function setVideoVolume(volume: number) {
 
 <template>
     <div class="video-editor" data-testid="video-editor">
-        <div ref="topLayoutRef" class="top-layout">
-            <div class="video-stage" :style="stageStyle">
+        <div ref="workspaceRef" class="workspace-main" @click="handleEmptySpaceClick">
+            <div class="video-frame" :style="videoFrameStyle">
                 <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded"
                     @play-state-change="onVideoPlayStateChange" @volume-change="onVideoVolumeChange" />
@@ -376,30 +479,34 @@ function setVideoVolume(volume: number) {
                     :objects="visibleBlurPreviewObjects"
                     :anonymization-settings="state.anonymizationSettings"
                     :video-dimensions="videoDimensions"
-                    :highlighted-row-key="isMerge ? hoveredTimelineKey : isSplit ? (hoveredTimelineKey ?? splitSourceKey) : hoveredObjectKey"
+                    :highlighted-row-key="hoveredTimelineKey"
                     :split-source-key="isSplit ? splitSourceKey : null"
                     :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
-                    :selected-key="selectedObjectKey"
+                    :selected-key="selectedKey"
                     @select="selectObject" />
             </div>
 
-            <div ref="rightPanelRef" class="right-panel">
-                <TrackSettingsPanel
-                  v-if="selectedTrackSettings"
-                  v-bind="selectedTrackSettings"
-                  @toggle-include="handleToggleInclude"
-                  @update-shape="handleUpdateShape"
-                  @update-blur-size="handleUpdateBlurSize"
-                  @reset-blur-size="handleResetBlurSize"
-                  @update-pre="handleUpdatePre"
-                  @update-post="handleUpdatePost"
-                  @reset-pre="handleResetPre"
-                  @reset-post="handleResetPost"
-                />
-                <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects"
-                  @toggle="toggleObject"
-                  @hover-row="hoveredObjectKey = $event"
-                  @delete-object="deleteObject" />
+            <ObjectDetailsPanel
+              v-if="inspectorStyle && selectedTrackSettings"
+              :style="inspectorStyle"
+              v-bind="selectedTrackSettings"
+              :can-go-previous="canGoPrevious"
+              :can-go-next="canGoNext"
+              @toggle-include="handleToggleInclude"
+              @update-shape="handleUpdateShape"
+              @update-blur-size="handleUpdateBlurSize"
+              @reset-blur-size="handleResetBlurSize"
+              @update-pre="handleUpdatePre"
+              @update-post="handleUpdatePost"
+              @reset-pre="handleResetPre"
+              @reset-post="handleResetPost"
+              @previous-occurrence="goToPreviousOccurrence"
+              @next-occurrence="goToNextOccurrence"
+              @adjust-detection="handleAdjustDetection"
+              @open-advanced-menu="handleAdvancedMenu"
+            />
+
+            <div class="editor-tools" @click.stop>
                 <EditorControls
                   :move-mode="isMove"
                   :resize-mode="isResize"
@@ -488,42 +595,38 @@ function setVideoVolume(volume: number) {
     gap: 0;
 }
 
-.top-layout {
-    display: grid;
-    grid-template-columns: max-content auto;
-    gap: 16px;
-    align-items: start;
-    flex: 1 1 50%;
-    max-height: 50%;
+.workspace-main {
+    flex: 1 1 auto;
     min-height: 0;
-    overflow: hidden;
-    padding: 16px;
-}
-
-.video-stage {
     position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    line-height: 0;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.right-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: flex-start;
+.video-frame {
+    position: relative;
+    line-height: 0;
+    background: #000;
+}
+
+.editor-tools {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 25;
 }
 
 .timeline-wrapper {
+    flex-shrink: 0;
+    height: 240px;
     display: grid;
     grid-template-columns: 170px 1fr;
-    flex: 1 1 50%;
-    max-height: 50%;
     min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
+    border-top: 1px solid var(--mud-palette-lines-default);
 }
 
 .timeline-labels {
