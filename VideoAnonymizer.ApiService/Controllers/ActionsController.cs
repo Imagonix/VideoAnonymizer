@@ -19,16 +19,7 @@ public sealed class ActionsController(EditorActionDataService actionDataService)
             return Ok(new ApiResponse<EditorActionDto>
             {
                 IsSuccess = true,
-                Payload = new EditorActionDto
-                {
-                    Id = action.Id,
-                    VideoId = action.VideoId,
-                    ActionType = action.ActionType,
-                    SequenceNumber = action.SequenceNumber,
-                    CreatedAt = action.CreatedAt,
-                    Undone = action.Undone,
-                    Data = action.Data
-                }
+                Payload = action
             });
         }
         catch (NotFoundException)
@@ -46,16 +37,7 @@ public sealed class ActionsController(EditorActionDataService actionDataService)
             return Ok(new ApiResponse<List<EditorActionDto>>
             {
                 IsSuccess = true,
-                Payload = actions.Select(a => new EditorActionDto
-                {
-                    Id = a.Id,
-                    VideoId = a.VideoId,
-                    ActionType = a.ActionType,
-                    SequenceNumber = a.SequenceNumber,
-                    CreatedAt = a.CreatedAt,
-                    Undone = a.Undone,
-                    Data = a.Data
-                }).ToList()
+                Payload = actions
             });
         }
         catch (NotFoundException)

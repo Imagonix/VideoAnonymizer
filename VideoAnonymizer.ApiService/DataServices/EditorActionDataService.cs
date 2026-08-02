@@ -1,11 +1,13 @@
 using Microsoft.EntityFrameworkCore;
+using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.DataServices;
 
 public sealed class EditorActionDataService(IDbContextFactory<VideoAnonymizerDbContext> dbFactory)
 {
-    public async Task<EditorAction> AddActionAsync(Guid videoId, string actionType, string data)
+    public async Task<EditorActionDto> AddActionAsync(Guid videoId, string actionType, string data)
     {
         using var db = await dbFactory.CreateDbContextAsync();
 
@@ -25,16 +27,19 @@ public sealed class EditorActionDataService(IDbContextFactory<VideoAnonymizerDbC
 
         db.EditorActions.Add(action);
         await db.SaveChangesAsync();
-        return action;
+        return action.ToDto();
     }
 
-    public async Task<List<EditorAction>> GetActionsAsync(Guid videoId)
+    public async Task<List<EditorActionDto>> GetActionsAsync(Guid videoId)
     {
         using var db = await dbFactory.CreateDbContextAsync();
-        return await db.EditorActions
+
+        var actions = await db.EditorActions
             .Where(a => a.VideoId == videoId)
             .OrderBy(a => a.SequenceNumber)
             .ToListAsync();
+
+        return actions.ToDtos();
     }
 
     public async Task UpdateActionDataAsync(Guid videoId, Guid actionId, string data)

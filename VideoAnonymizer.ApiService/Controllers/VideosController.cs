@@ -127,12 +127,12 @@ public sealed class VideosController(
 
         try
         {
-            var video = await videoDataService.UpdateFramesAndObjects(videoId, request);
+            await videoDataService.UpdateFramesAndObjects(videoId, request);
             var interpolateTrackedObjects = configuration.GetValue("Anonymization:InterpolateTrackedObjects", true);
 
             await messagePublisher.PublishAsync(
                 RabbitMQConstants.RoutingKeys.Anonymize,
-                new AnonymizeVideo(jobId, video.Id, DateTime.Now, interpolateTrackedObjects),
+                new AnonymizeVideo(jobId, videoId, DateTime.Now, interpolateTrackedObjects),
                 cancellationToken);
 
             return Ok(new ApiResponse<Guid>
