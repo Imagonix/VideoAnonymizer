@@ -295,3 +295,10 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - **Blazor → Vue state propagation**: Blazor pushes state to Vue via dedicated JS bridge functions (`updateVideoEditorSettings`, `applyDetectedObjectChanges`). These are defined in `videoEditorHost.js` and exposed as `AppHandle` methods in `main.ts`, updating the reactive `state` proxy.
 - HTTP execution and queueing logic lives in `ReviewExportTab` and its `ReviewExport/` helper classes. `VideoEditor` only bridges Vue events and JS interop calls.
 - The upload tab shows a list of existing videos loaded from `GET /videos`; clicking a row opens the video directly (no separate button)
+
+## API data boundary
+
+- Controllers must not receive, return, or otherwise depend on EF Core entity types from `VideoAnonymizer.Database`.
+- Data services own EF entity access and map query/create results to DTOs before returning them.
+- Prefer the existing `Mapper` extensions for entity-to-DTO conversion.
+- Data-service parameters may use DTOs, scalar values, or appropriate non-entity types such as `IFormFile` when required by the operation.
