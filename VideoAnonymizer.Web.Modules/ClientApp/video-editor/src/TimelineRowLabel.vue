@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { TimelineObject, EditorMode } from './types';
+import type { TimelineObject, EditorMode, DetectedObjectDto } from './types';
 import { colorManager } from './services/ColorManager'
 import { getLabel } from './utils/utils'
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
@@ -17,6 +17,7 @@ const emit = defineEmits<{
     (e: 'set-track-id', timelineObject: TimelineObject, trackId: number): void;
     (e: 'merge-toggle', key: string): void;
     (e: 'hover-row', key: string | null): void;
+    (e: 'select', obj: DetectedObjectDto): void;
 }>();
 
 const isEditing = ref(false);
@@ -97,6 +98,8 @@ function cancelEdit() {
 function onRowClick() {
     if (props.mode === 'merge') {
         emit('merge-toggle', timelineKey.value);
+    } else {
+        emit('select', sampleDetectedObject.value);
     }
 }
 </script>
@@ -113,6 +116,7 @@ function onRowClick() {
           :checked="checked"
           :indeterminate="indeterminate"
           :disabled="mode === 'merge'"
+          @click.stop
           @change="(value: boolean) => emit('toggle', timelineObject, value)"
         >
           <span v-if="!isEditing" class="label-text" @dblclick.stop="startEdit">

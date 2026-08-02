@@ -11,7 +11,7 @@ const emit = defineEmits<{
     (e: 'confirm', className: string, trackId: 'new' | number): void;
 }>();
 
-const labelClass = ref('face');
+const labelClass = ref('other');
 const labelTrackId = ref<'new' | number>('new');
 
 function confirm() {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
-import type { TimelineObject, VideoDimensions } from './types';
+import type { TimelineObject, VideoDimensions, DetectedObjectDto } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
 import { useMerge } from './composables/useMerge';
@@ -10,6 +10,10 @@ import { useKeyboardUndoRedo } from './composables/useKeyboardUndoRedo';
 import { useTimelineObjects } from './composables/useTimelineObjects';
 import { useBlurPreviewObjects } from './composables/useBlurPreviewObjects';
 import { useDetectedObjectActions } from './composables/useDetectedObjectActions';
+import { useConsecutiveTrackSegment } from './composables/useConsecutiveTrackSegment';
+import { useTrackSettings } from './composables/useTrackSettings';
+import { getTimelineKey, getObjTimelineKey } from './utils/keys';
+import { getLabel } from './utils/utils';
 import VideoPlayer from './VideoPlayer.vue';
 import ObjectList from './ObjectList.vue';
 import Timeline from './Timeline.vue';
@@ -18,6 +22,7 @@ import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
 import EditorControls from './EditorControls.vue';
 import DetailedView from './DetailedView.vue';
 import TimelineRowLabel from './TimelineRowLabel.vue';
+import TrackSettingsPanel from './TrackSettingsPanel.vue';
 
 const props = defineProps<{ state: VideoEditorProps }>();
 
@@ -129,6 +134,112 @@ const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onB
     currentFrame,
     activeMode
 );
+const { findSegmentFor } = useConsecutiveTrackSegment(frames);
+const {
+    getTrackSettings,
+    getSegmentBufferValues,
+    applyTrackBlurShape,
+    applyTrackBlurSize,
+    resetTrackBlurSize,
+    applySegmentPre,
+    applySegmentPost,
+    resetSegmentPre,
+    resetSegmentPost
+} = useTrackSettings(props.state, frames, anonymizationSettings);
+
+const selectedObject = ref<DetectedObjectDto | null>(null);
+const selectedObjectKey = computed(() => selectedObject.value ? getObjTimelineKey(selectedObject.value) : null);
+
+function selectObject(obj: DetectedObjectDto) {
+    selectedObject.value = obj;
+}
+
+const selectedTrackSettings = computed(() => {
+    const obj = selectedObject.value;
+    if (!obj) return null;
+    const segment = findSegmentFor(obj);
+    if (!segment) return null;
+    const buffers = getSegmentBufferValues(segment);
+    const trackId = obj.trackId;
+    const settings = trackId != null
+        ? getTrackSettings(trackId)
+        : { shape: obj.blurShape ?? null, blurSizePercentOverride: obj.blurSizePercentOverride ?? null };
+    return {
+        trackId,
+        label: getLabel(obj),
+        included: obj.selected,
+        globalBlurSizePercent: props.state.anonymizationSettings.blurSizePercent,
+        shape: settings.shape,
+        blurSizePercentOverride: settings.blurSizePercentOverride,
+        pre: buffers.pre,
+        preIsCustom: buffers.preIsCustom,
+        post: buffers.post,
+        postIsCustom: buffers.postIsCustom
+    };
+});
+
+function getSelectedSegment() {
+    const obj = selectedObject.value;
+    return obj ? findSegmentFor(obj) : null;
+}
+
+function handleToggleInclude(checked: boolean) {
+    const obj = selectedObject.value;
+    if (!obj) return;
+    if (obj.trackId != null) {
+        const timelineObject = timelineObjects.value.find(o => getTimelineKey(o) === getObjTimelineKey(obj));
+        if (timelineObject) { toggleTrackedObject(timelineObject, checked); return; }
+    }
+    toggleObject(obj.id, checked);
+}
+
+function handleUpdateShape(shape: string) {
+    const obj = selectedObject.value;
+    if (!obj) return;
+    if (obj.trackId != null) { applyTrackBlurShape(obj.trackId, shape); return; }
+    const before = [JSON.parse(JSON.stringify(obj))];
+    obj.blurShape = shape;
+    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, 'track-settings', before);
+}
+
+function handleUpdateBlurSize(percent: number) {
+    const obj = selectedObject.value;
+    if (!obj) return;
+    if (obj.trackId != null) { applyTrackBlurSize(obj.trackId, percent); return; }
+    const before = [JSON.parse(JSON.stringify(obj))];
+    const normalized = percent === props.state.anonymizationSettings.blurSizePercent ? null : percent;
+    obj.blurSizePercentOverride = normalized;
+    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, 'track-settings', before);
+}
+
+function handleResetBlurSize() {
+    const obj = selectedObject.value;
+    if (!obj) return;
+    if (obj.trackId != null) { resetTrackBlurSize(obj.trackId); return; }
+    const before = [JSON.parse(JSON.stringify(obj))];
+    obj.blurSizePercentOverride = null;
+    props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, 'track-settings', before);
+}
+
+function handleUpdatePre(valueMs: number) {
+    const segment = getSelectedSegment();
+    if (segment) applySegmentPre(segment, valueMs);
+}
+
+function handleUpdatePost(valueMs: number) {
+    const segment = getSelectedSegment();
+    if (segment) applySegmentPost(segment, valueMs);
+}
+
+function handleResetPre() {
+    const segment = getSelectedSegment();
+    if (segment) resetSegmentPre(segment);
+}
+
+function handleResetPost() {
+    const segment = getSelectedSegment();
+    if (segment) resetSegmentPost(segment);
+}
 
 function trackForward(obj: DetectedObjectDto) {
     trackingObjectIds.value.add(obj.id);
@@ -170,6 +281,9 @@ function applyChanges(changes: DetectedObjectChangeSet) {
             if (existing) Object.assign(existing, obj);
             else frame.detectedObjects.push(obj);
         }
+    }
+    if (selectedObject.value && objectIdsToRemove.has(selectedObject.value.id)) {
+        selectedObject.value = null;
     }
 }
 
@@ -264,10 +378,24 @@ function setVideoVolume(volume: number) {
                     :video-dimensions="videoDimensions"
                     :highlighted-row-key="isMerge ? hoveredTimelineKey : isSplit ? (hoveredTimelineKey ?? splitSourceKey) : hoveredObjectKey"
                     :split-source-key="isSplit ? splitSourceKey : null"
-                    :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()" />
+                    :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
+                    :selected-key="selectedObjectKey"
+                    @select="selectObject" />
             </div>
 
             <div ref="rightPanelRef" class="right-panel">
+                <TrackSettingsPanel
+                  v-if="selectedTrackSettings"
+                  v-bind="selectedTrackSettings"
+                  @toggle-include="handleToggleInclude"
+                  @update-shape="handleUpdateShape"
+                  @update-blur-size="handleUpdateBlurSize"
+                  @reset-blur-size="handleResetBlurSize"
+                  @update-pre="handleUpdatePre"
+                  @update-post="handleUpdatePost"
+                  @reset-pre="handleResetPre"
+                  @reset-post="handleResetPost"
+                />
                 <ObjectList data-testid="object-list" :objects="orderedCurrentFrameObjects"
                   @toggle="toggleObject"
                   @hover-row="hoveredObjectKey = $event"
@@ -309,6 +437,7 @@ function setVideoVolume(volume: number) {
                   @toggle="toggleTrackedObject"
                   @set-track-id="setTrackId"
                   @merge-toggle="mergeToggle"
+                  @select="selectObject"
                   @hover-row="hoveredTimelineKey = $event"
                 />
             </div>
@@ -382,8 +511,8 @@ function setVideoVolume(volume: number) {
 
 .right-panel {
     display: flex;
-    flex-direction: row;
-    gap: 0;
+    flex-direction: column;
+    gap: 12px;
     align-items: flex-start;
 }
 

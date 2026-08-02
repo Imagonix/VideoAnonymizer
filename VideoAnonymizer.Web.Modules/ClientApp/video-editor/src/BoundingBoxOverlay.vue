@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AnonymizationSettings, PreviewObject, VideoDimensions } from './types';
+import type { AnonymizationSettings, DetectedObjectDto, PreviewObject, VideoDimensions } from './types';
 import { colorManager } from './services/ColorManager';
 
 const props = defineProps<{
@@ -9,6 +9,11 @@ const props = defineProps<{
   highlightedRowKey: string | null;
   splitSourceKey: string | null;
   alwaysShowKeys: Set<string>;
+  selectedKey: string | null;
+}>();
+
+const emit = defineEmits<{
+  (e: 'select', obj: DetectedObjectDto): void;
 }>();
 
 function getObjTimelineKey(obj: PreviewObject): string {
@@ -19,11 +24,16 @@ function getObjTimelineKey(obj: PreviewObject): string {
 function shouldDim(key: string): boolean {
   const hl = props.highlightedRowKey;
   const alwaysShow = props.alwaysShowKeys;
+  if (props.selectedKey === key) return false;
   if (hl == null && alwaysShow.size === 0) return false;
   if (alwaysShow.has(key)) return false;
   if (key === hl) return false;
   if (key === props.splitSourceKey) return false;
   return true;
+}
+
+function isSelected(obj: PreviewObject): boolean {
+  return props.selectedKey === getObjTimelineKey(obj);
 }
 
 function getBlurAreaStyle(obj: PreviewObject) {
@@ -96,13 +106,16 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
         <div
           data-testid="blur-area-outline"
           class="blur-area-outline"
-          :class="{ 'blur-area-outline--rectangle': usesRectangleBlur(obj) }"
+          :class="{ 'blur-area-outline--rectangle': usesRectangleBlur(obj), 'bbox--selected': isSelected(obj) }"
           :style="getBlurAreaStyle(obj)"
+          @click.stop="emit('select', obj.detectedObject)"
         />
         <div
           data-testid="bounding-box"
           class="bbox"
+          :class="{ 'bbox--selected': isSelected(obj) }"
           :style="getBoxStyle(obj)"
+          @click.stop="emit('select', obj.detectedObject)"
         />
       </div>
     </template>
@@ -129,6 +142,13 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
   position: absolute;
   border: 2px dashed;
   box-sizing: border-box;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.bbox--selected {
+  border-style: solid;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mud-palette-primary) 40%, transparent);
 }
 
 .blur-area-outline {
@@ -136,6 +156,8 @@ function toOverlayRect(x: number, y: number, width: number, height: number) {
   border: 2px solid;
   border-radius: 50%;
   box-sizing: border-box;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .blur-area-outline--rectangle {
