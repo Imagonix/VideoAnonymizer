@@ -3,6 +3,9 @@ export type DetectedObjectDto = {
   confidence: number;
   className: string | null;
   blurShape?: string | null;
+  blurSizePercentOverride?: number | null;
+  preBufferMsOverride?: number | null;
+  postBufferMsOverride?: number | null;
   selected: boolean;
   trackId: number | null;
   x: number;

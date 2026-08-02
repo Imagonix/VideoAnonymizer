@@ -109,7 +109,7 @@ namespace VideoAnonymizer.Web.Tests.Components
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportTabPersistence.feature.ndjson", 15);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportTabPersistence.feature.ndjson", 17);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -377,13 +377,13 @@ namespace VideoAnonymizer.Web.Tests.Components
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Undoing blur settings restores the previous settings")]
-        public async global::System.Threading.Tasks.Task UndoingBlurSettingsRestoresThePreviousSettings()
+        [global::NUnit.Framework.DescriptionAttribute("Time buffer settings stay symmetric")]
+        public async global::System.Threading.Tasks.Task TimeBufferSettingsStaySymmetric()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "8";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing blur settings restores the previous settings", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Time buffer settings stay symmetric", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 47
@@ -397,13 +397,82 @@ namespace VideoAnonymizer.Web.Tests.Components
             {
                 await this.ScenarioStartAsync();
 #line 48
+    await testRunner.GivenAsync("the review editor is open with blur size 120 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 49
+    await testRunner.WhenAsync("the reviewer changes the time buffer to 650 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 50
+    await testRunner.ThenAsync("the settings are saved with a single symmetric time buffer of 650 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 51
+    await testRunner.AndAsync("the saved settings payload contains no global pre-buffer or post-buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Persisted settings actions reload and remain undoable")]
+        public async global::System.Threading.Tasks.Task PersistedSettingsActionsReloadAndRemainUndoable()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "9";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Persisted settings actions reload and remain undoable", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 53
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 54
+    await testRunner.GivenAsync("the review editor is reopened with a persisted settings action", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 55
+    await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 56
+    await testRunner.ThenAsync("the settings are saved with the previous symmetric settings", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Undoing blur settings restores the previous settings")]
+        public async global::System.Threading.Tasks.Task UndoingBlurSettingsRestoresThePreviousSettings()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "10";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing blur settings restores the previous settings", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 58
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 59
     await testRunner.GivenAsync("the review editor has saved blur size 180 percent from 120 percent with time buff" +
                         "er 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 49
+#line 60
     await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 50
+#line 61
     await testRunner.ThenAsync("the settings are saved with blur size 120 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -416,11 +485,11 @@ namespace VideoAnonymizer.Web.Tests.Components
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "9";
+            string pickleIndex = "11";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Redoing blur settings saves the changed settings again", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 52
+#line 63
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -430,14 +499,14 @@ namespace VideoAnonymizer.Web.Tests.Components
             else
             {
                 await this.ScenarioStartAsync();
-#line 53
+#line 64
     await testRunner.GivenAsync("the review editor has undone blur size 180 percent back to 120 percent with time " +
                         "buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 54
+#line 65
     await testRunner.WhenAsync("the reviewer redoes the review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 55
+#line 66
     await testRunner.ThenAsync("the settings are saved with blur size 180 percent and time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -450,11 +519,11 @@ namespace VideoAnonymizer.Web.Tests.Components
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "10";
+            string pickleIndex = "12";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("New edits clear redo history", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 57
+#line 68
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -464,13 +533,13 @@ namespace VideoAnonymizer.Web.Tests.Components
             else
             {
                 await this.ScenarioStartAsync();
-#line 58
+#line 69
     await testRunner.GivenAsync("the review editor has moved a face, undone the move, and added another face", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 59
+#line 70
     await testRunner.WhenAsync("the reviewer tries to redo", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 60
+#line 71
     await testRunner.ThenAsync("no extra persistence request is sent", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
@@ -485,11 +554,11 @@ namespace VideoAnonymizer.Web.Tests.Components
             string[] tagsOfScenario = new string[] {
                     "tracking_ui"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "11";
+            string pickleIndex = "13";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Failed tracking retains streamed faces", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 63
+#line 74
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -499,19 +568,19 @@ namespace VideoAnonymizer.Web.Tests.Components
             else
             {
                 await this.ScenarioStartAsync();
-#line 64
+#line 75
     await testRunner.GivenAsync("tracking has streamed a new face into the review editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 65
+#line 76
     await testRunner.WhenAsync("tracking fails after retaining the streamed face", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 66
+#line 77
     await testRunner.ThenAsync("the streamed face remains in the review editor", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
-#line 67
+#line 78
     await testRunner.AndAsync("a warning says tracking can continue from the last occurrence", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 68
+#line 79
     await testRunner.AndAsync("the partial tracking action is persisted", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -526,11 +595,11 @@ namespace VideoAnonymizer.Web.Tests.Components
             string[] tagsOfScenario = new string[] {
                     "tracking_ui"};
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
-            string pickleIndex = "12";
+            string pickleIndex = "14";
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Undoing completed tracking removes faces from every streamed batch", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
-#line 71
+#line 82
   this.ScenarioInitialize(scenarioInfo, ruleInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -540,14 +609,14 @@ namespace VideoAnonymizer.Web.Tests.Components
             else
             {
                 await this.ScenarioStartAsync();
-#line 72
+#line 83
     await testRunner.GivenAsync("tracking has completed after streaming faces in two batches into the review edito" +
                         "r", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 73
+#line 84
     await testRunner.WhenAsync("the reviewer undoes the last review action", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 74
+#line 85
     await testRunner.ThenAsync("all streamed tracked faces are removed from persistence", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }

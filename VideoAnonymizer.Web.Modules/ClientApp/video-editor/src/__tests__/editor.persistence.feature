@@ -43,3 +43,14 @@ Feature: Persisting Vue editor changes through Blazor callbacks
     Then track 1 has its moving tracking dot at 10 percent
     And track 2 has its moving tracking dot at 20 percent
     And the moving dots are the only timeline tracking indicators
+
+  Scenario: Blazor-pushed occurrence overrides are preserved
+    Given the editor is open with persisted frames
+    When Blazor pushes blur size, pre-buffer and post-buffer overrides to face "o1"
+    Then face "o1" keeps its blur size, pre-buffer and post-buffer overrides
+    And a face without overrides keeps null override fields
+
+  Scenario: Frames opened with occurrence overrides keep them
+    Given the editor is open with a frame that carries occurrence overrides
+    When the reviewer reads the current frames back
+    Then face "o1" keeps its blur size, pre-buffer and post-buffer overrides
