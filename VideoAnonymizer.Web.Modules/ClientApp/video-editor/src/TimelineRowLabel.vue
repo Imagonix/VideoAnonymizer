@@ -11,6 +11,7 @@ const props = defineProps<{
     mode: EditorMode;
     mergeSelectedKeys: Set<string>;
     hoveredTimelineKey: string | null;
+    isTrackSelected?: boolean;
 }>()
 const emit = defineEmits<{
     (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void;
@@ -106,7 +107,12 @@ function onRowClick() {
 <template>
     <div
       class="label-container"
-      :class="{ 'label-container--merge-mode': mode === 'merge' }"
+      :class="{
+        'label-container--merge-mode': mode === 'merge',
+        'label-container--selected': isTrackSelected
+      }"
+      :data-timeline-key="timelineKey"
+      :data-selected="isTrackSelected ? 'true' : 'false'"
       :style="mergeHighlightStyle"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
@@ -147,10 +153,17 @@ function onRowClick() {
     padding: 0 4px 1px 4px;
     border-radius: 4px;
     transition: background 0.1s;
+    cursor: pointer;
 }
 
 .label-container--merge-mode {
     cursor: pointer;
+}
+
+.label-container--selected {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
 }
 
 

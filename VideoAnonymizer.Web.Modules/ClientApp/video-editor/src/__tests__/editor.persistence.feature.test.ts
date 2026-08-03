@@ -327,6 +327,7 @@ const steps: StepDefinition[] = [
             openEditor(world);
             const vm = world.wrapper!.vm as any;
             vm.onVideoLoaded(10);
+            vm.timelineExpanded = true;
 
             for (const trackId of [Number(match[1]), Number(match[2])]) {
                 const trackedObject = world.state!.frames
@@ -348,7 +349,11 @@ const steps: StepDefinition[] = [
     },
     {
         pattern: /^track (\d+) has its moving tracking dot at (\d+) percent$/,
-        handler: (world, match) => {
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            vm.timelineExpanded = true;
+            await world.wrapper!.vm.$nextTick();
+
             const trackId = Number(match[1]);
             const row = world.wrapper!.findAllComponents({ name: 'TimelineRow' })
                 .find(candidate => candidate.props('timelineObject').occurences?.[0]?.[1].trackId === trackId);

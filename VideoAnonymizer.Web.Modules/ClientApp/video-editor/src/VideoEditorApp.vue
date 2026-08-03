@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted, watch } from 'vue';
+import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import type { TimelineObject, VideoDimensions, DetectedObjectDto } from './types';
 import type { VideoEditorProps, DetectedObjectChangeSet } from './types';
 import { useEditorModes } from './composables/useEditorModes';
@@ -23,6 +23,7 @@ import TimelineRowLabel from './TimelineRowLabel.vue';
 import ObjectDetailsPanel from './ObjectDetailsPanel.vue';
 import ReviewTools from './ReviewTools.vue';
 import AddBoxDialog from './AddBoxDialog.vue';
+import CollapsedTimelineBar from './CollapsedTimelineBar.vue';
 
 const props = defineProps<{ state: VideoEditorProps }>();
 
@@ -100,6 +101,8 @@ const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const trackingObjectIds = ref(new Set<string>());
 const trackingProgressByTrackId = ref(new Map<number, { startMs: number; endMs: number }>());
 const hoveredTimelineKey = ref<string | null>(null);
+const timelineExpanded = ref(false);
+const timelinePanelRef = ref<HTMLElement | null>(null);
 
 const { activeMode, activate, deactivate, isMerge, isSplit, isAdjust } = useEditorModes();
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
@@ -140,6 +143,53 @@ function selectObject(obj: DetectedObjectDto) {
 function clearSelection() {
     selectedKey.value = null;
 }
+
+function toggleTimelineExpanded() {
+    timelineExpanded.value = !timelineExpanded.value;
+}
+
+function expandTimeline() {
+    timelineExpanded.value = true;
+}
+
+function selectOccurrenceAndSeek(obj: DetectedObjectDto, time: number) {
+    selectObject(obj);
+    seekTo(time);
+}
+
+const selectedTimelineObject = computed<TimelineObject | null>(() => {
+    const key = selectedKey.value;
+    if (!key) return null;
+    return timelineObjects.value.find(obj => getTimelineKey(obj) === key) ?? null;
+});
+
+function isTimelineKeySelected(obj: TimelineObject): boolean {
+    return selectedKey.value != null && getTimelineKey(obj) === selectedKey.value;
+}
+
+async function scrollSelectedTrackIntoView() {
+    if (!timelineExpanded.value || !selectedKey.value || !timelinePanelRef.value) return;
+    await nextTick();
+    const row = timelinePanelRef.value.querySelector(
+        `[data-timeline-key="${selectedKey.value}"]`
+    ) as HTMLElement | null;
+    if (row && typeof row.scrollIntoView === 'function') {
+        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+}
+
+watch([timelineExpanded, selectedKey], ([expanded]) => {
+    if (expanded) {
+        scrollSelectedTrackIntoView();
+    }
+    scheduleWorkspaceSizeUpdate();
+});
+
+watch(activeMode, (mode) => {
+    if (mode === 'merge' || mode === 'split') {
+        timelineExpanded.value = true;
+    }
+});
 
 const selectedOccurrence = computed<DetectedObjectDto | null>(() => {
     const key = selectedKey.value;
@@ -335,11 +385,13 @@ function handleTrackForward() {
 function handleMerge() {
     mergeSelectedTimelineKeys.value = new Set();
     clearOccurrences();
+    expandTimeline();
     activate('merge');
 }
 
 function handleSplit() {
     clearOccurrences();
+    expandTimeline();
     activate('split');
 }
 
@@ -638,39 +690,64 @@ function setVideoVolume(volume: number) {
             />
         </div>
 
-        <div class="timeline-wrapper">
-            <div class="timeline-labels">
-                <div class="timeline-toolbar-spacer"></div>
-                <div class="timeline-header-spacer"></div>
-                <div class="timeline-overview-spacer"></div>
-                <TimelineRowLabel
-                  v-for="obj in timelineObjects"
-                  :timeline-object="obj"
-                  :mode="isMerge ? 'merge' : 'select'"
-                  :merge-selected-keys="mergeSelectedTimelineKeys"
-                  :hovered-timeline-key="hoveredTimelineKey"
-                  @toggle="toggleTrackedObject"
-                  @set-track-id="setTrackId"
-                  @merge-toggle="mergeToggle"
-                  @select="selectObject"
-                  @hover-row="hoveredTimelineKey = $event"
-                />
-            </div>
-            <div class="timeline-content">
-                <Timeline :duration="videoDuration" :currentTime="currentTime" :is-playing="isVideoPlaying"
-                    :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
-                    @volume-change="setVideoVolume">
-                    <TimelineRow v-for="obj in timelineObjects" :timeline-object="obj"
-                        :video-duration="videoDuration"
-                        :mode="isMerge ? 'merge' : isSplit ? 'split' : 'select'"
-                        :merge-selected-keys="mergeSelectedTimelineKeys"
-                        :selected-occurrences="selectedOccurrences"
-                        :hovered-timeline-key="hoveredTimelineKey"
-                        :active-gap-range="getTrackingProgress(obj)"
-                        @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
-                        @merge-toggle="mergeToggle"
-                        @hover-row="hoveredTimelineKey = $event" />
-                </Timeline>
+        <div
+          ref="timelinePanelRef"
+          class="timeline-panel"
+          :class="timelineExpanded ? 'timeline-panel--expanded' : 'timeline-panel--collapsed'"
+          data-testid="timeline-panel"
+        >
+            <CollapsedTimelineBar
+              :expanded="timelineExpanded"
+              :current-time="currentTime"
+              :duration="videoDuration"
+              :object-counts="timelineObjectCounts"
+              :selected-timeline-object="selectedTimelineObject"
+              :selected-occurrence="selectedOccurrence"
+              :active-gap-range="selectedTimelineObject ? getTrackingProgress(selectedTimelineObject) : null"
+              @toggle-expanded="toggleTimelineExpanded"
+              @seek="seekTo"
+              @toggle-include="handleToggleInclude"
+              @select-occurrence="selectOccurrenceAndSeek"
+            />
+
+            <div v-if="timelineExpanded" class="timeline-wrapper" data-testid="expanded-timeline">
+                <div class="timeline-labels">
+                    <div class="timeline-toolbar-spacer"></div>
+                    <div class="timeline-header-spacer"></div>
+                    <div class="timeline-overview-spacer"></div>
+                    <TimelineRowLabel
+                      v-for="obj in timelineObjects"
+                      :key="getTimelineKey(obj)"
+                      :timeline-object="obj"
+                      :mode="isMerge ? 'merge' : 'select'"
+                      :merge-selected-keys="mergeSelectedTimelineKeys"
+                      :hovered-timeline-key="hoveredTimelineKey"
+                      :is-track-selected="isTimelineKeySelected(obj)"
+                      @toggle="toggleTrackedObject"
+                      @set-track-id="setTrackId"
+                      @merge-toggle="mergeToggle"
+                      @select="selectObject"
+                      @hover-row="hoveredTimelineKey = $event"
+                    />
+                </div>
+                <div class="timeline-content">
+                    <Timeline :duration="videoDuration" :currentTime="currentTime" :is-playing="isVideoPlaying"
+                        :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
+                        @volume-change="setVideoVolume">
+                        <TimelineRow v-for="obj in timelineObjects" :key="getTimelineKey(obj)" :timeline-object="obj"
+                            :video-duration="videoDuration"
+                            :mode="isMerge ? 'merge' : isSplit ? 'split' : 'select'"
+                            :merge-selected-keys="mergeSelectedTimelineKeys"
+                            :selected-occurrences="selectedOccurrences"
+                            :hovered-timeline-key="hoveredTimelineKey"
+                            :active-gap-range="getTrackingProgress(obj)"
+                            :is-track-selected="isTimelineKeySelected(obj)"
+                            @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
+                            @merge-toggle="mergeToggle"
+                            @select-occurrence="selectOccurrenceAndSeek"
+                            @hover-row="hoveredTimelineKey = $event" />
+                    </Timeline>
+                </div>
             </div>
         </div>
     </div>
@@ -711,12 +788,28 @@ function setVideoVolume(volume: number) {
     z-index: 25;
 }
 
-.timeline-wrapper {
+.timeline-panel {
     flex-shrink: 0;
-    height: 240px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background: var(--mud-palette-surface);
+}
+
+.timeline-panel--collapsed {
+    flex: 0 0 auto;
+}
+
+.timeline-panel--expanded {
+    flex: 0 1 auto;
+    max-height: min(42vh, 360px);
+}
+
+.timeline-wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
     display: grid;
     grid-template-columns: 170px 1fr;
-    min-height: 0;
     overflow-y: auto;
     overflow-x: hidden;
     border-top: 1px solid var(--mud-palette-lines-default);
