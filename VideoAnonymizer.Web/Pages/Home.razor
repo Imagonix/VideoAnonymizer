@@ -39,7 +39,10 @@
                                  InterpolateTrackedObjects="@CurrentAppState.InterpolateTrackedObjects"
                                  @bind-BlurSizePercent="_blurSizePercent"
                                  @bind-TimeBufferMs="_timeBufferMs"
+                                 ExportResultAvailable="IsAnonymized"
+                                 IsExportRunning="IsExportRunning"
                                  StartAnonymization="StartAnonymizationAsync"
+                                 DownloadAnonymized="DownloadAsync"
                                  TrackingCompleted="OnTrackingCompletedAsync"/>
             </MudTabPanel>
         </MudTabs>
