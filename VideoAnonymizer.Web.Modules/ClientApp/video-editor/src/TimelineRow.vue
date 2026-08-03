@@ -167,9 +167,9 @@ function onDotClick(obj: DetectedObjectDto, time: number, event: MouseEvent) {
 
 .timeline-row {
     position: relative;
-    height: 34px;
+    height: 28px;
     border-bottom: 1px solid var(--mud-palette-lines-default);
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
 }
 

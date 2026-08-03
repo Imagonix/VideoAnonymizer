@@ -24,6 +24,8 @@ import ObjectDetailsPanel from './ObjectDetailsPanel.vue';
 import ReviewTools from './ReviewTools.vue';
 import AddBoxDialog from './AddBoxDialog.vue';
 import CollapsedTimelineBar from './CollapsedTimelineBar.vue';
+import PlayCircleOutlineIcon from './icons/PlayCircleOutlineIcon.vue';
+import PauseCircleOutlineIcon from './icons/PauseCircleOutlineIcon.vue';
 
 const props = defineProps<{ state: VideoEditorProps }>();
 
@@ -705,57 +707,78 @@ function setVideoVolume(volume: number) {
           :class="timelineExpanded ? 'timeline-panel--expanded' : 'timeline-panel--collapsed'"
           data-testid="timeline-panel"
         >
-            <CollapsedTimelineBar
-              :expanded="timelineExpanded"
-              :current-time="currentTime"
-              :duration="videoDuration"
-              :object-counts="timelineObjectCounts"
-              :selected-timeline-object="selectedTimelineObject"
-              :selected-occurrence="selectedOccurrence"
-              :active-gap-range="selectedTimelineObject ? getTrackingProgress(selectedTimelineObject) : null"
-              @toggle-expanded="toggleTimelineExpanded"
-              @seek="seekTo"
-              @toggle-include="handleToggleTrackInclude"
-              @select-occurrence="selectOccurrenceAndSeek"
-            />
+            <div class="timeline-left-controls" data-testid="timeline-left-controls">
+                <button
+                  type="button"
+                  class="timeline-play-pause"
+                  data-testid="timeline-play-pause"
+                  :aria-label="isVideoPlaying ? 'Pause video' : 'Play video'"
+                  :title="isVideoPlaying ? 'Pause' : 'Play'"
+                  @click.stop="toggleVideoPlayback"
+                >
+                    <PauseCircleOutlineIcon v-if="isVideoPlaying" />
+                    <PlayCircleOutlineIcon v-else />
+                </button>
+            </div>
 
-            <div v-if="timelineExpanded" class="timeline-wrapper" data-testid="expanded-timeline">
-                <div class="timeline-labels">
-                    <div class="timeline-toolbar-spacer"></div>
-                    <div class="timeline-header-spacer"></div>
-                    <div class="timeline-overview-spacer"></div>
-                    <TimelineRowLabel
-                      v-for="obj in timelineObjects"
-                      :key="getTimelineKey(obj)"
-                      :timeline-object="obj"
-                      :mode="isMerge ? 'merge' : 'select'"
-                      :merge-selected-keys="mergeSelectedTimelineKeys"
-                      :hovered-timeline-key="hoveredTimelineKey"
-                      :is-track-selected="isTimelineKeySelected(obj)"
-                      @toggle="toggleTrackedObject"
-                      @set-track-id="setTrackId"
-                      @merge-toggle="mergeToggle"
-                      @select="selectObject"
-                      @hover-row="hoveredTimelineKey = $event"
-                    />
-                </div>
-                <div class="timeline-content">
-                    <Timeline :duration="videoDuration" :currentTime="currentTime" :is-playing="isVideoPlaying"
-                        :volume="videoVolume" :object-counts="timelineObjectCounts" @seek="seekTo" @toggle-playback="toggleVideoPlayback"
-                        @volume-change="setVideoVolume">
-                        <TimelineRow v-for="obj in timelineObjects" :key="getTimelineKey(obj)" :timeline-object="obj"
-                            :video-duration="videoDuration"
-                            :mode="isMerge ? 'merge' : isSplit ? 'split' : 'select'"
-                            :merge-selected-keys="mergeSelectedTimelineKeys"
-                            :selected-occurrences="selectedOccurrences"
-                            :hovered-timeline-key="hoveredTimelineKey"
-                            :active-gap-range="getTrackingProgress(obj)"
-                            :is-track-selected="isTimelineKeySelected(obj)"
-                            @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
-                            @merge-toggle="mergeToggle"
-                            @select-occurrence="selectOccurrenceAndSeek"
-                            @hover-row="hoveredTimelineKey = $event" />
-                    </Timeline>
+            <div class="timeline-main-column">
+                <CollapsedTimelineBar
+                  :expanded="timelineExpanded"
+                  :current-time="currentTime"
+                  :duration="videoDuration"
+                  :object-counts="timelineObjectCounts"
+                  :selected-timeline-object="selectedTimelineObject"
+                  :selected-occurrence="selectedOccurrence"
+                  :active-gap-range="selectedTimelineObject ? getTrackingProgress(selectedTimelineObject) : null"
+                  @toggle-expanded="toggleTimelineExpanded"
+                  @seek="seekTo"
+                  @toggle-include="handleToggleTrackInclude"
+                  @select-occurrence="selectOccurrenceAndSeek"
+                />
+
+                <div v-if="timelineExpanded" class="timeline-wrapper" data-testid="expanded-timeline">
+                    <div class="timeline-labels">
+                        <div class="timeline-toolbar-spacer"></div>
+                        <div class="timeline-overview-spacer"></div>
+                        <div class="timeline-header-spacer"></div>
+                        <TimelineRowLabel
+                          v-for="obj in timelineObjects"
+                          :key="getTimelineKey(obj)"
+                          :timeline-object="obj"
+                          :mode="isMerge ? 'merge' : 'select'"
+                          :merge-selected-keys="mergeSelectedTimelineKeys"
+                          :hovered-timeline-key="hoveredTimelineKey"
+                          :is-track-selected="isTimelineKeySelected(obj)"
+                          @toggle="toggleTrackedObject"
+                          @set-track-id="setTrackId"
+                          @merge-toggle="mergeToggle"
+                          @select="selectObject"
+                          @hover-row="hoveredTimelineKey = $event"
+                        />
+                    </div>
+                    <div class="timeline-content">
+                        <Timeline
+                          :duration="videoDuration"
+                          :currentTime="currentTime"
+                          :volume="videoVolume"
+                          :object-counts="timelineObjectCounts"
+                          @seek="seekTo"
+                          @volume-change="setVideoVolume"
+                        >
+                            <TimelineRow v-for="obj in timelineObjects" :key="getTimelineKey(obj)" :timeline-object="obj"
+                                :video-duration="videoDuration"
+                                :mode="isMerge ? 'merge' : isSplit ? 'split' : 'select'"
+                                :merge-selected-keys="mergeSelectedTimelineKeys"
+                                :selected-occurrences="selectedOccurrences"
+                                :hovered-timeline-key="hoveredTimelineKey"
+                                :active-gap-range="getTrackingProgress(obj)"
+                                :is-track-selected="isTimelineKeySelected(obj)"
+                                @toggle-occurrence="(k, t, e) => toggleOccurrence(k, t, e, timelineObjects)"
+                                @merge-toggle="mergeToggle"
+                                @select-occurrence="selectOccurrenceAndSeek"
+                                @hover-row="hoveredTimelineKey = $event" />
+                        </Timeline>
+                    </div>
                 </div>
             </div>
         </div>
@@ -799,8 +822,9 @@ function setVideoVolume(volume: number) {
 
 .timeline-panel {
     flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 48px minmax(0, 1fr);
+    align-items: stretch;
     min-height: 0;
     background: var(--mud-palette-surface);
 }
@@ -814,18 +838,64 @@ function setVideoVolume(volume: number) {
     max-height: min(42vh, 360px);
 }
 
+.timeline-left-controls {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 6px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+    border-right: 1px solid var(--mud-palette-lines-default);
+    background: var(--mud-palette-surface);
+}
+
+.timeline-play-pause {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--mud-palette-primary);
+    background: transparent;
+    cursor: pointer;
+}
+
+.timeline-play-pause:hover {
+    background: var(--mud-palette-primary-hover);
+}
+
+.timeline-play-pause:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
+    outline-offset: 2px;
+}
+
+.timeline-play-pause :deep(svg) {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+.timeline-main-column {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
 .timeline-wrapper {
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
-    grid-template-columns: 170px 1fr;
+    grid-template-columns: 160px 1fr;
     overflow-y: auto;
     overflow-x: hidden;
     border-top: 1px solid var(--mud-palette-lines-default);
 }
 
 .timeline-labels {
-    padding: 16px;
+    padding: 8px 8px 8px 6px;
     background: var(--mud-palette-surface);
 }
 
@@ -839,22 +909,22 @@ function setVideoVolume(volume: number) {
     top: 0;
     z-index: 20;
     background: var(--mud-palette-surface);
-    height: 48px;
+    height: 36px;
     isolation: isolate;
 }
 
 .timeline-header-spacer {
-    height: 34px;
-    margin-bottom: 12px;
+    height: 22px;
+    margin-bottom: 6px;
 }
 
 .timeline-overview-spacer {
     position: sticky;
-    top: 48px;
+    top: 36px;
     z-index: 20;
     background: var(--mud-palette-surface);
-    height: 36px;
-    margin-bottom: 8px;
+    height: 28px;
+    margin-bottom: 4px;
     isolation: isolate;
 }
 </style>

@@ -10,14 +10,12 @@
     const props = defineProps<{
         duration: number;
         currentTime: number;
-        isPlaying: boolean;
         volume: number;
         objectCounts: TimelineObjectCount[];
     }>();
 
     const emit = defineEmits<{
         (e: 'seek', time: number): void;
-        (e: 'toggle-playback'): void;
         (e: 'volume-change', volume: number): void;
     }>();
 
@@ -184,12 +182,10 @@
         <TimelineToolbar
             :current-time="currentTime"
             :duration="duration"
-            :is-playing="isPlaying"
             :volume="volume"
             :zoom-level="zoomLevel"
             :min-zoom="minZoom"
             :max-zoom="maxZoom"
-            @toggle-playback="emit('toggle-playback')"
             @volume-change="(volume: number) => emit('volume-change', volume)"
             @zoom-in="zoomIn"
             @zoom-out="zoomOut"
@@ -204,11 +200,20 @@
             :object-counts="objectCounts"
             @seek="(time: number) => emit('seek', time)"
         />
-        <div class="timeline-viewport" ref="viewportRef" @click="onClick" @scroll="onScroll" @wheel="onWheel">
+        <div
+            class="timeline-viewport"
+            data-testid="expanded-seek-surface"
+            ref="viewportRef"
+            @click="onClick"
+            @scroll="onScroll"
+            @wheel="onWheel"
+        >
             <div class="timeline" data-testid="timeline" :style="{ width: contentWidthPx }">
                 <PlaybackIndicator :time="currentTime" :duration="duration" />
                 <TimelineRuler :current-time="currentTime" :duration="duration" :ticks="ticks" />
-                <slot />
+                <div class="timeline-rows" data-testid="expanded-track-area">
+                    <slot />
+                </div>
             </div>
         </div>
     </div>
@@ -216,7 +221,7 @@
 
 <style scoped>
     .timeline-shell {
-        margin: 16px;
+        margin: 8px 8px 8px 4px;
         min-width: 0;
     }
 
@@ -225,11 +230,17 @@
         overflow-x: auto;
         overflow-y: visible;
         scrollbar-gutter: stable;
+        cursor: pointer;
     }
 
     .timeline {
         border-radius: 8px;
         min-width: 100%;
         position: relative;
+    }
+
+    .timeline-rows {
+        position: relative;
+        min-height: 0;
     }
 </style>
