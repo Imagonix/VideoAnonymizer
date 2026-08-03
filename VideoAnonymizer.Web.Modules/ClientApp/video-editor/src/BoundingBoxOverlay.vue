@@ -66,6 +66,11 @@ function isExcluded(obj: PreviewObject): boolean {
   return !obj.detectedObject.selected;
 }
 
+/** Resolve the effective blur size the same way export does: override ?? global. */
+function effectiveBlurSize(obj: DetectedObjectDto): number {
+  return obj.blurSizePercentOverride ?? props.anonymizationSettings.blurSizePercent;
+}
+
 function getBlurAreaStyle(obj: PreviewObject) {
   // Excluded occurrences are ghost outlines only — no blur fill preview.
   if (isExcluded(obj)) {
@@ -73,7 +78,7 @@ function getBlurAreaStyle(obj: PreviewObject) {
   }
 
   const color = colorManager.getColor(obj.detectedObject);
-  const scale = props.anonymizationSettings.blurSizePercent / 100;
+  const scale = effectiveBlurSize(obj.detectedObject) / 100;
   const expandedWidth = obj.detectedObject.width * scale;
   const expandedHeight = obj.detectedObject.height * scale;
   const centerX = obj.detectedObject.x + obj.detectedObject.width / 2;
@@ -121,7 +126,7 @@ function getAdjustBoxStyle(obj: DetectedObjectDto) {
 }
 
 function getAdjustBlurStyle(obj: DetectedObjectDto) {
-  const scale = props.anonymizationSettings.blurSizePercent / 100;
+  const scale = effectiveBlurSize(obj) / 100;
   const expandedWidth = obj.width * scale;
   const expandedHeight = obj.height * scale;
   const centerX = obj.x + obj.width / 2;

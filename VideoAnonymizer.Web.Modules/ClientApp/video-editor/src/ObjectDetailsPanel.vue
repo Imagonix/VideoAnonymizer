@@ -41,6 +41,9 @@ const emit = defineEmits<{
     (e: 'merge'): void;
     (e: 'split'): void;
     (e: 'delete'): void;
+    (e: 'drag-start'): void;
+    (e: 'drag-by', delta: { dx: number; dy: number }): void;
+    (e: 'drag-end'): void;
 }>();
 
 const advancedOpen = ref(false);
@@ -63,11 +66,73 @@ function emitPost(event: Event) {
     const value = Number((event.target as HTMLInputElement).value);
     if (!isNaN(value)) emit('update-post', value);
 }
+
+const handleRef = ref<HTMLElement | null>(null);
+const pointerDrag = ref<{ pointerId: number; lastX: number; lastY: number } | null>(null);
+
+function onHandlePointerDown(event: PointerEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    const handle = handleRef.value;
+    if (!handle) return;
+    if (typeof handle.setPointerCapture === 'function') {
+        try { handle.setPointerCapture(event.pointerId); } catch { /* unsupported */ }
+    }
+    pointerDrag.value = { pointerId: event.pointerId, lastX: event.clientX, lastY: event.clientY };
+    emit('drag-start');
+}
+
+function onHandlePointerMove(event: PointerEvent) {
+    const drag = pointerDrag.value;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    emit('drag-by', { dx: event.clientX - drag.lastX, dy: event.clientY - drag.lastY });
+    pointerDrag.value = { pointerId: drag.pointerId, lastX: event.clientX, lastY: event.clientY };
+}
+
+function endPointerDrag(event: PointerEvent) {
+    const drag = pointerDrag.value;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    pointerDrag.value = null;
+    const handle = handleRef.value;
+    if (handle && typeof handle.releasePointerCapture === 'function') {
+        try { handle.releasePointerCapture(event.pointerId); } catch { /* unsupported */ }
+    }
+    emit('drag-end');
+}
+
+const DRAG_STEP = 10;
+
+function onHandleKeydown(event: KeyboardEvent) {
+    let dx = 0;
+    let dy = 0;
+    if (event.key === 'ArrowLeft') dx = -DRAG_STEP;
+    else if (event.key === 'ArrowRight') dx = DRAG_STEP;
+    else if (event.key === 'ArrowUp') dy = -DRAG_STEP;
+    else if (event.key === 'ArrowDown') dy = DRAG_STEP;
+    else return;
+    event.preventDefault();
+    emit('drag-start');
+    emit('drag-by', { dx, dy });
+    emit('drag-end');
+}
 </script>
 
 <template>
     <div data-testid="object-details-panel" class="object-details" @click.stop>
         <div class="details-header">
+            <div
+                ref="handleRef"
+                class="details-drag-handle"
+                role="button"
+                tabindex="0"
+                aria-label="Drag inspector"
+                title="Drag to reposition"
+                @pointerdown="onHandlePointerDown"
+                @pointermove="onHandlePointerMove"
+                @pointerup="endPointerDrag"
+                @pointercancel="endPointerDrag"
+                @keydown="onHandleKeydown"
+            >⠿</div>
             <TrackThumbnail
               :object-url="thumbnailUrl"
               :fallback-label="thumbnailFallbackLabel ?? '?'"
@@ -189,6 +254,31 @@ function emitPost(event: Event) {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.details-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 26px;
+    flex-shrink: 0;
+    cursor: grab;
+    color: var(--mud-palette-text-secondary);
+    font-size: 0.9rem;
+    line-height: 1;
+    user-select: none;
+    touch-action: none;
+}
+
+.details-drag-handle:active {
+    cursor: grabbing;
+}
+
+.details-drag-handle:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
+    outline-offset: 2px;
+    border-radius: 4px;
 }
 
 .details-title-block {

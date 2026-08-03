@@ -319,7 +319,11 @@ const inspectorPlacement = computed(() => {
     if (!obj) return null;
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
     if (stageWidth <= 0 || stageHeight <= 0) {
-        return { top: 8, left: 8, width: 240 };
+        return { top: 8, left: 8, width: INSPECTOR_WIDTH };
+    }
+    if (manualInspectorPosition.value) {
+        const clamped = clampInspectorPosition(manualInspectorPosition.value.top, manualInspectorPosition.value.left);
+        return { top: clamped.top, left: clamped.left, width: INSPECTOR_WIDTH };
     }
     return computeInspectorPlacement({
         stageWidth,
@@ -329,6 +333,51 @@ const inspectorPlacement = computed(() => {
         videoWidth: videoNaturalWidth.value,
         videoHeight: videoNaturalHeight.value
     });
+});
+
+const INSPECTOR_WIDTH = 240;
+const INSPECTOR_MARGIN = 8;
+const manualInspectorPosition = ref<{ top: number; left: number } | null>(null);
+const isInspectorDragging = ref(false);
+const inspectorPanelRef = ref<{ $el: HTMLElement } | null>(null);
+
+function clampInspectorPosition(top: number, left: number) {
+    const { width: stageWidth, height: stageHeight } = workspaceSize.value;
+    const height = inspectorPanelRef.value?.$el?.offsetHeight || 210;
+    const maxTop = Math.max(INSPECTOR_MARGIN, stageHeight - height - INSPECTOR_MARGIN);
+    const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - INSPECTOR_WIDTH - INSPECTOR_MARGIN);
+    return {
+        top: Math.min(maxTop, Math.max(INSPECTOR_MARGIN, top)),
+        left: Math.min(maxLeft, Math.max(INSPECTOR_MARGIN, left))
+    };
+}
+
+function onInspectorDragStart() {
+    isInspectorDragging.value = true;
+    const placement = inspectorPlacement.value;
+    if (!placement) return;
+    manualInspectorPosition.value = { top: placement.top, left: placement.left };
+}
+
+function onInspectorDragBy(delta: { dx: number; dy: number }) {
+    isInspectorDragging.value = true;
+    if (!manualInspectorPosition.value) onInspectorDragStart();
+    if (!manualInspectorPosition.value) return;
+    manualInspectorPosition.value = clampInspectorPosition(
+        manualInspectorPosition.value.top + delta.dy,
+        manualInspectorPosition.value.left + delta.dx
+    );
+}
+
+function onInspectorDragEnd() {
+    isInspectorDragging.value = false;
+}
+
+watch(selectedKey, (key) => {
+    if (!key) {
+        manualInspectorPosition.value = null;
+        isInspectorDragging.value = false;
+    }
 });
 
 const inspectorStyle = computed(() => {
@@ -342,6 +391,7 @@ function getSelectedSegment() {
 }
 
 function handleEmptySpaceClick() {
+    if (isInspectorDragging.value) return;
     if (activeMode.value === 'select') {
         clearSelection();
     }
@@ -697,6 +747,7 @@ function setVideoVolume(volume: number) {
 
             <ObjectDetailsPanel
               v-if="inspectorStyle && selectedTrackSettings && !isAdjust"
+              ref="inspectorPanelRef"
               :style="inspectorStyle"
               v-bind="selectedTrackSettings"
               :thumbnail-url="selectedThumbnail?.objectUrl"
@@ -719,6 +770,9 @@ function setVideoVolume(volume: number) {
               @merge="handleMerge"
               @split="handleSplit"
               @delete="handleDelete"
+              @drag-start="onInspectorDragStart"
+              @drag-by="onInspectorDragBy"
+              @drag-end="onInspectorDragEnd"
             />
 
             <div class="editor-tools" @click.stop>

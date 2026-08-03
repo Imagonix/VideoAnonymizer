@@ -42,7 +42,8 @@ export function useBoxGeometry(
     }
 
     function getBlurPct(obj: DetectedObjectDto) {
-        const scale = anonymizationSettings.value.blurSizePercent / 100;
+        const effectiveBlurSize = obj.blurSizePercentOverride ?? anonymizationSettings.value.blurSizePercent;
+        const scale = effectiveBlurSize / 100;
         const cx = (obj.x + obj.width / 2) / videoWidth.value * 100;
         const cy = (obj.y + obj.height / 2) / videoHeight.value * 100;
         const ew = (obj.width * scale) / videoWidth.value * 100;

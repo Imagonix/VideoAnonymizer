@@ -100,12 +100,39 @@ describe('computeInspectorPlacement', () => {
         expect(placement.left + placement.width).toBeLessThanOrEqual(900);
     });
 
-    it('does not cover a box in the bottom half of a full-frame video', () => {
+    it('places the inspector vertically centered on the stage', () => {
         const placement = computeInspectorPlacement({
             ...base,
-            box: { x: 50, y: 400, width: 200, height: 150 },
+            box: { x: 50, y: 100, width: 200, height: 100 },
         });
-        expect(placement.top + 210).toBeLessThanOrEqual(400);
+        expect(placement.top).toBeCloseTo((600 - 210) / 2, 0);
+    });
+
+    it('only ever uses the left or right edge as the initial left position', () => {
+        const margin = 8;
+        const rightEdge = base.stageWidth - 240 - margin;
+        for (const box of [
+            { x: 50, y: 100, width: 200, height: 100 },
+            { x: 1400, y: 100, width: 200, height: 100 },
+            { x: 800, y: 400, width: 200, height: 150 },
+        ]) {
+            const placement = computeInspectorPlacement({ ...base, box });
+            expect([margin, rightEdge]).toContain(placement.left);
+        }
+    });
+
+    it('never automatically places the inspector above or below the video', () => {
+        const stage = { stageWidth: 900, stageHeight: 600, videoWidth: 1600, videoHeight: 900 };
+        const boxes = [
+            { x: 50, y: 100, width: 200, height: 100 },
+            { x: 1400, y: 100, width: 200, height: 100 },
+            { x: 50, y: 400, width: 200, height: 150 },
+            { x: 1400, y: 300, width: 200, height: 150 },
+        ];
+        for (const box of boxes) {
+            const placement = computeInspectorPlacement({ ...stage, videoRect, box });
+            expect(placement.top).toBeCloseTo((600 - 210) / 2, 0);
+        }
     });
 
     it('prefers the horizontal letterbox margin over overlaying the video', () => {
@@ -120,16 +147,18 @@ describe('computeInspectorPlacement', () => {
         expect(placement.left).toBeGreaterThan(300 + 600);
     });
 
-    it('prefers the vertical letterbox margin opposite a bottom-half box', () => {
+    it('clamps to the stage when the stage is smaller than the inspector', () => {
         const placement = computeInspectorPlacement({
-            stageWidth: 900,
-            stageHeight: 800,
-            videoRect: { left: 0, top: 250, width: 900, height: 300 },
+            stageWidth: 260,
+            stageHeight: 220,
+            videoRect: { left: 0, top: 0, width: 260, height: 220 },
             videoWidth: 900,
             videoHeight: 300,
-            box: { x: 100, y: 200, width: 100, height: 50 },
+            box: { x: 100, y: 100, width: 100, height: 50 },
         });
-        expect(placement.top + 210).toBeLessThanOrEqual(250);
-        expect(placement.top).toBeGreaterThanOrEqual(8);
+        expect(placement.left).toBeGreaterThanOrEqual(0);
+        expect(placement.top).toBeGreaterThanOrEqual(0);
+        expect(placement.left + placement.width).toBeLessThanOrEqual(260);
+        expect(placement.top + 210).toBeLessThanOrEqual(220);
     });
 });
