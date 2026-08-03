@@ -9,7 +9,9 @@ public static class VideoEditorActionDescriptions
         ObjectAddedAction => "Added new bounding box",
         ObjectUpdatedAction a => a.OperationType switch
         {
-            "toggle" => "Changed visibility",
+            "toggle" => a.Object.Selected
+                ? "Included occurrence in anonymization"
+                : "Excluded occurrence from anonymization",
             "reassign" => "Reassigned track ID",
             "move" => "Moved bounding box",
             "resize" => "Resized bounding box",
@@ -20,7 +22,7 @@ public static class VideoEditorActionDescriptions
         {
             "merge" => $"Merged tracked Objects {string.Join(",", GetMergedTrackIdValues(a))}",
             "split" => $"Split out {a.Objects.Count} bounding boxes from track ID {a.BeforeState[0]?.TrackId}",
-            "toggle" => $"Changed visibility ({a.Objects.Count} objects)",
+            "toggle" => GetTrackInclusionDescription(a),
             "reassign" => $"Reassigned track ID ({a.Objects.Count} objects)",
             "track-settings" => $"Updated track settings ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
@@ -41,6 +43,14 @@ public static class VideoEditorActionDescriptions
         return targetId.HasValue
             ? new[] { targetId.Value }.Concat(sourceIds).Distinct()
             : sourceIds.Distinct();
+    }
+
+    private static string GetTrackInclusionDescription(ObjectsBulkUpdatedAction action)
+    {
+        var included = action.Objects.Count > 0 && action.Objects.All(o => o.Selected);
+        return included
+            ? $"Included track in anonymization ({action.Objects.Count} occurrences)"
+            : $"Excluded track from anonymization ({action.Objects.Count} occurrences)";
     }
 
     private static string GetSettingsDescription(SettingsUpdatedAction action)

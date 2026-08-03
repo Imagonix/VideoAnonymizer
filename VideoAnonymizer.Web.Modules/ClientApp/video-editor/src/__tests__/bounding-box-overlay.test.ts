@@ -34,6 +34,9 @@ describe('BoundingBoxOverlay', () => {
                 highlightedRowKey: null,
                 splitSourceKey: null,
                 alwaysShowKeys: new Set<string>(),
+                selectedKey: null,
+                mode: 'select',
+                adjustObject: null,
             },
         });
 
@@ -71,10 +74,52 @@ describe('BoundingBoxOverlay', () => {
                 highlightedRowKey: null,
                 splitSourceKey: null,
                 alwaysShowKeys: new Set<string>(),
+                selectedKey: null,
+                mode: 'select',
+                adjustObject: null,
             },
         });
 
         expect(wrapper.get('[data-testid="blur-area-outline"]').classes())
             .toContain('blur-area-outline--rectangle');
+    });
+
+    it('renders excluded occurrences as ghost outlines without blur fill', () => {
+        const object: PreviewObject = {
+            activation: 'detected',
+            detectedObject: {
+                id: 'face-excluded',
+                confidence: 0.9,
+                className: 'face',
+                selected: false,
+                trackId: 3,
+                x: 50,
+                y: 60,
+                width: 40,
+                height: 50,
+                analyzedFrameId: 'frame-1',
+            },
+        };
+
+        const wrapper = mount(BoundingBoxOverlay, {
+            props: {
+                objects: [object],
+                anonymizationSettings: { blurSizePercent: 150, timeBufferMs: 300, interpolateTrackedObjects: true },
+                videoDimensions: null,
+                highlightedRowKey: null,
+                splitSourceKey: null,
+                alwaysShowKeys: new Set<string>(),
+                selectedKey: null,
+                mode: 'select',
+                adjustObject: null,
+            },
+        });
+
+        const box = wrapper.get('[data-testid="bounding-box"]');
+        expect(box.classes()).toContain('bbox--excluded');
+        expect(wrapper.find('[data-testid="blur-area-outline"]').exists()).toBe(false);
+        expect(wrapper.get('[data-excluded="true"]').exists()).toBe(true);
+        expect(box.attributes('aria-label')).toContain('excluded');
+        expect(box.attributes('tabindex')).toBe('0');
     });
 });

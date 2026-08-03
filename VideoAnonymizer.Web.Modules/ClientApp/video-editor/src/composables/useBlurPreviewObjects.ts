@@ -12,27 +12,54 @@ export function useBlurPreviewObjects(
 ) {
     return computed(() => {
         const bufferSeconds = anonymizationSettings.value.timeBufferMs / 1000;
-        const result: PreviewObject[] = [];
         const current = currentFrame.value;
         if (!current) return [];
 
+        // Included detections drive blur preview. Excluded detections stay visible as
+        // selectable ghost outlines so inclusion never hides objects from the editor.
+        const includedCurrent: PreviewObject[] = [];
+        const excludedCurrent: PreviewObject[] = [];
         for (const obj of current.detectedObjects) {
-            if (!obj.selected) continue;
-            result.push({ detectedObject: obj, activation: 'detected' });
+            if (obj.selected) {
+                includedCurrent.push({ detectedObject: obj, activation: 'detected' });
+            } else {
+                excludedCurrent.push({ detectedObject: obj, activation: 'detected' });
+            }
         }
 
-        if (isAdjust.value) return result;
+        if (isAdjust.value) {
+            return [...includedCurrent, ...excludedCurrent];
+        }
 
+        let blurPreview: PreviewObject[];
         if (!anonymizationSettings.value.interpolateTrackedObjects) {
-            return getBufferedBlurPreviewObjects(frames.value, current, bufferSeconds, result);
+            blurPreview = getBufferedBlurPreviewObjects(frames.value, current, bufferSeconds, includedCurrent);
+        } else {
+            blurPreview = getPredictedBlurPreviewObjects(
+                frames.value,
+                currentTime.value,
+                bufferSeconds
+            );
         }
 
-        return getPredictedBlurPreviewObjects(
-            frames.value,
-            currentTime.value,
-            bufferSeconds
-        );
+        return mergeExcludedGhosts(blurPreview, excludedCurrent);
     });
+}
+
+/** Keep excluded current-frame detections visible even when blur prediction replaces the list. */
+function mergeExcludedGhosts(
+    blurPreview: PreviewObject[],
+    excludedCurrent: PreviewObject[]
+): PreviewObject[] {
+    if (excludedCurrent.length === 0) return blurPreview;
+
+    const result = [...blurPreview];
+    for (const ghost of excludedCurrent) {
+        const key = buildObjectKey(ghost.detectedObject);
+        if (result.some(r => buildObjectKey(r.detectedObject) === key)) continue;
+        result.push(ghost);
+    }
+    return result;
 }
 
 function getBufferedBlurPreviewObjects(

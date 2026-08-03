@@ -62,7 +62,16 @@ const visibleObjects = computed(() => {
   return props.objects;
 });
 
+function isExcluded(obj: PreviewObject): boolean {
+  return !obj.detectedObject.selected;
+}
+
 function getBlurAreaStyle(obj: PreviewObject) {
+  // Excluded occurrences are ghost outlines only — no blur fill preview.
+  if (isExcluded(obj)) {
+    return { display: 'none' };
+  }
+
   const color = colorManager.getColor(obj.detectedObject);
   const scale = props.anonymizationSettings.blurSizePercent / 100;
   const expandedWidth = obj.detectedObject.width * scale;
@@ -91,6 +100,7 @@ function isPrimaryActivation(obj: PreviewObject): boolean {
 
 function getBoxStyle(obj: PreviewObject) {
   const color = colorManager.getColor(obj.detectedObject);
+  const excluded = isExcluded(obj);
   return {
     ...toOverlayRect(
       obj.detectedObject.x,
@@ -98,7 +108,7 @@ function getBoxStyle(obj: PreviewObject) {
       obj.detectedObject.width,
       obj.detectedObject.height),
     borderColor: color,
-    opacity: isPrimaryActivation(obj) ? 1 : 0.4
+    opacity: excluded ? undefined : (isPrimaryActivation(obj) ? 1 : 0.4)
   };
 }
 
@@ -283,10 +293,14 @@ const selectable = computed(() => props.mode === 'select');
         class="obj-group"
         :class="{
           'obj-group--dimmed': shouldDim(getObjTimelineKey(obj)),
-          'obj-group--inert': mode !== 'select'
+          'obj-group--inert': mode !== 'select',
+          'obj-group--excluded': isExcluded(obj),
+          'obj-group--selected': isSelected(obj)
         }"
+        :data-excluded="isExcluded(obj) ? 'true' : 'false'"
       >
         <div
+          v-if="!isExcluded(obj)"
           data-testid="blur-area-outline"
           class="blur-area-outline"
           :class="{ 'blur-area-outline--rectangle': usesRectangleBlur(obj), 'bbox--selected': isSelected(obj) }"
@@ -301,11 +315,18 @@ const selectable = computed(() => props.mode === 'select');
         <div
           data-testid="bounding-box"
           class="bbox"
-          :class="{ 'bbox--selected': isSelected(obj) }"
+          :class="{
+            'bbox--selected': isSelected(obj),
+            'bbox--excluded': isExcluded(obj)
+          }"
           :style="getBoxStyle(obj)"
           :tabindex="selectable ? 0 : undefined"
           :role="selectable ? 'button' : undefined"
-          :aria-label="selectable ? `Select ${getLabel(obj.detectedObject)} box` : undefined"
+          :aria-label="selectable
+            ? (isExcluded(obj)
+              ? `Select excluded ${getLabel(obj.detectedObject)} box`
+              : `Select ${getLabel(obj.detectedObject)} box`)
+            : undefined"
           @click.stop="selectable ? emit('select', obj.detectedObject) : undefined"
           @keydown.enter.prevent="selectable ? emit('select', obj.detectedObject) : undefined"
           @keydown.space.prevent="selectable ? emit('select', obj.detectedObject) : undefined"
@@ -362,6 +383,17 @@ const selectable = computed(() => props.mode === 'select');
   pointer-events: none;
 }
 
+/* Excluded = subdued ghost outline without blur fill; still pointer/keyboard selectable. */
+.obj-group--excluded {
+  opacity: 0.45;
+}
+
+.obj-group--excluded:hover,
+.obj-group--excluded:focus-within,
+.obj-group--excluded.obj-group--selected {
+  opacity: 1;
+}
+
 .bbox {
   position: absolute;
   border: 2px dashed;
@@ -370,9 +402,20 @@ const selectable = computed(() => props.mode === 'select');
   cursor: pointer;
 }
 
+.bbox--excluded {
+  border-style: dashed;
+  border-width: 2px;
+  background: transparent;
+  box-shadow: none;
+}
+
 .bbox--selected {
   border-style: solid;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mud-palette-primary) 40%, transparent);
+}
+
+.bbox--excluded.bbox--selected {
+  border-style: solid;
 }
 
 .blur-area-outline:focus-visible,

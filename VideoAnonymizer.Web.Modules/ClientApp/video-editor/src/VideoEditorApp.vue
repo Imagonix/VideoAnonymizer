@@ -439,13 +439,22 @@ function onKeyDown(event: KeyboardEvent) {
     }
 }
 
-function handleToggleInclude(checked: boolean) {
+/** Inspector: include/exclude only the currently selected occurrence. */
+function handleToggleOccurrenceInclude(checked: boolean) {
     const obj = selectedOccurrence.value;
     if (!obj) return;
-    if (obj.trackId != null) {
-        const timelineObject = timelineObjects.value.find(o => getTimelineKey(o) === getObjTimelineKey(obj));
-        if (timelineObject) { toggleTrackedObject(timelineObject, checked); return; }
+    toggleObject(obj.id, checked);
+}
+
+/** Timeline track row / collapsed strip: bulk include/exclude every occurrence in the track. */
+function handleToggleTrackInclude(checked: boolean) {
+    const timelineObject = selectedTimelineObject.value;
+    if (timelineObject) {
+        toggleTrackedObject(timelineObject, checked);
+        return;
     }
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
     toggleObject(obj.id, checked);
 }
 
@@ -649,7 +658,7 @@ function setVideoVolume(volume: number) {
               v-bind="selectedTrackSettings"
               :can-go-previous="canGoPrevious"
               :can-go-next="canGoNext"
-              @toggle-include="handleToggleInclude"
+              @toggle-include="handleToggleOccurrenceInclude"
               @update-shape="handleUpdateShape"
               @update-blur-size="handleUpdateBlurSize"
               @reset-blur-size="handleResetBlurSize"
@@ -706,7 +715,7 @@ function setVideoVolume(volume: number) {
               :active-gap-range="selectedTimelineObject ? getTrackingProgress(selectedTimelineObject) : null"
               @toggle-expanded="toggleTimelineExpanded"
               @seek="seekTo"
-              @toggle-include="handleToggleInclude"
+              @toggle-include="handleToggleTrackInclude"
               @select-occurrence="selectOccurrenceAndSeek"
             />
 
