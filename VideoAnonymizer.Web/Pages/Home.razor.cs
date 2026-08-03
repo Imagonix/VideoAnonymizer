@@ -27,6 +27,18 @@ namespace VideoAnonymizer.Web.Pages
 
         private int _activeTabIndex = 0;
 
+        private bool IsImportActive => _activeTabIndex == 0;
+        private bool IsReviewActive => _activeTabIndex == 1;
+
+        private void SetActiveTab(int index)
+        {
+            if (_activeTabIndex == index)
+                return;
+
+            _activeTabIndex = index;
+            StateHasChanged();
+        }
+
         public bool IsAnonymized { get; private set; }
 
         private bool IsBusy { get; set; }

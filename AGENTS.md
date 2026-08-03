@@ -102,7 +102,7 @@ Key projects under `VideoAnonymizer.slnx`:
 ## Key Code Locations
 
 ### Frontend - Main Page
-- `VideoAnonymizer.Web/Pages/Home.razor` - Page layout, tab structure, ReviewExportTab binding
+- `VideoAnonymizer.Web/Pages/Home.razor` - Page shell: fixed compact left icon navigation rail (Import / Review & Export) with the CPU/GPU `LocalRuntimeFeedback` pinned below a divider at the rail bottom; active view rendered in a `content-area` that does not shift; `_activeTabIndex` drives the switch. ReviewExportTab binding
 - `VideoAnonymizer.Web/Pages/Home.razor.cs` - All event handlers: upload, analyze, anonymize, download. SignalR subscription setup in `OnInitializedAsync`
 - `VideoAnonymizer.Web/Pages/Home.razor.js` - `triggerFileDownload()` JS function
 
@@ -281,6 +281,7 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 ## Important Notes
 
 - The solution has a **standalone mode**, a **distributed mode** (Aspire), and a **Docker mode** sharing the same app concepts
+- There is no standalone `Video Anonymizer` heading/header row on the Home page; navigation uses the fixed left icon rail, and the CPU/GPU mode indicator lives in the same rail's bottom slot (`LocalRuntimeFeedbackMode.Compact`).
 - `Home.razor.cs` manages all SignalR subscriptions in `OnInitializedAsync()` and implements `IAsyncDisposable` for cleanup
 - The `DownloadAsync()` method is called automatically from the `videoAnonymized` SignalR handler (no download button)
 - `SelectedFileName` is preserved from the initial file selection (not nullified after analysis) to ensure correct download filename
