@@ -66,9 +66,11 @@ function isExcluded(obj: PreviewObject): boolean {
   return !obj.detectedObject.selected;
 }
 
-/** Resolve the effective blur size the same way export does: override ?? global. */
+/** Resolve the effective blur size the same way export does: occurrence ?? track ?? global. */
 function effectiveBlurSize(obj: DetectedObjectDto): number {
-  return obj.blurSizePercentOverride ?? props.anonymizationSettings.blurSizePercent;
+  return obj.occurrenceBlurSizePercentOverride
+    ?? obj.blurSizePercentOverride
+    ?? props.anonymizationSettings.blurSizePercent;
 }
 
 function getBlurAreaStyle(obj: PreviewObject) {

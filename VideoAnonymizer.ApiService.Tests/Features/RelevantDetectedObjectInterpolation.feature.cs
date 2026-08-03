@@ -109,7 +109,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/RelevantDetectedObjectInterpolation.feature.ndjson", 25);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/RelevantDetectedObjectInterpolation.feature.ndjson", 26);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -1249,6 +1249,67 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                             "400"});
 #line 204
     await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table45, "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Interpolated boxes copy occurrence blur and track time buffer metadata")]
+        public async global::System.Threading.Tasks.Task InterpolatedBoxesCopyOccurrenceBlurAndTrackTimeBufferMetadata()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "23";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Interpolated boxes copy occurrence blur and track time buffer metadata", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 208
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+                global::Reqnroll.Table table46 = new global::Reqnroll.Table(new string[] {
+                            "timeSeconds",
+                            "trackId",
+                            "x",
+                            "occurrenceBlurSizePercentOverride",
+                            "trackTimeBufferMsOverride"});
+                table46.AddRow(new string[] {
+                            "0.0",
+                            "7",
+                            "10",
+                            "180",
+                            "600"});
+                table46.AddRow(new string[] {
+                            "1.0",
+                            "7",
+                            "100",
+                            "",
+                            "600"});
+#line 209
+    await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table46, "Given ");
+#line hidden
+#line 213
+    await testRunner.WhenAsync("the processor predicts objects at 0.4 seconds with a 0.0 second buffer", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+                global::Reqnroll.Table table47 = new global::Reqnroll.Table(new string[] {
+                            "trackId",
+                            "x",
+                            "occurrenceBlurSizePercentOverride",
+                            "trackTimeBufferMsOverride"});
+                table47.AddRow(new string[] {
+                            "7",
+                            "46",
+                            "180",
+                            "600"});
+#line 214
+    await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table47, "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

@@ -10,10 +10,19 @@ public static class AnonymizationSettingsResolver
 {
     public static (int PreBufferMs, int PostBufferMs) ResolveBuffers(
         ConsecutiveSegment segment,
-        int globalTimeBufferMs) =>
-        (segment.First.PreBufferMsOverride ?? globalTimeBufferMs,
-            segment.Last.PostBufferMsOverride ?? globalTimeBufferMs);
+        int globalTimeBufferMs)
+    {
+        var trackTimeBufferMs = segment.First.TrackTimeBufferMsOverride ?? globalTimeBufferMs;
+        return (segment.First.PreBufferMsOverride ?? trackTimeBufferMs,
+            segment.Last.PostBufferMsOverride ?? trackTimeBufferMs);
+    }
 
+    /// <summary>
+    /// Effective blur size for one occurrence: occurrence override -> materialized
+    /// track-wide override -> global default.
+    /// </summary>
     public static int ResolveBlurSize(DetectedObject occurrence, int globalBlurSizePercent) =>
-        occurrence.BlurSizePercentOverride ?? globalBlurSizePercent;
+        occurrence.OccurrenceBlurSizePercentOverride
+        ?? occurrence.BlurSizePercentOverride
+        ?? globalBlurSizePercent;
 }

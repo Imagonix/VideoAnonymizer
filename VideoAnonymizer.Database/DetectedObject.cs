@@ -11,6 +11,8 @@ namespace VideoAnonymizer.Database
         public string? ClassName { get; set; }
         public string? BlurShape { get; set; }
         public int? BlurSizePercentOverride { get; set; }
+        public int? OccurrenceBlurSizePercentOverride { get; set; }
+        public int? TrackTimeBufferMsOverride { get; set; }
         public int? PreBufferMsOverride { get; set; }
         public int? PostBufferMsOverride { get; set; }
         public bool Selected { get; set; }

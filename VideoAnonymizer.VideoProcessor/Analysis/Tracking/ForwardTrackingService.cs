@@ -182,6 +182,7 @@ public sealed class ForwardTrackingService(
                                     ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
                                     BlurShape = seed.Object.BlurShape,
                                     BlurSizePercentOverride = seed.Object.BlurSizePercentOverride,
+                                    TrackTimeBufferMsOverride = seed.Object.TrackTimeBufferMsOverride,
                                     Selected = true,
                                     TrackId = trackId,
                                     X = detection.X,

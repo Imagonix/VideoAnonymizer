@@ -109,7 +109,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/LocalVideoPersistence.feature.ndjson", 20);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/LocalVideoPersistence.feature.ndjson", 23);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -746,6 +746,113 @@ namespace VideoAnonymizer.ApiService.Tests.Features
 #line hidden
 #line 109
     await testRunner.AndAsync("upload time ties are broken by file name deterministically", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Occurrence blur and track time buffer overrides round-trip")]
+        public async global::System.Threading.Tasks.Task OccurrenceBlurAndTrackTimeBufferOverridesRound_Trip()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "18";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Occurrence blur and track time buffer overrides round-trip", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 111
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 112
+    await testRunner.GivenAsync("a reviewed video has two detected faces", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 113
+    await testRunner.WhenAsync("the reviewer saves the first face with an occurrence blur and a track time buffer" +
+                        " override", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 114
+    await testRunner.ThenAsync("the first face keeps the occurrence blur and track time buffer when reopening the" +
+                        " video", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 115
+    await testRunner.AndAsync("the second face still has no occurrence or track overrides", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Effective blur size prefers the occurrence override over the track override")]
+        public async global::System.Threading.Tasks.Task EffectiveBlurSizePrefersTheOccurrenceOverrideOverTheTrackOverride()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "19";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Effective blur size prefers the occurrence override over the track override", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 117
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 118
+    await testRunner.GivenAsync("a reviewer\'s video has a global blur size of 120 percent", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 119
+    await testRunner.AndAsync("one occurrence overrides its blur while its track carries a different override", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 120
+    await testRunner.WhenAsync("the effective blur sizes are resolved", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 121
+    await testRunner.ThenAsync("the occurrence override wins and the track override is the fallback", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("The track time buffer is the segment pre and post fallback")]
+        public async global::System.Threading.Tasks.Task TheTrackTimeBufferIsTheSegmentPreAndPostFallback()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "20";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The track time buffer is the segment pre and post fallback", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 123
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 124
+    await testRunner.GivenAsync("a track with a time buffer override of 600 ms has a consecutive segment", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 125
+    await testRunner.WhenAsync("the segment buffers are resolved for the track", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 126
+    await testRunner.ThenAsync("the segment pre and post values are 600 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

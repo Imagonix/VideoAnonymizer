@@ -89,3 +89,49 @@ Feature: Track settings and consecutive-segment boundary overrides
     When the reviewer merges track 2 into track 1
     Then the merged track adopts track 1 shape and blur size
     And boundary overrides survive only on the merged run outer occurrences
+
+  Scenario: Track time buffer is materialized on every occurrence
+    Given the editor is open with consecutive track segments
+    When the reviewer sets track 1 time buffer to 500 ms
+    Then every track 1 occurrence stores a track time buffer override of 500
+    And the segment pre and post values inherit the track time buffer 500
+
+  Scenario: Track time buffer equal to the global value normalizes storage to null
+    Given the editor is open with consecutive track segments
+    When the reviewer sets track 1 time buffer to the global value 300
+    Then every track 1 occurrence stores a null track time buffer override
+
+  Scenario: A later global time buffer change leaves the track time buffer intact
+    Given the editor is open with a track time buffer override of 500 on track 1
+    When the global time buffer changes from 300 to 700
+    Then the track time buffer override remains stored as 500
+
+  Scenario: Resetting the track time buffer falls back to the global value
+    Given the editor is open with a track time buffer override of 500 on track 1
+    When the reviewer resets the track 1 time buffer
+    Then every track 1 occurrence stores a null track time buffer override
+    And the segment pre and post values inherit the global time buffer 300
+
+  Scenario: Occurrence blur overrides the track blur and resolves above it
+    Given the editor is open with a track that carries shape and blur size
+    When the reviewer sets an occurrence blur size to 180 on the first occurrence
+    Then the first occurrence stores an occurrence blur override of 180
+    And the first occurrence resolves to 180 while the other occurrences resolve to 150
+
+  Scenario: Resetting an occurrence blur falls back to the track value
+    Given the editor is open with a track that carries shape and blur size
+    When the reviewer sets an occurrence blur size to 180 on the first occurrence and resets it
+    Then the first occurrence stores a null occurrence blur override
+    And the first occurrence resolves to the track blur size 150
+
+  Scenario: A later track blur change preserves an existing occurrence blur
+    Given the editor is open with a track that carries shape and blur size
+    When the reviewer sets an occurrence blur size to 180 on the first occurrence
+    And the reviewer sets track 1 blur size to 170
+    Then the first occurrence keeps its occurrence blur override of 180
+
+  Scenario: A new box assigned to an existing track inherits the track time buffer
+    Given the editor is open with a track that carries shape and blur size and a time buffer
+    When the reviewer adds a box on the next frame assigned to track 1
+    Then the new box inherits the track time buffer override
+    And the new box keeps a null occurrence blur override

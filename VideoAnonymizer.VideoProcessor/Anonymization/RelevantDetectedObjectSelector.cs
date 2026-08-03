@@ -201,6 +201,8 @@ public static class RelevantDetectedObjectSelector
                 ? previous.BlurShape ?? next.BlurShape
                 : metadataSource.BlurShape,
             BlurSizePercentOverride = metadataSource.BlurSizePercentOverride,
+            OccurrenceBlurSizePercentOverride = metadataSource.OccurrenceBlurSizePercentOverride,
+            TrackTimeBufferMsOverride = metadataSource.TrackTimeBufferMsOverride,
             PreBufferMsOverride = metadataSource.PreBufferMsOverride,
             PostBufferMsOverride = metadataSource.PostBufferMsOverride,
             Selected = true,
@@ -222,6 +224,8 @@ public static class RelevantDetectedObjectSelector
             ClassName = source.ClassName,
             BlurShape = source.BlurShape,
             BlurSizePercentOverride = source.BlurSizePercentOverride,
+            OccurrenceBlurSizePercentOverride = source.OccurrenceBlurSizePercentOverride,
+            TrackTimeBufferMsOverride = source.TrackTimeBufferMsOverride,
             PreBufferMsOverride = source.PreBufferMsOverride,
             PostBufferMsOverride = source.PostBufferMsOverride,
             Selected = source.Selected,

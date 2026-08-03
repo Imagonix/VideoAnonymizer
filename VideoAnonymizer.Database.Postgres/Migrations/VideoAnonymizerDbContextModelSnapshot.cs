@@ -68,6 +68,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.Property<int>("Height")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("OccurrenceBlurSizePercentOverride")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("PostBufferMsOverride")
                         .HasColumnType("integer");
 
@@ -78,6 +81,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<int?>("TrackId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TrackTimeBufferMsOverride")
                         .HasColumnType("integer");
 
                     b.Property<int>("Width")

@@ -57,6 +57,7 @@ export function useMerge() {
         const sourceOccurrences = affected.filter(obj => obj.trackId === targetTrackId);
         const shape = sourceOccurrences.find(obj => obj.blurShape)?.blurShape ?? null;
         const blurSizePercentOverride = sourceOccurrences.find(obj => obj.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null;
+        const trackTimeBufferMsOverride = sourceOccurrences.find(obj => obj.trackTimeBufferMsOverride != null)?.trackTimeBufferMsOverride ?? null;
 
         for (const frame of frames) {
             let frameHasTarget = frame.detectedObjects.some(o => o.trackId === targetTrackId);
@@ -77,6 +78,7 @@ export function useMerge() {
             if (obj.trackId === targetTrackId) {
                 obj.blurShape = shape;
                 obj.blurSizePercentOverride = blurSizePercentOverride;
+                obj.trackTimeBufferMsOverride = trackTimeBufferMsOverride;
             }
         }
 

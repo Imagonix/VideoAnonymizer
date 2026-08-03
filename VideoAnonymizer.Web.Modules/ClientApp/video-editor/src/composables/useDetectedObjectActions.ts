@@ -60,6 +60,7 @@ export function useDetectedObjectActions(
             }
             const before = cloneObjects(affected);
             timelineObject.detectedObj.trackId = trackId;
+            applyDestinationTrackDefaults(timelineObject.detectedObj, trackId);
             normalizeSegmentBoundaries(frames.value);
             const { changed, beforeState } = getChangedObjects(affected, before);
             dispatchChanges(state, changed, beforeState, 'reassign');
@@ -79,12 +80,33 @@ export function useDetectedObjectActions(
         }
 
         const before = cloneObjects(affected);
-        affected
-            .filter(obj => obj.trackId === oldTrackId)
-            .forEach(obj => { obj.trackId = trackId; });
+        const moved = affected
+            .filter(obj => obj.trackId === oldTrackId);
+        moved.forEach(obj => { obj.trackId = trackId; });
+        moved.forEach(obj => applyDestinationTrackDefaults(obj, trackId));
         normalizeSegmentBoundaries(frames.value);
         const { changed, beforeState } = getChangedObjects(affected, before);
         dispatchChanges(state, changed, beforeState, 'reassign');
+    }
+
+    /**
+     * Reassigning to an existing track adopts that track's materialized shape, blur size
+     * and time buffer; reassigning to a brand-new track keeps null track defaults.
+     */
+    function applyDestinationTrackDefaults(obj: DetectedObjectDto, trackId: number) {
+        const defaults = getTrackSettings(trackId);
+        obj.blurShape = defaults.shape;
+        obj.blurSizePercentOverride = defaults.blurSizePercentOverride;
+        obj.trackTimeBufferMsOverride = defaults.trackTimeBufferMsOverride;
+    }
+
+    function getTrackSettings(trackId: number): { shape: string | null; blurSizePercentOverride: number | null; trackTimeBufferMsOverride: number | null } {
+        const occurrences = getTrackOccurrences(frames.value, trackId);
+        return {
+            shape: occurrences.find(o => o.blurShape)?.blurShape ?? null,
+            blurSizePercentOverride: occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null,
+            trackTimeBufferMsOverride: occurrences.find(o => o.trackTimeBufferMsOverride != null)?.trackTimeBufferMsOverride ?? null
+        };
     }
 
     function deleteObject(obj: DetectedObjectDto) {
@@ -113,6 +135,11 @@ export function useDetectedObjectActions(
         return occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null;
     }
 
+    function getTrackTimeBufferForTrack(trackId: number): number | null {
+        const occurrences = getTrackOccurrences(frames.value, trackId);
+        return occurrences.find(o => o.trackTimeBufferMsOverride != null)?.trackTimeBufferMsOverride ?? null;
+    }
+
     function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
         if (!currentFrame.value) return;
 
@@ -131,12 +158,17 @@ export function useDetectedObjectActions(
         const blurSizePercentOverride = selectedExistingTrackId == null
             ? null
             : getBlurSizeOverrideForTrack(selectedExistingTrackId);
+        const trackTimeBufferMsOverride = selectedExistingTrackId == null
+            ? null
+            : getTrackTimeBufferForTrack(selectedExistingTrackId);
         const newObj: DetectedObjectDto = {
             id: crypto.randomUUID(),
             confidence: 1,
             className: className || null,
             blurShape,
             blurSizePercentOverride,
+            occurrenceBlurSizePercentOverride: null,
+            trackTimeBufferMsOverride,
             selected: true,
             trackId: resolvedTrackId,
             x,

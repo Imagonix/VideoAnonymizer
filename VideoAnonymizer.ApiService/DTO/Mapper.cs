@@ -33,6 +33,8 @@ namespace VideoAnonymizer.ApiService.DTO
                 ClassName = entity.ClassName,
                 BlurShape = entity.BlurShape,
                 BlurSizePercentOverride = entity.BlurSizePercentOverride,
+                OccurrenceBlurSizePercentOverride = entity.OccurrenceBlurSizePercentOverride,
+                TrackTimeBufferMsOverride = entity.TrackTimeBufferMsOverride,
                 PreBufferMsOverride = entity.PreBufferMsOverride,
                 PostBufferMsOverride = entity.PostBufferMsOverride,
                 Selected = entity.Selected,
@@ -96,6 +98,8 @@ namespace VideoAnonymizer.ApiService.DTO
                 ClassName = dto.ClassName,
                 BlurShape = dto.BlurShape,
                 BlurSizePercentOverride = dto.BlurSizePercentOverride,
+                OccurrenceBlurSizePercentOverride = dto.OccurrenceBlurSizePercentOverride,
+                TrackTimeBufferMsOverride = dto.TrackTimeBufferMsOverride,
                 PreBufferMsOverride = dto.PreBufferMsOverride,
                 PostBufferMsOverride = dto.PostBufferMsOverride,
                 Selected = dto.Selected,
@@ -167,6 +171,8 @@ namespace VideoAnonymizer.ApiService.DTO
             entity.ClassName = dto.ClassName;
             entity.BlurShape = dto.BlurShape;
             entity.BlurSizePercentOverride = dto.BlurSizePercentOverride;
+            entity.OccurrenceBlurSizePercentOverride = dto.OccurrenceBlurSizePercentOverride;
+            entity.TrackTimeBufferMsOverride = dto.TrackTimeBufferMsOverride;
             entity.PreBufferMsOverride = dto.PreBufferMsOverride;
             entity.PostBufferMsOverride = dto.PostBufferMsOverride;
             entity.Selected = dto.Selected;

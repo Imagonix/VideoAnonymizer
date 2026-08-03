@@ -107,3 +107,20 @@ Feature: Local video persistence
     When the reviewer opens the saved videos list
     Then the listed videos are ordered newest upload first
     And upload time ties are broken by file name deterministically
+
+  Scenario: Occurrence blur and track time buffer overrides round-trip
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with an occurrence blur and a track time buffer override
+    Then the first face keeps the occurrence blur and track time buffer when reopening the video
+    And the second face still has no occurrence or track overrides
+
+  Scenario: Effective blur size prefers the occurrence override over the track override
+    Given a reviewer's video has a global blur size of 120 percent
+    And one occurrence overrides its blur while its track carries a different override
+    When the effective blur sizes are resolved
+    Then the occurrence override wins and the track override is the fallback
+
+  Scenario: The track time buffer is the segment pre and post fallback
+    Given a track with a time buffer override of 600 ms has a consecutive segment
+    When the segment buffers are resolved for the track
+    Then the segment pre and post values are 600 ms
