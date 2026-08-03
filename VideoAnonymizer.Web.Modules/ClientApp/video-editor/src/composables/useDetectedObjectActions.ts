@@ -1,6 +1,5 @@
-import type { ComputedRef, Ref } from 'vue';
+import type { ComputedRef } from 'vue';
 import type { AnalyzedFrameDto, DetectedObjectDto, TimelineObject, VideoEditorProps } from '../types';
-import type { EditorMode } from './useEditorModes';
 import { applyBoundaryTransferOnAdd, getTrackOccurrences, normalizeSegmentBoundaries } from './useConsecutiveTrackSegment';
 import { cloneObjects, getChangedObjects } from '../utils/objectDiff';
 
@@ -20,8 +19,7 @@ function dispatchChanges(
 export function useDetectedObjectActions(
     state: VideoEditorProps,
     frames: ComputedRef<AnalyzedFrameDto[]>,
-    currentFrame: ComputedRef<AnalyzedFrameDto | null>,
-    activeMode: Ref<EditorMode>
+    currentFrame: ComputedRef<AnalyzedFrameDto | null>
 ) {
     function toggleObject(id: string, checked: boolean) {
         const matched = frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id));
@@ -156,10 +154,6 @@ export function useDetectedObjectActions(
         }
     }
 
-    function onBoxUpdated(obj: DetectedObjectDto, beforeState: DetectedObjectDto[]) {
-        state.onDetectedObjectUpdated?.(state.videoId, obj.analyzedFrameId, obj, activeMode.value, beforeState);
-    }
-
     return {
         toggleObject,
         toggleTrackedObject,
@@ -167,6 +161,5 @@ export function useDetectedObjectActions(
         deleteObject,
         trackForward,
         addBox,
-        onBoxUpdated,
     };
 }

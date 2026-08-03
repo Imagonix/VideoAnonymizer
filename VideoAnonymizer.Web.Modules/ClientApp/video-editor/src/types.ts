@@ -75,7 +75,7 @@ export type PreviewObject = {
   activation: 'detected' | 'interpolated' | 'pre' | 'post';
 };
 
-export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add' | 'track';
+export type EditorMode = 'select' | 'merge' | 'split' | 'adjust' | 'add';
 
 export type VideoDimensions = {
   videoWidth: number;

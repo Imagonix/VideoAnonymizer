@@ -8,7 +8,7 @@ export function useBlurPreviewObjects(
     currentFrame: ComputedRef<AnalyzedFrameDto | null>,
     currentTime: Ref<number>,
     anonymizationSettings: ComputedRef<AnonymizationSettings>,
-    isMove: ComputedRef<boolean>
+    isAdjust: ComputedRef<boolean>
 ) {
     return computed(() => {
         const bufferSeconds = anonymizationSettings.value.timeBufferMs / 1000;
@@ -21,7 +21,7 @@ export function useBlurPreviewObjects(
             result.push({ detectedObject: obj, activation: 'detected' });
         }
 
-        if (isMove.value) return result;
+        if (isAdjust.value) return result;
 
         if (!anonymizationSettings.value.interpolateTrackedObjects) {
             return getBufferedBlurPreviewObjects(frames.value, current, bufferSeconds, result);

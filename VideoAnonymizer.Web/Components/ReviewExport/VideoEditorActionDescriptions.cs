@@ -13,6 +13,7 @@ public static class VideoEditorActionDescriptions
             "reassign" => "Reassigned track ID",
             "move" => "Moved bounding box",
             "resize" => "Resized bounding box",
+            "adjust" => "Adjusted bounding box",
             _ => "Updated bounding box"
         },
         ObjectsBulkUpdatedAction a => a.OperationType switch
@@ -21,6 +22,7 @@ public static class VideoEditorActionDescriptions
             "split" => $"Split out {a.Objects.Count} bounding boxes from track ID {a.BeforeState[0]?.TrackId}",
             "toggle" => $"Changed visibility ({a.Objects.Count} objects)",
             "reassign" => $"Reassigned track ID ({a.Objects.Count} objects)",
+            "track-settings" => $"Updated track settings ({a.Objects.Count} objects)",
             _ => $"Updated {a.Objects.Count} objects"
         },
         ObjectDeletedAction => "Deleted bounding box",

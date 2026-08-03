@@ -19,10 +19,10 @@ import VideoPlayer from './VideoPlayer.vue';
 import Timeline from './Timeline.vue';
 import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
-import EditorControls from './EditorControls.vue';
-import DetailedView from './DetailedView.vue';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 import ObjectDetailsPanel from './ObjectDetailsPanel.vue';
+import ReviewTools from './ReviewTools.vue';
+import AddBoxDialog from './AddBoxDialog.vue';
 
 const props = defineProps<{ state: VideoEditorProps }>();
 
@@ -99,30 +99,18 @@ const frames = computed(() => props.state.frames ?? []);
 const anonymizationSettings = computed(() => props.state.anonymizationSettings);
 const trackingObjectIds = ref(new Set<string>());
 const trackingProgressByTrackId = ref(new Map<number, { startMs: number; endMs: number }>());
-const trackingTrackIds = computed(() => {
-    const trackIds = new Set<number>();
-    for (const frame of frames.value) {
-        for (const obj of frame.detectedObjects) {
-            if (trackingObjectIds.value.has(obj.id) && obj.trackId != null) {
-                trackIds.add(obj.trackId);
-            }
-        }
-    }
-    return trackIds;
-});
 const hoveredTimelineKey = ref<string | null>(null);
 
-const { activeMode, activate, deactivate, isMerge, isSplit, isMove, isResize, isAdd, isTrack, isOverlayOpen } = useEditorModes();
+const { activeMode, activate, deactivate, isMerge, isSplit, isAdjust } = useEditorModes();
 const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execute: mergeExecute } = useMerge();
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
 const { currentFrame, timelineObjects, timelineObjectCounts } = useTimelineObjects(frames, currentTime);
-const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isMove);
-const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox, onBoxUpdated } = useDetectedObjectActions(
+const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isAdjust);
+const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox } = useDetectedObjectActions(
     props.state,
     frames,
-    currentFrame,
-    activeMode
+    currentFrame
 );
 const { findSegmentFor } = useConsecutiveTrackSegment(frames);
 const {
@@ -266,8 +254,135 @@ function handleEmptySpaceClick() {
     }
 }
 
+const adjustBeforeState = ref<DetectedObjectDto | null>(null);
+const adjustObject = computed(() => (activeMode.value === 'adjust' ? selectedOccurrence.value : null));
+
+function pausePlayback() {
+    videoPlayerRef.value?.videoRef?.pause();
+}
+
+function handleAdjustDetection() {
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
+    adjustBeforeState.value = JSON.parse(JSON.stringify(obj));
+    pausePlayback();
+    activate('adjust');
+}
+
+function handleAdjustDone() {
+    const obj = adjustObject.value;
+    const before = adjustBeforeState.value;
+    if (obj && before) {
+        props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, 'adjust', [before]);
+    }
+    adjustBeforeState.value = null;
+    deactivate();
+}
+
+function handleAdjustReset() {
+    const obj = adjustObject.value;
+    if (obj && adjustBeforeState.value) {
+        Object.assign(obj, adjustBeforeState.value);
+    }
+}
+
+const pendingLabel = ref<{ x: number; y: number; width: number; height: number } | null>(null);
+
+const existingTrackIds = computed(() => {
+    const ids = new Set<number>();
+    for (const frame of frames.value) {
+        for (const obj of frame.detectedObjects) {
+            if (obj.trackId != null) ids.add(obj.trackId);
+        }
+    }
+    return [...ids].sort((a, b) => a - b);
+});
+
+const trackIdsInCurrentFrame = computed(() => {
+    const frame = currentFrame.value;
+    if (!frame) return new Set<number>();
+    return new Set(frame.detectedObjects.flatMap(obj => obj.trackId == null ? [] : [obj.trackId]));
+});
+
+function handleAddObject() {
+    activate('add');
+}
+
+function handleDrawComplete(box: { x: number; y: number; width: number; height: number }) {
+    pendingLabel.value = box;
+}
+
+function handleAddConfirm(className: string, trackId: 'new' | number) {
+    if (pendingLabel.value) {
+        addBox(pendingLabel.value.x, pendingLabel.value.y, pendingLabel.value.width, pendingLabel.value.height, className, trackId);
+    }
+    pendingLabel.value = null;
+    deactivate();
+}
+
+function handleAddCancel() {
+    pendingLabel.value = null;
+    deactivate();
+}
+
+function handleTrackForward() {
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
+    if (trackingObjectIds.value.has(obj.id)) return;
+    trackForward(obj);
+}
+
+function handleMerge() {
+    mergeSelectedTimelineKeys.value = new Set();
+    clearOccurrences();
+    activate('merge');
+}
+
+function handleSplit() {
+    clearOccurrences();
+    activate('split');
+}
+
+function handleDelete() {
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
+    deleteObject(obj);
+    clearSelection();
+}
+
+function handleCancel() {
+    if (activeMode.value === 'merge') {
+        mergeSelectedTimelineKeys.value = new Set();
+        deactivate();
+    } else if (activeMode.value === 'split') {
+        clearOccurrences();
+        deactivate();
+    } else if (activeMode.value === 'add') {
+        pendingLabel.value = null;
+        deactivate();
+    }
+}
+
 function onKeyDown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && activeMode.value === 'select') {
+    if (event.key !== 'Escape') return;
+
+    if (activeMode.value === 'adjust') {
+        const obj = adjustObject.value;
+        if (obj && adjustBeforeState.value) {
+            Object.assign(obj, adjustBeforeState.value);
+        }
+        adjustBeforeState.value = null;
+        deactivate();
+        return;
+    }
+
+    if (activeMode.value === 'add' && pendingLabel.value) {
+        pendingLabel.value = null;
+        deactivate();
+        return;
+    }
+
+    if (activeMode.value === 'select') {
         clearSelection();
     }
 }
@@ -328,14 +443,6 @@ function handleResetPre() {
 function handleResetPost() {
     const segment = getSelectedSegment();
     if (segment) resetSegmentPost(segment);
-}
-
-function handleAdjustDetection() {
-    // Placeholder: Command 6 introduces the inline adjust mode.
-}
-
-function handleAdvancedMenu() {
-    // Placeholder: advanced track actions live here in Command 6.
 }
 
 function trackForward(obj: DetectedObjectDto) {
@@ -444,14 +551,9 @@ function splitAction() {
     }
 }
 
-function modeToggle(mode: 'merge' | 'split' | 'move' | 'resize' | 'add' | 'track') {
-    if (activeMode.value === mode) { deactivate(); return; }
-    if (mode === 'merge' || mode === 'split' || mode === 'move' || mode === 'resize' || mode === 'add' || mode === 'track') {
-        if (mode !== 'merge') clearOccurrences();
-        if (mode !== 'split') mergeSelectedTimelineKeys.value = new Set();
-        activate(mode);
-    }
-}
+const overlayMode = computed<'select' | 'adjust' | 'add'>(() =>
+    activeMode.value === 'adjust' || activeMode.value === 'add' ? activeMode.value : 'select'
+);
 
 function onTimeUpdate(time: number) { currentTime.value = time; }
 function onVideoLoaded(duration: number) {
@@ -475,7 +577,7 @@ function setVideoVolume(volume: number) {
                 <VideoPlayer ref="videoPlayerRef" :videoSourceUrl="state.videoSourceUrl" :currentTime="currentTime"
                     @time-update="onTimeUpdate" @loaded="onVideoLoaded"
                     @play-state-change="onVideoPlayStateChange" @volume-change="onVideoVolumeChange" />
-                <BoundingBoxOverlay v-if="currentFrame && visibleBlurPreviewObjects.length > 0"
+                <BoundingBoxOverlay v-if="currentFrame && (visibleBlurPreviewObjects.length > 0 || adjustObject)"
                     :objects="visibleBlurPreviewObjects"
                     :anonymization-settings="state.anonymizationSettings"
                     :video-dimensions="videoDimensions"
@@ -483,11 +585,14 @@ function setVideoVolume(volume: number) {
                     :split-source-key="isSplit ? splitSourceKey : null"
                     :always-show-keys="isMerge && mergeSelectedTimelineKeys.size > 0 ? mergeSelectedTimelineKeys : new Set<string>()"
                     :selected-key="selectedKey"
-                    @select="selectObject" />
+                    :mode="overlayMode"
+                    :adjust-object="adjustObject"
+                    @select="selectObject"
+                    @draw-complete="handleDrawComplete" />
             </div>
 
             <ObjectDetailsPanel
-              v-if="inspectorStyle && selectedTrackSettings"
+              v-if="inspectorStyle && selectedTrackSettings && !isAdjust"
               :style="inspectorStyle"
               v-bind="selectedTrackSettings"
               :can-go-previous="canGoPrevious"
@@ -503,31 +608,34 @@ function setVideoVolume(volume: number) {
               @previous-occurrence="goToPreviousOccurrence"
               @next-occurrence="goToNextOccurrence"
               @adjust-detection="handleAdjustDetection"
-              @open-advanced-menu="handleAdvancedMenu"
+              @track-forward="handleTrackForward"
+              @merge="handleMerge"
+              @split="handleSplit"
+              @delete="handleDelete"
             />
 
             <div class="editor-tools" @click.stop>
-                <EditorControls
-                  :move-mode="isMove"
-                  :resize-mode="isResize"
-                  :add-mode="isAdd"
-                  :track-mode="isTrack"
-                  :has-active-tracking="trackingObjectIds.size > 0"
-                  :merge-mode="isMerge"
+                <ReviewTools
+                  :mode="activeMode"
                   :merge-count="mergeSelectedTimelineKeys.size"
-                  :split-mode="isSplit"
-                  :can-split="hasOnlyTracked() && hasAny()"
                   :split-count="totalCount()"
-                  @toggle-move-mode="modeToggle('move')"
-                  @toggle-resize-mode="modeToggle('resize')"
-                  @toggle-add-mode="modeToggle('add')"
-                  @toggle-track-mode="modeToggle('track')"
-                  @toggle-merge-mode="modeToggle('merge')"
+                  :can-split="hasOnlyTracked() && hasAny()"
+                  @add-object="handleAddObject"
+                  @adjust-reset="handleAdjustReset"
+                  @adjust-done="handleAdjustDone"
+                  @cancel="handleCancel"
                   @merge="mergeAction"
-                  @toggle-split-mode="modeToggle('split')"
                   @split-out="splitAction"
                 />
             </div>
+
+            <AddBoxDialog
+              v-if="pendingLabel"
+              :existing-track-ids="existingTrackIds"
+              :track-ids-in-current-frame="trackIdsInCurrentFrame"
+              @cancel="handleAddCancel"
+              @confirm="handleAddConfirm"
+            />
         </div>
 
         <div class="timeline-wrapper">
@@ -566,21 +674,6 @@ function setVideoVolume(volume: number) {
             </div>
         </div>
     </div>
-    <DetailedView
-      v-if="isOverlayOpen && currentFrame"
-      :frame="currentFrame"
-      :frames="frames"
-      :video-ref="videoPlayerRef?.videoRef ?? null"
-      :anonymization-settings="state.anonymizationSettings"
-      :mode="isTrack ? 'track' : isAdd ? 'add' : isResize ? 'resize' : 'move'"
-      :tracking-object-ids="trackingObjectIds"
-      :tracking-track-ids="trackingTrackIds"
-      @done="deactivate"
-      @mode-change="(m: any) => activate(m)"
-      @add-box="addBox"
-      @box-updated="onBoxUpdated"
-      @track-forward="trackForward"
-    />
 </template>
 
 <style scoped>

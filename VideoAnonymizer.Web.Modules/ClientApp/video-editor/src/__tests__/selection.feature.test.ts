@@ -210,7 +210,7 @@ const steps: StepDefinition[] = [
             const vm = world.wrapper!.vm as any;
             vm.selectObject(findObject(world, 'o1'));
             await world.wrapper!.vm.$nextTick();
-            vm.modeToggle('move');
+            vm.activate('merge');
             pressEscape(world);
         },
     },

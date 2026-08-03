@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue';
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
 
 defineProps<{
@@ -28,8 +29,17 @@ const emit = defineEmits<{
     (e: 'previous-occurrence'): void;
     (e: 'next-occurrence'): void;
     (e: 'adjust-detection'): void;
-    (e: 'open-advanced-menu'): void;
+    (e: 'track-forward'): void;
+    (e: 'merge'): void;
+    (e: 'split'): void;
+    (e: 'delete'): void;
 }>();
+
+const advancedOpen = ref(false);
+
+function toggleAdvanced() {
+    advancedOpen.value = !advancedOpen.value;
+}
 
 function emitBlurSize(event: Event) {
     const value = Number((event.target as HTMLInputElement).value);
@@ -120,8 +130,27 @@ function emitPost(event: Event) {
             <button class="details-action-btn" title="Adjust the selected detection" @click="emit('adjust-detection')">
                 Adjust detection
             </button>
-            <button class="details-action-btn" title="More actions for this track" @click="emit('open-advanced-menu')">
-                Advanced
+            <button
+                class="details-action-btn"
+                :class="{ 'details-action-btn--active': advancedOpen }"
+                title="More actions for this track"
+                :aria-expanded="advancedOpen"
+                @click="toggleAdvanced"
+            >Advanced</button>
+        </div>
+
+        <div v-if="advancedOpen" class="advanced-menu" data-testid="advanced-menu">
+            <button class="advanced-item" title="Track this occurrence forward" @click="emit('track-forward')">
+                Track forward
+            </button>
+            <button class="advanced-item" title="Merge this track with another selected track" @click="emit('merge')">
+                Merge
+            </button>
+            <button class="advanced-item" title="Split selected occurrences out of this track" @click="emit('split')">
+                Split
+            </button>
+            <button class="advanced-item advanced-item--danger" title="Delete this occurrence" @click="emit('delete')">
+                Delete
             </button>
         </div>
     </div>
@@ -191,6 +220,7 @@ function emitPost(event: Event) {
 
 .occurrence-nav-btn:focus-visible,
 .details-action-btn:focus-visible,
+.advanced-item:focus-visible,
 .details-reset:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
     outline-offset: 2px;
@@ -273,8 +303,41 @@ function emitPost(event: Event) {
     font-weight: 600;
 }
 
+.details-action-btn--active,
 .details-action-btn:hover {
     border-color: var(--mud-palette-primary);
     color: var(--mud-palette-primary);
+}
+
+.advanced-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-top: 1px solid var(--mud-palette-lines-default);
+    padding-top: 8px;
+}
+
+.advanced-item {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--mud-palette-text-primary);
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.advanced-item:hover {
+    background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
+}
+
+.advanced-item--danger {
+    color: var(--mud-palette-error, #f44336);
+}
+
+.advanced-item--danger:hover {
+    background: color-mix(in srgb, var(--mud-palette-error, #f44336) 12%, transparent);
 }
 </style>
