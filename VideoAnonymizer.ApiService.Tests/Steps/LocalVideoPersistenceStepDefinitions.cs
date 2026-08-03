@@ -229,6 +229,18 @@ public sealed class LocalVideoPersistenceStepDefinitions
         set => _scenarioContext.Set(value, nameof(ListedFrames));
     }
 
+    private DeleteVideoResultDto DeleteResult
+    {
+        get => _scenarioContext.Get<DeleteVideoResultDto>(nameof(DeleteResult));
+        set => _scenarioContext.Set(value, nameof(DeleteResult));
+    }
+
+    private string HostedStorageRoot
+    {
+        get => _scenarioContext.Get<string>(nameof(HostedStorageRoot));
+        set => _scenarioContext.Set(value, nameof(HostedStorageRoot));
+    }
+
     public LocalVideoPersistenceStepDefinitions(ScenarioContext scenarioContext)
     {
         _scenarioContext = scenarioContext;
@@ -771,6 +783,174 @@ public sealed class LocalVideoPersistenceStepDefinitions
             && frame.DetectedObjects.Single().TrackId == 12);
     }
 
+    [Given("videos exist in imported analyzed and exported states")]
+    public async Task GivenVideosExistInImportedAnalyzedAndExportedStates()
+    {
+        var importedId = Guid.NewGuid();
+        var analyzedId = Guid.NewGuid();
+        var exportedId = Guid.NewGuid();
+        var frameId = Guid.NewGuid();
+        var objectId = Guid.NewGuid();
+
+        await SeedVideoAsync(importedId, originalFileName: "status-imported.mp4");
+        await SeedVideoAsync(
+            analyzedId,
+            frames: [CreateFrame(frameId, analyzedId, [CreateObject(objectId, frameId, trackId: 1)])],
+            originalFileName: "status-analyzed.mp4");
+
+        var exportedFrameId = Guid.NewGuid();
+        var exportedObjectId = Guid.NewGuid();
+        var sourcePath = WriteManagedVideoFile(ContentRoot, exportedId, anonymized: false);
+        var anonymizedPath = WriteManagedVideoFile(ContentRoot, exportedId, anonymized: true);
+        await SeedVideoAsync(
+            exportedId,
+            frames: [CreateFrame(exportedFrameId, exportedId, [CreateObject(exportedObjectId, exportedFrameId, trackId: 2)])],
+            sourcePath: sourcePath,
+            anonymizedPath: anonymizedPath,
+            originalFileName: "status-exported.mp4");
+
+        VideoId = analyzedId;
+    }
+
+    [Then("the listed videos show statuses {string}, {string}, and {string}")]
+    public void ThenTheListedVideosShowStatuses(string imported, string ready, string exported)
+    {
+        ListedVideos.Should().Contain(v =>
+            v.OriginalFileName == "status-imported.mp4"
+            && v.Status == imported
+            && !v.HasAnalysis
+            && !v.HasAnonymizedOutput);
+
+        ListedVideos.Should().Contain(v =>
+            v.OriginalFileName == "status-analyzed.mp4"
+            && v.Status == ready
+            && v.HasAnalysis
+            && !v.HasAnonymizedOutput);
+
+        ListedVideos.Should().Contain(v =>
+            v.OriginalFileName == "status-exported.mp4"
+            && v.Status == exported
+            && v.HasAnalysis
+            && v.HasAnonymizedOutput);
+    }
+
+    [Given("a saved video has original and anonymized file paths under standalone storage")]
+    public async Task GivenASavedVideoHasOriginalAndAnonymizedFilePathsUnderStandaloneStorage()
+    {
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+        OriginalPath = WriteManagedVideoFile(ContentRoot, VideoId, anonymized: false);
+        AnonymizedPath = WriteManagedVideoFile(ContentRoot, VideoId, anonymized: true);
+        await SeedVideoAsync(
+            VideoId,
+            frames: [CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 1)])],
+            sourcePath: OriginalPath,
+            anonymizedPath: AnonymizedPath,
+            originalFileName: "standalone-copy.mp4");
+    }
+
+    [Given("a saved video has original and anonymized file paths under hosted storage")]
+    public async Task GivenASavedVideoHasOriginalAndAnonymizedFilePathsUnderHostedStorage()
+    {
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+        HostedStorageRoot = Path.Combine(ContentRoot, "hosted-volume");
+        Directory.CreateDirectory(HostedStorageRoot);
+        OriginalPath = WriteManagedVideoFile(HostedStorageRoot, VideoId, anonymized: false);
+        AnonymizedPath = WriteManagedVideoFile(HostedStorageRoot, VideoId, anonymized: true);
+        await SeedVideoAsync(
+            VideoId,
+            frames: [CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 3)])],
+            sourcePath: OriginalPath,
+            anonymizedPath: AnonymizedPath,
+            originalFileName: "hosted-copy.mp4");
+    }
+
+    [Given("the video has editor action history")]
+    public async Task GivenTheVideoHasEditorActionHistory()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.EditorActions.Add(new EditorAction
+        {
+            Id = Guid.NewGuid(),
+            VideoId = VideoId,
+            ActionType = "object-updated",
+            SequenceNumber = 1,
+            CreatedAt = DateTime.UtcNow,
+            Undone = false,
+            Data = "{}"
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Given("a saved video points its source path outside managed storage")]
+    public async Task GivenASavedVideoPointsItsSourcePathOutsideManagedStorage()
+    {
+        VideoId = Guid.NewGuid();
+        var unsafeDir = Path.Combine(ContentRoot, "outside-storage");
+        Directory.CreateDirectory(unsafeDir);
+        OriginalPath = Path.Combine(unsafeDir, $"{VideoId}.mp4");
+        File.WriteAllBytes(OriginalPath, [1, 2, 3, 4]);
+        await SeedVideoAsync(
+            VideoId,
+            sourcePath: OriginalPath,
+            anonymizedPath: null,
+            originalFileName: "unsafe-path.mp4");
+    }
+
+    [When("the reviewer deletes the working copy")]
+    public async Task WhenTheReviewerDeletesTheWorkingCopy()
+    {
+        LastResult = await CreateVideosController().DeleteWorkingCopy(VideoId);
+        DeleteResult = GetOkPayload<DeleteVideoResultDto>(LastResult);
+    }
+
+    [Then("the video is removed from the database")]
+    public async Task ThenTheVideoIsRemovedFromTheDatabase()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        (await db.Videos.AnyAsync(v => v.Id == VideoId)).Should().BeFalse();
+        (await db.AnalyzedFrames.AnyAsync(f => f.VideoId == VideoId)).Should().BeFalse();
+        (await db.EditorActions.AnyAsync(a => a.VideoId == VideoId)).Should().BeFalse();
+    }
+
+    [Then("the standalone source and anonymized files are deleted")]
+    public void ThenTheStandaloneSourceAndAnonymizedFilesAreDeleted()
+    {
+        File.Exists(OriginalPath).Should().BeFalse();
+        File.Exists(AnonymizedPath).Should().BeFalse();
+        DeleteResult.SourceFileDeleted.Should().BeTrue();
+        DeleteResult.AnonymizedFileDeleted.Should().BeTrue();
+        DeleteResult.DatabaseDeleted.Should().BeTrue();
+    }
+
+    [Then("the hosted source and anonymized files are deleted")]
+    public void ThenTheHostedSourceAndAnonymizedFilesAreDeleted()
+    {
+        File.Exists(OriginalPath).Should().BeFalse();
+        File.Exists(AnonymizedPath).Should().BeFalse();
+        DeleteResult.SourceFileDeleted.Should().BeTrue();
+        DeleteResult.AnonymizedFileDeleted.Should().BeTrue();
+        DeleteResult.DatabaseDeleted.Should().BeTrue();
+    }
+
+    [Then("the delete result reports no file warnings")]
+    public void ThenTheDeleteResultReportsNoFileWarnings()
+    {
+        DeleteResult.Warnings.Should().BeEmpty();
+    }
+
+    [Then("the delete result reports a skipped source file warning")]
+    public void ThenTheDeleteResultReportsASkippedSourceFileWarning()
+    {
+        DeleteResult.DatabaseDeleted.Should().BeTrue();
+        DeleteResult.SourceFileDeleted.Should().BeFalse();
+        DeleteResult.Warnings.Should().Contain(w => w.Contains("source", StringComparison.OrdinalIgnoreCase));
+        File.Exists(OriginalPath).Should().BeTrue();
+    }
+
     private VideosController CreateVideosController(RecordingMessagePublisher? publisher = null) =>
         new(
             publisher ?? new RecordingMessagePublisher(),
@@ -914,6 +1094,16 @@ public sealed class LocalVideoPersistenceStepDefinitions
     private string WriteVideoFile(string fileName)
     {
         var path = Path.Combine(ContentRoot, fileName);
+        File.WriteAllBytes(path, [0, 1, 2, 3, 4, 5]);
+        return path;
+    }
+
+    private static string WriteManagedVideoFile(string storageRoot, Guid videoId, bool anonymized)
+    {
+        var uploadsRoot = Path.Combine(storageRoot, "App_Data", "Uploads");
+        Directory.CreateDirectory(uploadsRoot);
+        var fileName = anonymized ? $"{videoId}_anonymized.mp4" : $"{videoId}.mp4";
+        var path = Path.Combine(uploadsRoot, fileName);
         File.WriteAllBytes(path, [0, 1, 2, 3, 4, 5]);
         return path;
     }

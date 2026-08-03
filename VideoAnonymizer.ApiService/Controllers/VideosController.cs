@@ -85,6 +85,30 @@ public sealed class VideosController(
         return Ok(new ApiResponse<List<VideoDto>> { IsSuccess = true, Payload = videos });
     }
 
+    /// <summary>
+    /// Deletes the working copy for a video: database graph plus managed source/anonymized files.
+    /// </summary>
+    [HttpDelete($"{SharedConstants.Paths.Video}/{{videoId:guid}}")]
+    public async Task<IActionResult> DeleteWorkingCopy([FromRoute] Guid videoId)
+    {
+        try
+        {
+            var result = await videoDataService.DeleteWorkingCopyAsync(videoId, environment.ContentRootPath);
+            return Ok(new ApiResponse<DeleteVideoResultDto>
+            {
+                IsSuccess = true,
+                Payload = result,
+                Message = result.Warnings.Count == 0
+                    ? "Working copy deleted."
+                    : "Working copy deleted with warnings."
+            });
+        }
+        catch (NotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpPut($"{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.VideoSettings}")]
     public async Task<IActionResult> UpdateVideoSettings([FromRoute] Guid videoId, [FromBody] AnonymizationSettingsDto settings)
     {

@@ -24,6 +24,7 @@
                 <UploadTab @ref="_uploadTab" SelectedFileChanged="OnFileSelected"
                            DetectObjects="DetectObjectsAsync"
                            OnExistingVideoSelected="OnExistingVideoSelected"
+                           OnDeleteWorkingCopy="DeleteWorkingCopyAsync"
                            ExistingVideos="@_existingVideos"
                            SelectedFileName="@SelectedFileName"
                            @bind-DetectionIntervalMs="@DetectionIntervalMs"

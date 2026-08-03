@@ -213,6 +213,60 @@ namespace VideoAnonymizer.Web.Pages
             }
         }
 
+        private async Task DeleteWorkingCopyAsync(Guid videoId)
+        {
+            try
+            {
+                IsBusy = true;
+                StatusText = "Deleting working copy...";
+                await InvokeAsync(StateHasChanged);
+
+                using var httpClient = HttpClientFactory.CreateClient("ApiService");
+                var response = await httpClient.DeleteAsync($"/{SharedConstants.Paths.Video}/{videoId}");
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<DeleteVideoResultDto>>();
+                var payload = result?.Payload;
+
+                if (_currentVideoId == videoId)
+                {
+                    _currentVideoId = null;
+                    _anonymizeVideoJobId = null;
+                    IsAnonymized = false;
+                    _isExportRunning = false;
+                    _showEditor = false;
+                    _videoSourceUrl = null;
+                    _analyzedFrames = [];
+                    _activeTabIndex = 0;
+                    _downloadFileName = null;
+                }
+
+                await LoadExistingVideosAsync();
+
+                if (payload?.Warnings is { Count: > 0 })
+                {
+                    Snackbar.Add(
+                        $"Working copy removed with warnings: {string.Join(" ", payload.Warnings)}",
+                        Severity.Warning);
+                }
+                else
+                {
+                    Snackbar.Add("Working copy deleted.", Severity.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Could not delete working copy: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                IsBusy = false;
+                StatusText = null;
+                ProgressPercent = null;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
         private async Task OnExistingVideoSelected(Guid videoId)
         {
             await LoadExistingVideosAsync();

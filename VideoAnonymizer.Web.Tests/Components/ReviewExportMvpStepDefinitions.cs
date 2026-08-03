@@ -281,9 +281,9 @@ public sealed class ReviewExportMvpStepDefinitions
     }
 
     [When("the reviewer clicks Download")]
-    public void WhenTheReviewerClicksDownload()
+    public async Task WhenTheReviewerClicksDownload()
     {
-        _cut.Find("[data-testid='download-button']").Click();
+        await _cut.InvokeAsync(() => _cut.Find("[data-testid='download-button']").Click());
     }
 
     [Then("another download is requested")]

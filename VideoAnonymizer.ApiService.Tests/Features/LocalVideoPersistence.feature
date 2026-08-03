@@ -71,3 +71,28 @@ Feature: Local video persistence
     And one face overrides its blur size while another face has no override
     When the effective blur sizes are resolved
     Then the overriding face resolves to 150 percent and the other face resolves to 120 percent
+
+  Scenario: Saved video list includes derived statuses
+    Given videos exist in imported analyzed and exported states
+    When the reviewer opens the saved videos list
+    Then the listed videos show statuses "Imported", "Ready to review", and "Exported"
+
+  Scenario: Working copy deletion removes database and standalone files
+    Given a saved video has original and anonymized file paths under standalone storage
+    And the video has editor action history
+    When the reviewer deletes the working copy
+    Then the video is removed from the database
+    And the standalone source and anonymized files are deleted
+    And the delete result reports no file warnings
+
+  Scenario: Working copy deletion removes files under hosted storage layout
+    Given a saved video has original and anonymized file paths under hosted storage
+    When the reviewer deletes the working copy
+    Then the video is removed from the database
+    And the hosted source and anonymized files are deleted
+
+  Scenario: Working copy deletion skips unsafe paths and reports warnings
+    Given a saved video points its source path outside managed storage
+    When the reviewer deletes the working copy
+    Then the video is removed from the database
+    And the delete result reports a skipped source file warning

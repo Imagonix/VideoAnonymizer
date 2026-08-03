@@ -1,4 +1,5 @@
-﻿@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
 @using VideoAnonymizer.Web.Shared.DTO
 
 <MudPaper Class="pa-6" Style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto;">
@@ -86,15 +87,38 @@
                 <MudTable Items="@ExistingVideos" Hover="true" Dense="true" Elevation="0">
                     <HeaderContent>
                         <MudTh><MudText Typo="Typo.body2">File Name</MudText></MudTh>
+                        <MudTh><MudText Typo="Typo.body2">Status</MudText></MudTh>
+                        <MudTh Style="width: 56px;"></MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="File Name">
-                            <div @onclick="@(() => OnExistingVideoSelected.InvokeAsync(context.Id))"
-                                 @onclick:preventDefault="false"
-                                 Style="cursor: pointer; padding: 4px 0;"
-                                 class="@(IsBusy ? "disabled" : "")">
+                            <div data-testid="existing-video-row"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="@($"Open {context.OriginalFileName}")"
+                                 @onclick="@(() => OnOpenExistingVideoAsync(context.Id))"
+                                 @onkeydown="@((e) => OnExistingVideoKeyDownAsync(e, context.Id))"
+                                 style="cursor: pointer; padding: 4px 0;">
                                 <MudText Typo="Typo.body1">@context.OriginalFileName</MudText>
                             </div>
+                        </MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudText Typo="Typo.body2"
+                                     data-testid="video-status"
+                                     Class="mud-text-secondary">
+                                @context.Status
+                            </MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Actions" Style="text-align: right;">
+                            <MudTooltip Text="Delete working copy">
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Color="Color.Default"
+                                               Size="Size.Small"
+                                               Disabled="@IsBusy"
+                                               data-testid="delete-working-copy"
+                                               aria-label="Delete working copy"
+                                               OnClick="@(() => OnDeleteWorkingCopyAsync(context.Id))" />
+                            </MudTooltip>
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
@@ -112,6 +136,9 @@
 
     [Parameter]
     public EventCallback<Guid> OnExistingVideoSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnDeleteWorkingCopy { get; set; }
 
     [Parameter]
     public List<VideoDto>? ExistingVideos { get; set; }
@@ -155,5 +182,30 @@
     private async Task DetectObjectsClicked()
     {
         await DetectObjects.InvokeAsync();
+    }
+
+    private async Task OnOpenExistingVideoAsync(Guid videoId)
+    {
+        if (IsBusy)
+            return;
+        await OnExistingVideoSelected.InvokeAsync(videoId);
+    }
+
+    private async Task OnExistingVideoKeyDownAsync(KeyboardEventArgs e, Guid videoId)
+    {
+        if (IsBusy)
+            return;
+
+        if (e.Key is "Enter" or " ")
+        {
+            await OnExistingVideoSelected.InvokeAsync(videoId);
+        }
+    }
+
+    private async Task OnDeleteWorkingCopyAsync(Guid videoId)
+    {
+        if (IsBusy)
+            return;
+        await OnDeleteWorkingCopy.InvokeAsync(videoId);
     }
 }
