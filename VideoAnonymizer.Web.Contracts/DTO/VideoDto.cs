@@ -8,6 +8,11 @@ namespace VideoAnonymizer.Web.Shared.DTO
         public int TimeBufferMs { get; set; } = 300;
 
         /// <summary>
+        /// UTC time the upload was accepted by the server.
+        /// </summary>
+        public DateTime UploadedAtUtc { get; set; }
+
+        /// <summary>
         /// True when the video has at least one analyzed frame.
         /// </summary>
         public bool HasAnalysis { get; set; }

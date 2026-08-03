@@ -1,4 +1,4 @@
-@review_export_mvp
+@review_export
 Feature: Review export progressive disclosure and compact recovery
   As a reviewer finishing anonymization
   I want gated export, clear save status, and a compact Download control

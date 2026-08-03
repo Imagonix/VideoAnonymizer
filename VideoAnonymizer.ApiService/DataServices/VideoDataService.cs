@@ -38,13 +38,16 @@ namespace VideoAnonymizer.ApiService.DataServices
         {
             using var db = await dbFactory.CreateDbContextAsync();
             var rows = await db.Videos
-                .OrderByDescending(v => v.Id)
+                .OrderByDescending(v => v.UploadedAtUtc)
+                .ThenBy(v => v.OriginalFileName)
+                .ThenBy(v => v.Id)
                 .Select(v => new
                 {
                     v.Id,
                     OriginalFileName = v.OriginalFileName ?? "Unknown",
                     v.BlurSizePercent,
                     v.TimeBufferMs,
+                    v.UploadedAtUtc,
                     HasAnalysis = v.AnalyzedFrames.Any(),
                     HasAnonymizedOutput = v.AnonomizedPath != null && v.AnonomizedPath != ""
                 })
@@ -56,6 +59,7 @@ namespace VideoAnonymizer.ApiService.DataServices
                 OriginalFileName = v.OriginalFileName,
                 BlurSizePercent = v.BlurSizePercent,
                 TimeBufferMs = v.TimeBufferMs,
+                UploadedAtUtc = v.UploadedAtUtc,
                 HasAnalysis = v.HasAnalysis,
                 HasAnonymizedOutput = v.HasAnonymizedOutput,
                 Status = VideoListStatuses.FromFlags(v.HasAnalysis, v.HasAnonymizedOutput)
@@ -250,7 +254,13 @@ namespace VideoAnonymizer.ApiService.DataServices
 
         public async Task<(Guid videoId, string fullPath)> SaveVideoFileAndCreateDbEntry(IFormFile uploadedVideo, string originalFileName, string extension, string contentRootPath, CancellationToken cancellationToken)
         {
-            var video = new Video { OriginalFileName = originalFileName, BlurSizePercent = 120, TimeBufferMs = 300 };
+            var video = new Video
+            {
+                OriginalFileName = originalFileName,
+                BlurSizePercent = 120,
+                TimeBufferMs = 300,
+                UploadedAtUtc = DateTime.UtcNow
+            };
 
             var uploadsRoot = Path.Combine(contentRootPath, "App_Data", "Uploads");
             Directory.CreateDirectory(uploadsRoot);

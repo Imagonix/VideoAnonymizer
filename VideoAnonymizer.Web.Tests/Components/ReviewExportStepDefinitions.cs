@@ -18,7 +18,7 @@ using VideoAnonymizer.Web.Tests.TestDoubles;
 namespace VideoAnonymizer.Web.Tests.Components;
 
 [Binding]
-public sealed class ReviewExportMvpStepDefinitions
+public sealed class ReviewExportStepDefinitions
 {
     private BunitContext _context = default!;
     private MockHttpMessageHandler _http = default!;
@@ -33,7 +33,7 @@ public sealed class ReviewExportMvpStepDefinitions
     private int _blur = 150;
     private int _buffer = 400;
 
-    [BeforeScenario("review_export_mvp")]
+    [BeforeScenario("review_export")]
     public void SetUp()
     {
         _context = new BunitContext();
@@ -63,7 +63,7 @@ public sealed class ReviewExportMvpStepDefinitions
             }));
     }
 
-    [AfterScenario("review_export_mvp")]
+    [AfterScenario("review_export")]
     public async Task TearDown()
     {
         _http.Dispose();

@@ -145,6 +145,9 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                     b.Property<int>("TimeBufferMs")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.ToTable("Videos");

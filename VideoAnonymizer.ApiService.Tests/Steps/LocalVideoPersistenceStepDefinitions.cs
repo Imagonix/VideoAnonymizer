@@ -834,6 +834,41 @@ public sealed class LocalVideoPersistenceStepDefinitions
             && v.HasAnonymizedOutput);
     }
 
+    [Then("the listed video carries a server UTC upload time close to now")]
+    public void ThenTheListedVideoCarriesAServerUtcUploadTimeCloseToNow()
+    {
+        var video = ListedVideos.Single(v => v.Id == VideoId);
+        video.UploadedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    [Given("imported videos exist with known upload times")]
+    public async Task GivenImportedVideosExistWithKnownUploadTimes()
+    {
+        var now = DateTime.UtcNow;
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "b-newest.mp4", uploadedAtUtc: now);
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "a-tie.mp4", uploadedAtUtc: now.AddMinutes(-10));
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "c-tie.mp4", uploadedAtUtc: now.AddMinutes(-10));
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "z-oldest.mp4", uploadedAtUtc: now.AddMinutes(-30));
+    }
+
+    [Then("the listed videos are ordered newest upload first")]
+    public void ThenTheListedVideosAreOrderedNewestUploadFirst()
+    {
+        ListedVideos.Select(v => v.OriginalFileName)
+            .Should()
+            .Equal("b-newest.mp4", "a-tie.mp4", "c-tie.mp4", "z-oldest.mp4");
+    }
+
+    [Then("upload time ties are broken by file name deterministically")]
+    public void ThenUploadTimeTiesAreBrokenByFileNameDeterministically()
+    {
+        // a-tie.mp4 and c-tie.mp4 share one upload time; the stable order keeps a before c.
+        var aIndex = ListedVideos.FindIndex(v => v.OriginalFileName == "a-tie.mp4");
+        var cIndex = ListedVideos.FindIndex(v => v.OriginalFileName == "c-tie.mp4");
+        aIndex.Should().BeGreaterThanOrEqualTo(0);
+        cIndex.Should().BeGreaterThan(aIndex);
+    }
+
     [Given("a saved video has original and anonymized file paths under standalone storage")]
     public async Task GivenASavedVideoHasOriginalAndAnonymizedFilePathsUnderStandaloneStorage()
     {
@@ -972,10 +1007,11 @@ public sealed class LocalVideoPersistenceStepDefinitions
     private async Task<Guid> SeedVideoAsync(
         string originalFileName = "sample.mp4",
         string? sourcePath = null,
-        string? anonymizedPath = null)
+        string? anonymizedPath = null,
+        DateTime? uploadedAtUtc = null)
     {
         var videoId = Guid.NewGuid();
-        await SeedVideoAsync(videoId, sourcePath: sourcePath, anonymizedPath: anonymizedPath, originalFileName: originalFileName);
+        await SeedVideoAsync(videoId, sourcePath: sourcePath, anonymizedPath: anonymizedPath, originalFileName: originalFileName, uploadedAtUtc: uploadedAtUtc);
         return videoId;
     }
 
@@ -984,10 +1020,11 @@ public sealed class LocalVideoPersistenceStepDefinitions
         IReadOnlyList<AnalyzedFrame>? frames = null,
         string? sourcePath = null,
         string? anonymizedPath = null,
-        string originalFileName = "sample.mp4")
+        string originalFileName = "sample.mp4",
+        DateTime? uploadedAtUtc = null)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        db.Videos.Add(CreateVideo(videoId, originalFileName, frames, sourcePath, anonymizedPath));
+        db.Videos.Add(CreateVideo(videoId, originalFileName, frames, sourcePath, anonymizedPath, uploadedAtUtc: uploadedAtUtc));
         await db.SaveChangesAsync();
     }
 
@@ -998,7 +1035,8 @@ public sealed class LocalVideoPersistenceStepDefinitions
         string? sourcePath = null,
         string? anonymizedPath = null,
         int blurSizePercent = 120,
-        int timeBufferMs = 300)
+        int timeBufferMs = 300,
+        DateTime? uploadedAtUtc = null)
     {
         return new Video
         {
@@ -1006,6 +1044,7 @@ public sealed class LocalVideoPersistenceStepDefinitions
             SourcePath = sourcePath ?? WriteVideoFile($"{videoId}.mp4"),
             AnonomizedPath = anonymizedPath,
             OriginalFileName = originalFileName,
+            UploadedAtUtc = uploadedAtUtc ?? DateTime.UtcNow,
             BlurSizePercent = blurSizePercent,
             TimeBufferMs = timeBufferMs,
             AnalyzedFrames = frames?.ToList() ?? []

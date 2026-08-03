@@ -110,7 +110,7 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Settings (blur size, time buffer), editor, anonymize button, sync status indicator (save icon / spinner tied to channel state), action handler (switch on `VideoEditorAction`), action history persistence
 - `VideoAnonymizer.Web/Components/ReviewExport/ActionPersistenceData.cs` - Internal JSON serialization records per action type
 - `VideoAnonymizer.Web/Components/ReviewExport/VideoEditorUndoRedoState.cs` - Undo/redo stack with persisted ActionId, DeserializeActions() for page reload recovery
-- `VideoAnonymizer.Web/Components/UploadTab.razor` - File upload + detect button + existing videos list with click-to-open
+- `VideoAnonymizer.Web/Components/UploadTab.razor` - File upload + detect button + existing videos list with click-to-open; newest-upload-first table sortable by Filename/Uploaded columns; delete requires an explicit "Delete working copy" confirmation dialog
 - `VideoAnonymizer.Web/Components/StatusIndicator.razor` - Progress overlay
 
 ### Frontend - Services
@@ -296,6 +296,7 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - **Blazor → Vue state propagation**: Blazor pushes state to Vue via dedicated JS bridge functions (`updateVideoEditorSettings`, `applyDetectedObjectChanges`). These are defined in `videoEditorHost.js` and exposed as `AppHandle` methods in `main.ts`, updating the reactive `state` proxy.
 - HTTP execution and queueing logic lives in `ReviewExportTab` and its `ReviewExport/` helper classes. `VideoEditor` only bridges Vue events and JS interop calls.
 - The upload tab shows a list of existing videos loaded from `GET /videos`; clicking a row opens the video directly (no separate button)
+- Every `Video` stores a required `UploadedAtUtc` (set from the server UTC clock on upload); the imported-video table renders it in local time and orders newest-first by default with deterministic filename/ID tie-breaking. Deleting a working copy always requires an explicit confirmation dialog.
 
 ## API data boundary
 

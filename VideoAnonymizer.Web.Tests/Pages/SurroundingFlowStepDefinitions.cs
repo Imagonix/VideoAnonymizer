@@ -8,6 +8,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using Reqnroll;
 using RichardSzalay.MockHttp;
+using VideoAnonymizer.Web.Components;
 using VideoAnonymizer.Web.Pages;
 using VideoAnonymizer.Web.Services;
 using VideoAnonymizer.Web.Shared;
@@ -18,16 +19,18 @@ using VideoAnonymizer.Web.Tests.TestDoubles;
 namespace VideoAnonymizer.Web.Tests.Pages;
 
 [Binding]
-public sealed class MvpSurroundingFlowStepDefinitions
+public sealed class SurroundingFlowStepDefinitions
 {
     private BunitContext _context = default!;
     private MockHttpMessageHandler _http = default!;
     private FakeJobHubClient _jobHub = default!;
     private IRenderedComponent<Home> _home = default!;
     private Guid _listedVideoId;
+    private string _listedFileName = string.Empty;
+    private DateTime _knownUploadNow;
     private bool _deleteRequested;
 
-    [BeforeScenario("mvp_surrounding_flow")]
+    [BeforeScenario("surrounding_flow")]
     public void SetUp()
     {
         _context = new BunitContext();
@@ -52,7 +55,7 @@ public sealed class MvpSurroundingFlowStepDefinitions
             }));
     }
 
-    [AfterScenario("mvp_surrounding_flow")]
+    [AfterScenario("surrounding_flow")]
     public async Task TearDown()
     {
         _http.Dispose();
@@ -74,6 +77,7 @@ public sealed class MvpSurroundingFlowStepDefinitions
                     {
                         Id = Guid.NewGuid(),
                         OriginalFileName = "imported.mp4",
+                        UploadedAtUtc = DateTime.UtcNow.AddHours(-3),
                         HasAnalysis = false,
                         HasAnonymizedOutput = false,
                         Status = VideoListStatuses.Imported
@@ -82,6 +86,7 @@ public sealed class MvpSurroundingFlowStepDefinitions
                     {
                         Id = Guid.NewGuid(),
                         OriginalFileName = "analyzed.mp4",
+                        UploadedAtUtc = DateTime.UtcNow.AddHours(-2),
                         HasAnalysis = true,
                         HasAnonymizedOutput = false,
                         Status = VideoListStatuses.ReadyToReview
@@ -90,6 +95,7 @@ public sealed class MvpSurroundingFlowStepDefinitions
                     {
                         Id = Guid.NewGuid(),
                         OriginalFileName = "exported.mp4",
+                        UploadedAtUtc = DateTime.UtcNow.AddHours(-1),
                         HasAnalysis = true,
                         HasAnonymizedOutput = true,
                         Status = VideoListStatuses.Exported
@@ -115,6 +121,7 @@ public sealed class MvpSurroundingFlowStepDefinitions
     [Given("the home page lists an imported video {string} ready to review")]
     public void GivenTheHomePageListsAnImportedVideoReadyToReview(string fileName)
     {
+        _listedFileName = fileName;
         _http.Clear();
         RespondAppState();
 
@@ -129,6 +136,7 @@ public sealed class MvpSurroundingFlowStepDefinitions
                         {
                             Id = _listedVideoId,
                             OriginalFileName = fileName,
+                            UploadedAtUtc = DateTime.UtcNow.AddHours(-1),
                             HasAnalysis = true,
                             HasAnonymizedOutput = false,
                             BlurSizePercent = 120,
@@ -266,12 +274,232 @@ public sealed class MvpSurroundingFlowStepDefinitions
         markup.Should().Contain("Delete working copy");
     }
 
-    [When("the reviewer deletes the working copy for the listed video")]
-    public async Task WhenTheReviewerDeletesTheWorkingCopyForTheListedVideo()
+    [When("the reviewer opens the delete confirmation for the listed video")]
+    public async Task WhenTheReviewerOpensTheDeleteConfirmationForTheListedVideo()
     {
         await _home.InvokeAsync(() => _home.Find("[data-testid='delete-working-copy']").Click());
         _home.Render();
     }
+
+    [Then("a delete confirmation dialog names the listed video")]
+    public void ThenADeleteConfirmationDialogNamesTheListedVideo()
+    {
+        _home.Find("[data-testid='delete-confirm-dialog']")
+            .TextContent.Should().Contain("library-clip.mp4");
+    }
+
+    [Then("the delete confirmation names the listed video")]
+    public void ThenTheDeleteConfirmationNamesTheListedVideo()
+    {
+        _home.Find("[data-testid='delete-confirm-dialog']")
+            .TextContent.Should().Contain(_listedFileName);
+    }
+
+    [Then("the working copy delete request is not sent yet")]
+    [Then("the working copy delete request is not sent")]
+    public void ThenTheWorkingCopyDeleteRequestIsNotSent()
+    {
+        _deleteRequested.Should().BeFalse();
+    }
+
+    [When("the reviewer confirms the working copy deletion")]
+    public async Task WhenTheReviewerConfirmsTheWorkingCopyDeletion()
+    {
+        await _home.InvokeAsync(() => _home.Find("[data-testid='confirm-delete-working-copy']").Click());
+        _home.Render();
+    }
+
+    [When("the reviewer cancels the delete confirmation for the listed video")]
+    public async Task WhenTheReviewerCancelsTheDeleteConfirmationForTheListedVideo()
+    {
+        await _home.InvokeAsync(() => _home.Find("[data-testid='delete-working-copy']").Click());
+        _home.Render();
+        var cancelButton = _home.FindAll("button")
+            .Single(button => button.TextContent.Trim() == "Cancel");
+        await _home.InvokeAsync(() => cancelButton.Click());
+        _home.Render();
+    }
+
+    [Then("the listed video is still shown")]
+    public void ThenTheListedVideoIsStillShown()
+    {
+        _home.FindAll("[data-testid='existing-video-row']").Count.Should().Be(1);
+    }
+
+    [Then("the review workspace does not open")]
+    public void ThenTheReviewWorkspaceDoesNotOpen()
+    {
+        _home.FindAll("[data-testid='export-button']").Should().BeEmpty();
+        _home.FindComponents<ReviewExportTab>().Should().BeEmpty();
+    }
+
+    [Then("the delete confirmation explains that source, export, analysis, and records will be deleted")]
+    public void ThenTheDeleteConfirmationExplainsTheScope()
+    {
+        var text = _home.Find("[data-testid='delete-confirm-dialog']").TextContent;
+        text.Should().Contain("source video");
+        text.Should().Contain("generated export");
+        text.Should().Contain("analysis and editor state");
+        text.Should().Contain("related records");
+        text.Should().Contain("managed by this deployment");
+    }
+
+    [Then("the delete icon and confirmation action use the destructive red color")]
+    public void ThenTheDeleteIconAndConfirmationActionUseTheDestructiveRedColor()
+    {
+        var deleteIcon = _home.Find("[data-testid='delete-working-copy']");
+        deleteIcon.GetAttribute("class").Should().Contain("error");
+
+        var confirmButton = _home.Find("[data-testid='confirm-delete-working-copy']");
+        confirmButton.GetAttribute("class").Should().Contain("error");
+    }
+
+    [Given("the home page lists imported videos with known upload times")]
+    public void GivenTheHomePageListsImportedVideosWithKnownUploadTimes()
+    {
+        _http.Clear();
+        RespondAppState();
+
+        _knownUploadNow = DateTime.UtcNow;
+        var now = _knownUploadNow;
+        var videos = new List<VideoDto>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                OriginalFileName = "b-newest.mp4",
+                UploadedAtUtc = now,
+                HasAnalysis = true,
+                HasAnonymizedOutput = false,
+                Status = VideoListStatuses.ReadyToReview
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                OriginalFileName = "a-tie.mp4",
+                UploadedAtUtc = now.AddMinutes(-10),
+                HasAnalysis = true,
+                HasAnonymizedOutput = false,
+                Status = VideoListStatuses.ReadyToReview
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                OriginalFileName = "c-tie.mp4",
+                UploadedAtUtc = now.AddMinutes(-10),
+                HasAnalysis = true,
+                HasAnonymizedOutput = false,
+                Status = VideoListStatuses.ReadyToReview
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                OriginalFileName = "z-oldest.mp4",
+                UploadedAtUtc = now.AddMinutes(-30),
+                HasAnalysis = true,
+                HasAnonymizedOutput = false,
+                Status = VideoListStatuses.ReadyToReview
+            }
+        };
+
+        _http.When(HttpMethod.Get, $"/{SharedConstants.Paths.Videos}")
+            .Respond("application/json", Json(new ApiResponse<List<VideoDto>>
+            {
+                IsSuccess = true,
+                Payload = videos
+            }));
+
+        _home = _context.Render<Home>();
+        _home.WaitForAssertion(() =>
+            _home.FindAll("[data-testid='existing-video-row']").Count.Should().Be(4));
+    }
+
+    [Then("the table shows each listed upload time in local time")]
+    public void ThenTheTableShowsEachListedUploadTimeInLocalTime()
+    {
+        var times = _home.FindAll("[data-testid='video-uploaded']")
+            .Select(element => element.TextContent.Trim())
+            .ToList();
+
+        var expected = new[]
+        {
+            _knownUploadNow,
+            _knownUploadNow.AddMinutes(-10),
+            _knownUploadNow.AddMinutes(-10),
+            _knownUploadNow.AddMinutes(-30)
+        }.Select(time => time.ToLocalTime().ToString("g")).ToList();
+
+        times.Should().Equal(expected);
+    }
+
+    [Then("the imported videos are listed newest upload first")]
+    public void ThenTheImportedVideosAreListedNewestUploadFirst()
+    {
+        ListedRowNames().Should().Equal("b-newest.mp4", "a-tie.mp4", "c-tie.mp4", "z-oldest.mp4");
+    }
+
+    [When("the reviewer activates the Filename sort once")]
+    [When("the reviewer activates the Filename sort again")]
+    public async Task WhenTheReviewerActivatesTheFilenameSort()
+    {
+        await _home.InvokeAsync(() => _home.Find("[data-testid='sort-filename']").Click());
+        _home.Render();
+    }
+
+    [Then("the imported videos are listed by filename ascending")]
+    public void ThenTheImportedVideosAreListedByFilenameAscending()
+    {
+        ListedRowNames().Should().Equal("a-tie.mp4", "b-newest.mp4", "c-tie.mp4", "z-oldest.mp4");
+    }
+
+    [Then("the imported videos are listed by filename descending")]
+    public void ThenTheImportedVideosAreListedByFilenameDescending()
+    {
+        ListedRowNames().Should().Equal("z-oldest.mp4", "c-tie.mp4", "b-newest.mp4", "a-tie.mp4");
+    }
+
+    [When("the reviewer activates the Uploaded sort once")]
+    [When("the reviewer activates the Uploaded sort again")]
+    public async Task WhenTheReviewerActivatesTheUploadedSort()
+    {
+        await _home.InvokeAsync(() => _home.Find("[data-testid='sort-uploaded']").Click());
+        _home.Render();
+    }
+
+    [Then("the imported videos are listed by upload time ascending")]
+    public void ThenTheImportedVideosAreListedByUploadTimeAscending()
+    {
+        ListedRowNames().Should().Equal("z-oldest.mp4", "a-tie.mp4", "c-tie.mp4", "b-newest.mp4");
+    }
+
+    [Then("the imported videos are listed by upload time descending")]
+    public void ThenTheImportedVideosAreListedByUploadTimeDescending()
+    {
+        ListedRowNames().Should().Equal("b-newest.mp4", "a-tie.mp4", "c-tie.mp4", "z-oldest.mp4");
+    }
+
+    [Then("the active Filename sort is indicated ascending")]
+    [Then("the active Filename sort is indicated descending")]
+    public void ThenTheActiveFilenameSortIsIndicated()
+    {
+        var header = _home.Find("[data-testid='sort-filename']");
+        var th = header.Closest("th");
+        th!.GetAttribute("aria-sort").Should().BeOneOf("ascending", "descending");
+    }
+
+    [Then("the active Uploaded sort is indicated ascending")]
+    [Then("the active Uploaded sort is indicated descending")]
+    public void ThenTheActiveUploadedSortIsIndicated()
+    {
+        var header = _home.Find("[data-testid='sort-uploaded']");
+        var th = header.Closest("th");
+        th!.GetAttribute("aria-sort").Should().BeOneOf("ascending", "descending");
+    }
+
+    private List<string> ListedRowNames() =>
+        _home.FindAll("[data-testid='existing-video-row']")
+            .Select(element => element.TextContent.Trim())
+            .ToList();
 
     [Then("the working copy delete request is sent")]
     public void ThenTheWorkingCopyDeleteRequestIsSent()

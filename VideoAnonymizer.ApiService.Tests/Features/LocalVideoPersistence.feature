@@ -96,3 +96,14 @@ Feature: Local video persistence
     When the reviewer deletes the working copy
     Then the video is removed from the database
     And the delete result reports a skipped source file warning
+
+  Scenario: Upload records the server UTC upload time
+    Given a reviewer uploads "timestamped.mp4" for object detection every 250 ms
+    When the reviewer opens the saved videos list
+    Then the listed video carries a server UTC upload time close to now
+
+  Scenario: Saved videos list orders newest upload first with stable tie-breaking
+    Given imported videos exist with known upload times
+    When the reviewer opens the saved videos list
+    Then the listed videos are ordered newest upload first
+    And upload time ties are broken by file name deterministically

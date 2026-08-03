@@ -20,20 +20,20 @@ namespace VideoAnonymizer.Web.Tests.Components
     [global::NUnit.Framework.TestFixtureAttribute()]
     [global::NUnit.Framework.DescriptionAttribute("Review export progressive disclosure and compact recovery")]
     [global::NUnit.Framework.FixtureLifeCycleAttribute(global::NUnit.Framework.LifeCycle.InstancePerTestCase)]
-    [global::NUnit.Framework.CategoryAttribute("review_export_mvp")]
+    [global::NUnit.Framework.CategoryAttribute("review_export")]
     public partial class ReviewExportProgressiveDisclosureAndCompactRecoveryFeature
     {
         
         private global::Reqnroll.ITestRunner testRunner;
         
         private static string[] featureTags = new string[] {
-                "review_export_mvp"};
+                "review_export"};
         
         private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new global::System.Globalization.CultureInfo("en-US"), "Components", "Review export progressive disclosure and compact recovery", "  As a reviewer finishing anonymization\r\n  I want gated export, clear save status" +
                 ", and a compact Download control\r\n  So that I can export safely and recover a bl" +
                 "ocked download without leaving the editor.", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags, InitializeCucumberMessages());
         
-#line 1 "ReviewExportMvp.feature"
+#line 1 "ReviewExport.feature"
 #line hidden
         
         [global::NUnit.Framework.OneTimeSetUpAttribute()]
@@ -109,7 +109,7 @@ namespace VideoAnonymizer.Web.Tests.Components
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExportMvp.feature.ndjson", 15);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Components/ReviewExport.feature.ndjson", 15);
         }
         
         [global::NUnit.Framework.TestAttribute()]
