@@ -12,6 +12,7 @@ import { useBlurPreviewObjects } from './composables/useBlurPreviewObjects';
 import { useDetectedObjectActions } from './composables/useDetectedObjectActions';
 import { useConsecutiveTrackSegment, getTrackOccurrences } from './composables/useConsecutiveTrackSegment';
 import { useTrackSettings } from './composables/useTrackSettings';
+import { useTrackThumbnails } from './composables/useTrackThumbnails';
 import { getTimelineKey, getObjTimelineKey } from './utils/keys';
 import { getLabel } from './utils/utils';
 import { computeVideoFrameSize, centeredRect, computeInspectorPlacement } from './utils/videoLayout';
@@ -112,6 +113,14 @@ const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOn
 const { splitSourceKey, execute: splitExecute } = useSplit();
 const { currentFrame, timelineObjects, timelineObjectCounts } = useTimelineObjects(frames, currentTime);
 const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isAdjust);
+const videoSourceUrl = computed(() => props.state.videoSourceUrl);
+const {
+    markVisible: markThumbnailVisible,
+    requestForTimelineObject,
+    requestSelected: requestSelectedThumbnail,
+    getView: getThumbnailView,
+    revision: thumbnailRevision,
+} = useTrackThumbnails(videoSourceUrl);
 const { toggleObject, toggleTrackedObject, setTrackId, deleteObject, addBox } = useDetectedObjectActions(
     props.state,
     frames,
@@ -272,6 +281,38 @@ const selectedTrackSettings = computed(() => {
         postIsCustom: buffers.postIsCustom
     };
 });
+
+const selectedThumbnail = computed(() => {
+    void thumbnailRevision.value;
+    const row = selectedTimelineObject.value;
+    return row ? getThumbnailView(row) : null;
+});
+
+function thumbnailPropsFor(obj: TimelineObject) {
+    void thumbnailRevision.value;
+    const view = getThumbnailView(obj);
+    return {
+        thumbnailUrl: view.objectUrl,
+        thumbnailFallbackLabel: view.fallbackLabel,
+        thumbnailFallbackColor: view.fallbackColor,
+    };
+}
+
+function onThumbnailVisibility(timelineObject: TimelineObject, visible: boolean) {
+    const key = getTimelineKey(timelineObject);
+    markThumbnailVisible(key, visible);
+    if (visible) {
+        requestForTimelineObject(timelineObject, true);
+    }
+}
+
+watch(
+    selectedTimelineObject,
+    (row) => {
+        if (row) requestSelectedThumbnail(row);
+    },
+    { immediate: true }
+);
 
 const inspectorPlacement = computed(() => {
     const obj = selectedOccurrence.value;
@@ -658,6 +699,9 @@ function setVideoVolume(volume: number) {
               v-if="inspectorStyle && selectedTrackSettings && !isAdjust"
               :style="inspectorStyle"
               v-bind="selectedTrackSettings"
+              :thumbnail-url="selectedThumbnail?.objectUrl"
+              :thumbnail-fallback-label="selectedThumbnail?.fallbackLabel"
+              :thumbnail-fallback-color="selectedThumbnail?.fallbackColor"
               :can-go-previous="canGoPrevious"
               :can-go-next="canGoNext"
               @toggle-include="handleToggleOccurrenceInclude"
@@ -730,6 +774,9 @@ function setVideoVolume(volume: number) {
                   :selected-timeline-object="selectedTimelineObject"
                   :selected-occurrence="selectedOccurrence"
                   :active-gap-range="selectedTimelineObject ? getTrackingProgress(selectedTimelineObject) : null"
+                  :thumbnail-url="selectedThumbnail?.objectUrl"
+                  :thumbnail-fallback-label="selectedThumbnail?.fallbackLabel"
+                  :thumbnail-fallback-color="selectedThumbnail?.fallbackColor"
                   @toggle-expanded="toggleTimelineExpanded"
                   @seek="seekTo"
                   @toggle-include="handleToggleTrackInclude"
@@ -749,11 +796,13 @@ function setVideoVolume(volume: number) {
                           :merge-selected-keys="mergeSelectedTimelineKeys"
                           :hovered-timeline-key="hoveredTimelineKey"
                           :is-track-selected="isTimelineKeySelected(obj)"
+                          v-bind="thumbnailPropsFor(obj)"
                           @toggle="toggleTrackedObject"
                           @set-track-id="setTrackId"
                           @merge-toggle="mergeToggle"
                           @select="selectObject"
                           @hover-row="hoveredTimelineKey = $event"
+                          @thumbnail-visibility="onThumbnailVisibility"
                         />
                     </div>
                     <div class="timeline-content">

@@ -5,6 +5,7 @@ import { colorManager } from './services/ColorManager'
 import { getLabel } from './utils/utils'
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
 import ColorDot from './ColorDot.vue';
+import TrackThumbnail from './TrackThumbnail.vue';
 
 const props = defineProps<{
     timelineObject: TimelineObject;
@@ -12,6 +13,9 @@ const props = defineProps<{
     mergeSelectedKeys: Set<string>;
     hoveredTimelineKey: string | null;
     isTrackSelected?: boolean;
+    thumbnailUrl?: string | null;
+    thumbnailFallbackLabel?: string;
+    thumbnailFallbackColor?: string;
 }>()
 const emit = defineEmits<{
     (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void;
@@ -19,6 +23,7 @@ const emit = defineEmits<{
     (e: 'merge-toggle', key: string): void;
     (e: 'hover-row', key: string | null): void;
     (e: 'select', obj: DetectedObjectDto): void;
+    (e: 'thumbnail-visibility', timelineObject: TimelineObject, visible: boolean): void;
 }>();
 
 const isEditing = ref(false);
@@ -118,6 +123,15 @@ function onRowClick() {
       @mouseenter="emit('hover-row', timelineKey)"
       @mouseleave="emit('hover-row', null)"
     >
+        <TrackThumbnail
+          :object-url="thumbnailUrl"
+          :fallback-label="thumbnailFallbackLabel || getTimelineLabel(timelineObject).slice(0, 2).toUpperCase() || '?'"
+          :fallback-color="thumbnailFallbackColor || colorManager.getColor(sampleDetectedObject)"
+          :size="22"
+          :aria-label="`Representative image for ${getTimelineLabel(timelineObject)}`"
+          @visibility-change="(visible: boolean) => emit('thumbnail-visibility', timelineObject, visible)"
+          @click.stop
+        />
         <MudLikeCheckbox
           :checked="checked"
           :indeterminate="indeterminate"

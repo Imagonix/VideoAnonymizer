@@ -8,6 +8,7 @@ import MudLikeCheckbox from './MudLikeCheckbox.vue';
 import TimelineOverview from './TimelineOverview.vue';
 import TimelineRuler from './TimelineRuler.vue';
 import PlaybackIndicator from './PlaybackIndicator.vue';
+import TrackThumbnail from './TrackThumbnail.vue';
 
 const props = defineProps<{
   expanded: boolean;
@@ -17,6 +18,9 @@ const props = defineProps<{
   selectedTimelineObject: TimelineObject | null;
   selectedOccurrence: DetectedObjectDto | null;
   activeGapRange: { startMs: number; endMs: number } | null;
+  thumbnailUrl?: string | null;
+  thumbnailFallbackLabel?: string;
+  thumbnailFallbackColor?: string;
 }>();
 
 const emit = defineEmits<{
@@ -166,10 +170,12 @@ onBeforeUnmount(() => {
           data-testid="collapsed-track-strip"
           @click.stop
         >
-          <div
-            class="track-thumb-placeholder"
-            data-testid="track-thumb-placeholder"
-            :style="{ background: trackColor }"
+          <TrackThumbnail
+            :object-url="thumbnailUrl"
+            :fallback-label="thumbnailFallbackLabel || trackLabel.slice(0, 2).toUpperCase() || '?'"
+            :fallback-color="thumbnailFallbackColor || trackColor"
+            :size="24"
+            :eager="true"
             :aria-label="`Representative image for ${trackLabel}`"
           />
           <MudLikeCheckbox
@@ -301,14 +307,6 @@ onBeforeUnmount(() => {
   gap: 6px;
   min-width: 0;
   min-height: 28px;
-}
-
-.track-thumb-placeholder {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-  opacity: 0.85;
-  flex-shrink: 0;
 }
 
 .track-label {

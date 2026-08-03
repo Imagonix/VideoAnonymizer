@@ -197,7 +197,7 @@ const steps: StepDefinition[] = [
             expect(strip.exists()).toBe(true);
             expect(strip.text()).toMatch(/face\s+1|face 1/i);
             expect(strip.find('input[type="checkbox"]').exists()).toBe(true);
-            expect(strip.find('[data-testid="track-thumb-placeholder"]').exists()).toBe(true);
+            expect(strip.find('[data-testid="track-thumbnail"]').exists()).toBe(true);
             // Occurrence dots live on the shared seek surface under the track meta row.
             expect(world.wrapper!.find('[data-testid="collapsed-occurrence-track"]').exists()).toBe(true);
         },

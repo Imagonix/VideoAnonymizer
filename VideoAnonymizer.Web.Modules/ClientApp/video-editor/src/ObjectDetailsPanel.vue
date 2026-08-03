@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
+import TrackThumbnail from './TrackThumbnail.vue';
 
-defineProps<{
+withDefaults(defineProps<{
     label: string;
     trackId: number | null;
     included: boolean;
@@ -15,7 +16,14 @@ defineProps<{
     postIsCustom: boolean;
     canGoPrevious: boolean;
     canGoNext: boolean;
-}>();
+    thumbnailUrl?: string | null;
+    thumbnailFallbackLabel?: string;
+    thumbnailFallbackColor?: string;
+}>(), {
+    thumbnailUrl: null,
+    thumbnailFallbackLabel: '?',
+    thumbnailFallbackColor: 'transparent',
+});
 
 const emit = defineEmits<{
     (e: 'toggle-include', checked: boolean): void;
@@ -60,7 +68,14 @@ function emitPost(event: Event) {
 <template>
     <div data-testid="object-details-panel" class="object-details" @click.stop>
         <div class="details-header">
-            <div class="details-thumb" aria-hidden="true"></div>
+            <TrackThumbnail
+              :object-url="thumbnailUrl"
+              :fallback-label="thumbnailFallbackLabel ?? '?'"
+              :fallback-color="thumbnailFallbackColor ?? 'transparent'"
+              :size="40"
+              :eager="true"
+              :aria-label="`Representative image for ${label}`"
+            />
             <div class="details-title-block">
                 <MudLikeCheckbox :checked="included" @change="(value: boolean) => emit('toggle-include', value)">
                     <span class="details-title">{{ label }}</span>
@@ -174,15 +189,6 @@ function emitPost(event: Event) {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.details-thumb {
-    width: 40px;
-    height: 40px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--mud-palette-primary) 18%, transparent);
-    border: 1px solid var(--mud-palette-lines-default);
-    flex-shrink: 0;
 }
 
 .details-title-block {
