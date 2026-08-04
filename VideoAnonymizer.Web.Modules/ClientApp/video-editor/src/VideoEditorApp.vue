@@ -139,7 +139,11 @@ const {
     applySegmentPre,
     applySegmentPost,
     resetSegmentPre,
-    resetSegmentPost
+    resetSegmentPost,
+    getScopeSegments,
+    getTimeBufferState,
+    applyTimeBufferToSegments,
+    resetTimeBufferToSegments
 } = useTrackSettings(props.state, frames, anonymizationSettings);
 
 const allObjects = computed(() => frames.value.flatMap(frame => frame.detectedObjects));
@@ -261,6 +265,14 @@ function goToNextOccurrence() {
     seekTo(frameTimeFor(selectedTrackOccurrences.value[index + 1]));
 }
 
+const selectedScopeSegments = computed(() => {
+    const obj = selectedOccurrence.value;
+    if (!obj) return [];
+    return getScopeSegments({ trackId: obj.trackId, object: obj });
+});
+
+const selectedTimeBufferState = computed(() => getTimeBufferState(selectedScopeSegments.value));
+
 const selectedTrackSettings = computed(() => {
     const obj = selectedOccurrence.value;
     if (!obj) return null;
@@ -275,13 +287,17 @@ const selectedTrackSettings = computed(() => {
         trackId,
         label: getLabel(obj),
         included: obj.selected,
+        occurrenceBlurSizePercentOverride: obj.occurrenceBlurSizePercentOverride ?? null,
+        trackBlurSizePercentOverride: settings.blurSizePercentOverride,
         globalBlurSizePercent: props.state.anonymizationSettings.blurSizePercent,
+        globalTimeBufferMs: props.state.anonymizationSettings.timeBufferMs,
         shape: settings.shape,
-        blurSizePercentOverride: settings.blurSizePercentOverride,
         pre: buffers.pre,
         preIsCustom: buffers.preIsCustom,
         post: buffers.post,
-        postIsCustom: buffers.postIsCustom
+        postIsCustom: buffers.postIsCustom,
+        trackTimeBufferEffective: selectedTimeBufferState.value.effective,
+        trackTimeBufferIsMixed: selectedTimeBufferState.value.isMixed
     };
 });
 
@@ -334,19 +350,37 @@ const inspectorPlacement = computed(() => {
         videoRect: videoRect.value,
         box: obj,
         videoWidth: videoNaturalWidth.value,
-        videoHeight: videoNaturalHeight.value
+        videoHeight: videoNaturalHeight.value,
+        inspectorWidth: INSPECTOR_WIDTH,
+        inspectorHeight: inspectorGroupHeight.value,
+        margin: INSPECTOR_MARGIN
     });
+});
+
+const inspectorScrollStyle = computed(() => {
+    const { height: stageHeight } = workspaceSize.value;
+    if (stageHeight <= 0) return null;
+    const maxHeight = stageHeight - INSPECTOR_MARGIN * 2;
+    if (inspectorGroupHeight.value > maxHeight) {
+        return { maxHeight: maxHeight + 'px', overflowY: 'auto' };
+    }
+    return null;
 });
 
 const INSPECTOR_WIDTH = 240;
 const INSPECTOR_MARGIN = 8;
+const DEFAULT_GROUP_HEIGHT = 340;
 const manualInspectorPosition = ref<{ top: number; left: number } | null>(null);
 const isInspectorDragging = ref(false);
 const inspectorPanelRef = ref<{ $el: HTMLElement } | null>(null);
 
+const inspectorGroupHeight = computed(() =>
+    inspectorPanelRef.value?.$el?.offsetHeight || DEFAULT_GROUP_HEIGHT
+);
+
 function clampInspectorPosition(top: number, left: number) {
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
-    const height = inspectorPanelRef.value?.$el?.offsetHeight || 210;
+    const height = inspectorGroupHeight.value;
     const maxTop = Math.max(INSPECTOR_MARGIN, stageHeight - height - INSPECTOR_MARGIN);
     const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - INSPECTOR_WIDTH - INSPECTOR_MARGIN);
     return {
@@ -385,7 +419,13 @@ watch(selectedKey, (key) => {
 
 const inspectorStyle = computed(() => {
     const placement = inspectorPlacement.value;
-    return placement ? { top: placement.top + 'px', left: placement.left + 'px', width: placement.width + 'px' } : null;
+    if (!placement) return null;
+    return {
+        top: placement.top + 'px',
+        left: placement.left + 'px',
+        width: placement.width + 'px',
+        ...(inspectorScrollStyle.value ?? {})
+    };
 });
 
 function getSelectedSegment() {
@@ -582,6 +622,26 @@ function handleResetBlurSize() {
     props.state.onDetectedObjectUpdated?.(props.state.videoId, obj.analyzedFrameId, obj, 'track-settings', before);
 }
 
+function handleUpdateOccurrenceBlurSize(percent: number) {
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
+    applyOccurrenceBlurSize(obj, percent);
+}
+
+function handleResetOccurrenceBlurSize() {
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
+    resetOccurrenceBlurSize(obj);
+}
+
+function handleUpdateTrackTimeBuffer(valueMs: number) {
+    applyTimeBufferToSegments(selectedScopeSegments.value, valueMs);
+}
+
+function handleResetTrackTimeBuffer() {
+    resetTimeBufferToSegments(selectedScopeSegments.value);
+}
+
 function handleUpdatePre(valueMs: number) {
     const segment = getSelectedSegment();
     if (segment) applySegmentPre(segment, valueMs);
@@ -759,9 +819,13 @@ function setVideoVolume(volume: number) {
               :can-go-previous="canGoPrevious"
               :can-go-next="canGoNext"
               @toggle-include="handleToggleOccurrenceInclude"
+              @update-occurrence-blur-size="handleUpdateOccurrenceBlurSize"
+              @reset-occurrence-blur-size="handleResetOccurrenceBlurSize"
               @update-shape="handleUpdateShape"
               @update-blur-size="handleUpdateBlurSize"
               @reset-blur-size="handleResetBlurSize"
+              @update-track-time-buffer="handleUpdateTrackTimeBuffer"
+              @reset-track-time-buffer="handleResetTrackTimeBuffer"
               @update-pre="handleUpdatePre"
               @update-post="handleUpdatePost"
               @reset-pre="handleResetPre"

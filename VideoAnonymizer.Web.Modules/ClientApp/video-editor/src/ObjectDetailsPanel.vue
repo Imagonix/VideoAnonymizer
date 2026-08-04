@@ -1,19 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
 import TrackThumbnail from './TrackThumbnail.vue';
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
     label: string;
     trackId: number | null;
     included: boolean;
-    shape: string | null;
+    occurrenceBlurSizePercentOverride: number | null;
+    trackBlurSizePercentOverride: number | null;
     globalBlurSizePercent: number;
-    blurSizePercentOverride: number | null;
+    globalTimeBufferMs: number;
+    shape: string | null;
     pre: number;
     preIsCustom: boolean;
     post: number;
     postIsCustom: boolean;
+    trackTimeBufferEffective: number | null;
+    trackTimeBufferIsMixed: boolean;
     canGoPrevious: boolean;
     canGoNext: boolean;
     thumbnailUrl?: string | null;
@@ -27,9 +31,13 @@ withDefaults(defineProps<{
 
 const emit = defineEmits<{
     (e: 'toggle-include', checked: boolean): void;
+    (e: 'update-occurrence-blur-size', percent: number): void;
+    (e: 'reset-occurrence-blur-size'): void;
     (e: 'update-shape', shape: string): void;
     (e: 'update-blur-size', percent: number): void;
     (e: 'reset-blur-size'): void;
+    (e: 'update-track-time-buffer', valueMs: number): void;
+    (e: 'reset-track-time-buffer'): void;
     (e: 'update-pre', valueMs: number): void;
     (e: 'update-post', valueMs: number): void;
     (e: 'reset-pre'): void;
@@ -52,9 +60,47 @@ function toggleAdvanced() {
     advancedOpen.value = !advancedOpen.value;
 }
 
+const occurrenceBlurEffective = computed(() =>
+    props.occurrenceBlurSizePercentOverride ?? props.trackBlurSizePercentOverride ?? props.globalBlurSizePercent);
+const occurrenceBlurBadge = computed(() =>
+    props.occurrenceBlurSizePercentOverride != null ? 'Custom'
+        : props.trackBlurSizePercentOverride != null ? 'Track'
+            : 'Global');
+const occurrenceBlurBadgeClass = computed(() =>
+    props.occurrenceBlurSizePercentOverride != null ? 'badge-custom'
+        : props.trackBlurSizePercentOverride != null ? 'badge-track'
+            : 'badge-global');
+
+const trackBlurEffective = computed(() => props.trackBlurSizePercentOverride ?? props.globalBlurSizePercent);
+const trackBlurBadge = computed(() => (props.trackBlurSizePercentOverride != null ? 'Custom' : 'Global'));
+const trackBlurBadgeClass = computed(() => (props.trackBlurSizePercentOverride != null ? 'badge-custom' : 'badge-global'));
+
+const trackTimeBufferBadge = computed(() => {
+    if (props.trackTimeBufferIsMixed) return 'Mixed';
+    return props.trackTimeBufferEffective == null || props.trackTimeBufferEffective === props.globalTimeBufferMs
+        ? 'Global'
+        : 'Custom';
+});
+const trackTimeBufferBadgeClass = computed(() => {
+    if (props.trackTimeBufferIsMixed) return 'badge-mixed';
+    return props.trackTimeBufferEffective == null || props.trackTimeBufferEffective === props.globalTimeBufferMs
+        ? 'badge-global'
+        : 'badge-custom';
+});
+
 function emitBlurSize(event: Event) {
     const value = Number((event.target as HTMLInputElement).value);
     if (!isNaN(value)) emit('update-blur-size', value);
+}
+
+function emitOccurrenceBlurSize(event: Event) {
+    const value = Number((event.target as HTMLInputElement).value);
+    if (!isNaN(value)) emit('update-occurrence-blur-size', value);
+}
+
+function emitTrackTimeBuffer(event: Event) {
+    const value = Number((event.target as HTMLInputElement).value);
+    if (!isNaN(value)) emit('update-track-time-buffer', value);
 }
 
 function emitPre(event: Event) {
@@ -118,145 +164,214 @@ function onHandleKeydown(event: KeyboardEvent) {
 </script>
 
 <template>
-    <div data-testid="object-details-panel" class="object-details" @click.stop>
-        <div class="details-header">
-            <div
-                ref="handleRef"
-                class="details-drag-handle"
-                role="button"
-                tabindex="0"
-                aria-label="Drag inspector"
-                title="Drag to reposition"
-                @pointerdown="onHandlePointerDown"
-                @pointermove="onHandlePointerMove"
-                @pointerup="endPointerDrag"
-                @pointercancel="endPointerDrag"
-                @keydown="onHandleKeydown"
-            >⠿</div>
-            <TrackThumbnail
-              :object-url="thumbnailUrl"
-              :fallback-label="thumbnailFallbackLabel ?? '?'"
-              :fallback-color="thumbnailFallbackColor ?? 'transparent'"
-              :size="40"
-              :eager="true"
-              :aria-label="`Representative image for ${label}`"
-            />
-            <div class="details-title-block">
-                <MudLikeCheckbox :checked="included" @change="(value: boolean) => emit('toggle-include', value)">
-                    <span class="details-title">{{ label }}</span>
-                </MudLikeCheckbox>
+    <div data-testid="object-details-panel" class="inspector-group" @click.stop>
+        <section class="scope-panel scope-panel--occurrence" data-testid="scope-panel-occurrence">
+            <header class="scope-panel-header">
+                <div
+                    ref="handleRef"
+                    class="inspector-drag-handle"
+                    role="button"
+                    tabindex="0"
+                    aria-label="Drag inspector"
+                    title="Drag to reposition"
+                    @pointerdown="onHandlePointerDown"
+                    @pointermove="onHandlePointerMove"
+                    @pointerup="endPointerDrag"
+                    @pointercancel="endPointerDrag"
+                    @keydown="onHandleKeydown"
+                >⠿</div>
+                <TrackThumbnail
+                  :object-url="thumbnailUrl"
+                  :fallback-label="thumbnailFallbackLabel ?? '?'"
+                  :fallback-color="thumbnailFallbackColor ?? 'transparent'"
+                  :size="36"
+                  :eager="true"
+                  :aria-label="`Representative image for ${label}`"
+                />
+                <span class="scope-panel-title">Current occurrence</span>
+                <div class="occurrence-nav">
+                    <button
+                        class="occurrence-nav-btn"
+                        :disabled="!canGoPrevious"
+                        title="Previous occurrence"
+                        aria-label="Previous occurrence"
+                        @click="emit('previous-occurrence')"
+                    >&#8249;</button>
+                    <button
+                        class="occurrence-nav-btn"
+                        :disabled="!canGoNext"
+                        title="Next occurrence"
+                        aria-label="Next occurrence"
+                        @click="emit('next-occurrence')"
+                    >&#8250;</button>
+                </div>
+            </header>
+
+            <div class="scope-panel-body">
+                <div class="scope-row">
+                    <MudLikeCheckbox :checked="included" @change="(value: boolean) => emit('toggle-include', value)">
+                        <span class="details-title">{{ label }}</span>
+                        <span class="scope-row-hint">Include in anonymization</span>
+                    </MudLikeCheckbox>
+                </div>
+
+                <div class="scope-row">
+                    <span class="details-field-label">Blur size</span>
+                    <input
+                        class="details-input"
+                        type="number"
+                        min="100"
+                        max="300"
+                        data-testid="occurrence-blur-input"
+                        :value="occurrenceBlurEffective"
+                        @change="emitOccurrenceBlurSize"
+                    />
+                    <span class="details-badge" :class="occurrenceBlurBadgeClass" data-testid="badge-occurrence-blur">
+                        {{ occurrenceBlurBadge }}
+                    </span>
+                    <button class="details-reset" title="Reset blur size to the track or global value" @click="emit('reset-occurrence-blur-size')">Reset</button>
+                </div>
+
+                <div class="scope-actions">
+                    <button class="details-action-btn" title="Adjust the selected detection" @click="emit('adjust-detection')">
+                        Adjust detection
+                    </button>
+                </div>
             </div>
-            <div class="occurrence-nav">
-                <button
-                    class="occurrence-nav-btn"
-                    :disabled="!canGoPrevious"
-                    title="Previous occurrence"
-                    aria-label="Previous occurrence"
-                    @click="emit('previous-occurrence')"
-                >&#8249;</button>
-                <button
-                    class="occurrence-nav-btn"
-                    :disabled="!canGoNext"
-                    title="Next occurrence"
-                    aria-label="Next occurrence"
-                    @click="emit('next-occurrence')"
-                >&#8250;</button>
+        </section>
+
+        <section class="scope-panel scope-panel--segment" data-testid="scope-panel-segment">
+            <header class="scope-panel-header">
+                <span class="scope-panel-title">Current segment</span>
+            </header>
+
+            <div class="scope-panel-body">
+                <div class="scope-row">
+                    <span class="details-field-label">Before</span>
+                    <input class="details-input" type="number" min="0" data-testid="segment-pre-input" :value="pre" @change="emitPre" />
+                    <span class="details-badge" :class="preIsCustom ? 'badge-custom' : 'badge-global'" data-testid="badge-pre">
+                        {{ preIsCustom ? 'Custom' : 'Global' }}
+                    </span>
+                    <button class="details-reset" title="Reset segment pre-buffer to global" @click="emit('reset-pre')">Reset</button>
+                </div>
+
+                <div class="scope-row">
+                    <span class="details-field-label">After</span>
+                    <input class="details-input" type="number" min="0" data-testid="segment-post-input" :value="post" @change="emitPost" />
+                    <span class="details-badge" :class="postIsCustom ? 'badge-custom' : 'badge-global'" data-testid="badge-post">
+                        {{ postIsCustom ? 'Custom' : 'Global' }}
+                    </span>
+                    <button class="details-reset" title="Reset segment post-buffer to global" @click="emit('reset-post')">Reset</button>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <div class="details-row">
-            <span class="details-field-label">Shape</span>
-            <select class="details-input" :value="shape ?? 'ellipse'" @change="(e) => emit('update-shape', (e.target as HTMLSelectElement).value)">
-                <option value="ellipse">Ellipse</option>
-                <option value="rectangle">Rectangle</option>
-            </select>
-        </div>
+        <section class="scope-panel scope-panel--track" data-testid="scope-panel-track">
+            <header class="scope-panel-header">
+                <span class="scope-panel-title">Entire track</span>
+            </header>
 
-        <div class="details-row">
-            <span class="details-field-label">Blur size</span>
-            <input
-                class="details-input"
-                type="number"
-                min="100"
-                max="300"
-                :value="blurSizePercentOverride ?? globalBlurSizePercent"
-                @change="emitBlurSize"
-            />
-            <span class="details-badge" :class="blurSizePercentOverride == null ? 'badge-global' : 'badge-custom'">
-                {{ blurSizePercentOverride == null ? 'Global' : 'Custom' }}
-            </span>
-            <button class="details-reset" title="Reset blur size to global" @click="emit('reset-blur-size')">Reset</button>
-        </div>
+            <div class="scope-panel-body">
+                <div class="scope-row">
+                    <span class="details-field-label">Shape</span>
+                    <select class="details-input" :value="shape ?? 'ellipse'" data-testid="track-shape-input" @change="(e) => emit('update-shape', (e.target as HTMLSelectElement).value)">
+                        <option value="ellipse">Ellipse</option>
+                        <option value="rectangle">Rectangle</option>
+                    </select>
+                </div>
 
-        <div class="details-row">
-            <span class="details-field-label">Before</span>
-            <input class="details-input" type="number" min="0" :value="pre" @change="emitPre" />
-            <span class="details-badge" :class="preIsCustom ? 'badge-custom' : 'badge-global'">
-                {{ preIsCustom ? 'Custom' : 'Global' }}
-            </span>
-            <button class="details-reset" title="Reset segment pre-buffer to global" @click="emit('reset-pre')">Reset</button>
-        </div>
+                <div class="scope-row">
+                    <span class="details-field-label">Blur size</span>
+                    <input
+                        class="details-input"
+                        type="number"
+                        min="100"
+                        max="300"
+                        data-testid="track-blur-input"
+                        :value="trackBlurEffective"
+                        @change="emitBlurSize"
+                    />
+                    <span class="details-badge" :class="trackBlurBadgeClass" data-testid="badge-track-blur">
+                        {{ trackBlurBadge }}
+                    </span>
+                    <button class="details-reset" title="Reset track blur size to global" @click="emit('reset-blur-size')">Reset</button>
+                </div>
 
-        <div class="details-row">
-            <span class="details-field-label">After</span>
-            <input class="details-input" type="number" min="0" :value="post" @change="emitPost" />
-            <span class="details-badge" :class="postIsCustom ? 'badge-custom' : 'badge-global'">
-                {{ postIsCustom ? 'Custom' : 'Global' }}
-            </span>
-            <button class="details-reset" title="Reset segment post-buffer to global" @click="emit('reset-post')">Reset</button>
-        </div>
+                <div class="scope-row">
+                    <span class="details-field-label">Time buffer</span>
+                    <input
+                        class="details-input"
+                        type="number"
+                        min="0"
+                        data-testid="track-time-buffer-input"
+                        :value="trackTimeBufferIsMixed ? '' : (trackTimeBufferEffective ?? globalTimeBufferMs)"
+                        :placeholder="trackTimeBufferIsMixed ? 'Mixed' : String(globalTimeBufferMs)"
+                        @change="emitTrackTimeBuffer"
+                    />
+                    <span class="details-badge" :class="trackTimeBufferBadgeClass" data-testid="badge-time-buffer">
+                        {{ trackTimeBufferBadge }}
+                    </span>
+                    <button class="details-reset" title="Clear all current segment boundaries to global" @click="emit('reset-track-time-buffer')">Reset</button>
+                </div>
 
-        <div class="details-actions">
-            <button class="details-action-btn" title="Adjust the selected detection" @click="emit('adjust-detection')">
-                Adjust detection
-            </button>
-            <button
-                class="details-action-btn"
-                :class="{ 'details-action-btn--active': advancedOpen }"
-                title="More actions for this track"
-                :aria-expanded="advancedOpen"
-                @click="toggleAdvanced"
-            >Advanced</button>
-        </div>
+                <div class="scope-actions">
+                    <button
+                        class="details-action-btn"
+                        :class="{ 'details-action-btn--active': advancedOpen }"
+                        title="More actions for this track"
+                        :aria-expanded="advancedOpen"
+                        @click="toggleAdvanced"
+                    >Advanced</button>
+                </div>
 
-        <div v-if="advancedOpen" class="advanced-menu" data-testid="advanced-menu">
-            <button class="advanced-item" title="Track this occurrence forward" @click="emit('track-forward')">
-                Track forward
-            </button>
-            <button class="advanced-item" title="Merge this track with another selected track" @click="emit('merge')">
-                Merge
-            </button>
-            <button class="advanced-item" title="Split selected occurrences out of this track" @click="emit('split')">
-                Split
-            </button>
-            <button class="advanced-item advanced-item--danger" title="Delete this occurrence" @click="emit('delete')">
-                Delete
-            </button>
-        </div>
+                <div v-if="advancedOpen" class="advanced-menu" data-testid="advanced-menu">
+                    <button class="advanced-item" title="Track this occurrence forward" @click="emit('track-forward')">
+                        Track forward
+                    </button>
+                    <button class="advanced-item" title="Merge this track with another selected track" @click="emit('merge')">
+                        Merge
+                    </button>
+                    <button class="advanced-item" title="Split selected occurrences out of this track" @click="emit('split')">
+                        Split
+                    </button>
+                    <button class="advanced-item advanced-item--danger" title="Delete this occurrence" @click="emit('delete')">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </section>
     </div>
 </template>
 
 <style scoped>
-.object-details {
+.inspector-group {
     position: absolute;
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    padding: 10px;
-    border: 1px solid var(--mud-palette-lines-default);
-    border-radius: 10px;
-    background: var(--mud-palette-surface);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    gap: 10px;
     z-index: 30;
 }
 
-.details-header {
+.scope-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--mud-palette-lines-default);
+    border-radius: 8px;
+    background: var(--mud-palette-surface);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.scope-panel-header {
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
 }
 
-.details-drag-handle {
+.inspector-drag-handle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -271,23 +386,26 @@ function onHandleKeydown(event: KeyboardEvent) {
     touch-action: none;
 }
 
-.details-drag-handle:active {
+.inspector-drag-handle:active {
     cursor: grabbing;
 }
 
-.details-drag-handle:focus-visible {
+.inspector-drag-handle:focus-visible {
     outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
     outline-offset: 2px;
     border-radius: 4px;
 }
 
-.details-title-block {
+.scope-panel-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--mud-palette-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     min-width: 0;
-}
-
-.details-title {
-    font-size: 0.9rem;
-    font-weight: 600;
 }
 
 .occurrence-nav {
@@ -322,10 +440,29 @@ function onHandleKeydown(event: KeyboardEvent) {
     outline-offset: 2px;
 }
 
-.details-row {
+.scope-panel-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+}
+
+.details-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.scope-row-hint {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--mud-palette-text-secondary);
+}
+
+.scope-row {
     display: flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
 }
 
 .details-field-label {
@@ -344,6 +481,7 @@ function onHandleKeydown(event: KeyboardEvent) {
     color: var(--mud-palette-text-primary);
     font-size: 0.85rem;
     outline: none;
+    min-width: 0;
 }
 
 .details-input:focus {
@@ -355,6 +493,7 @@ function onHandleKeydown(event: KeyboardEvent) {
     padding: 1px 6px;
     border-radius: 999px;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .badge-global {
@@ -367,6 +506,16 @@ function onHandleKeydown(event: KeyboardEvent) {
     background: color-mix(in srgb, var(--mud-palette-primary) 15%, transparent);
 }
 
+.badge-track {
+    color: var(--mud-palette-tertiary, var(--mud-palette-primary));
+    background: color-mix(in srgb, var(--mud-palette-tertiary, var(--mud-palette-primary)) 15%, transparent);
+}
+
+.badge-mixed {
+    color: var(--mud-palette-warning, #ff9800);
+    background: color-mix(in srgb, var(--mud-palette-warning, #ff9800) 15%, transparent);
+}
+
 .details-reset {
     margin-left: auto;
     border: none;
@@ -374,13 +523,14 @@ function onHandleKeydown(event: KeyboardEvent) {
     color: var(--mud-palette-text-secondary);
     font-size: 0.75rem;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
 .details-reset:hover {
     color: var(--mud-palette-primary);
 }
 
-.details-actions {
+.scope-actions {
     display: flex;
     gap: 8px;
     justify-content: flex-end;

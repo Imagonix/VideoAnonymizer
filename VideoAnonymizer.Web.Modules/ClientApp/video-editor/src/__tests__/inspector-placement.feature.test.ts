@@ -132,7 +132,7 @@ function selectBox(world: World, objectId = 'o1') {
 }
 
 function dragHandle(world: World) {
-    return world.wrapper!.find('.details-drag-handle');
+    return world.wrapper!.find('.inspector-drag-handle');
 }
 
 async function dragInspector(
@@ -211,7 +211,7 @@ const steps: StepDefinition[] = [
         handler: world => {
             const vm = world.wrapper!.vm as any;
             expect(vm.inspectorPlacement.left).toBeGreaterThan(450);
-            expect(vm.inspectorPlacement.top).toBeCloseTo((600 - 210) / 2, 0);
+            expect(vm.inspectorPlacement.top).toBeCloseTo((600 - vm.inspectorGroupHeight) / 2, 0);
         },
     },
     {
@@ -219,14 +219,14 @@ const steps: StepDefinition[] = [
         handler: world => {
             const vm = world.wrapper!.vm as any;
             expect(vm.inspectorPlacement.left).toBeLessThan(450);
-            expect(vm.inspectorPlacement.top).toBeCloseTo((600 - 210) / 2, 0);
+            expect(vm.inspectorPlacement.top).toBeCloseTo((600 - vm.inspectorGroupHeight) / 2, 0);
         },
     },
     {
         pattern: /^the inspector is not placed above or below the stage center$/,
         handler: world => {
             const vm = world.wrapper!.vm as any;
-            expect(vm.inspectorPlacement.top).toBeCloseTo((600 - 210) / 2, 0);
+            expect(vm.inspectorPlacement.top).toBeCloseTo((600 - vm.inspectorGroupHeight) / 2, 0);
         },
     },
     {
@@ -243,7 +243,7 @@ const steps: StepDefinition[] = [
             expect(placement.left).toBeGreaterThanOrEqual(8);
             expect(placement.left + 240).toBeLessThanOrEqual(900);
             expect(placement.top).toBeGreaterThanOrEqual(8);
-            expect(placement.top + 210).toBeLessThanOrEqual(600);
+            expect(placement.top + vm.inspectorGroupHeight).toBeLessThanOrEqual(600);
         },
     },
     {
@@ -259,8 +259,9 @@ const steps: StepDefinition[] = [
         pattern: /^the inspector keeps the custom position$/,
         handler: world => {
             const vm = world.wrapper!.vm as any;
+            const expectedTop = Math.round((600 - vm.inspectorGroupHeight) / 2) - 100;
             expect(vm.selectedKey).toBe('track-1');
-            expect(vm.manualInspectorPosition).toEqual({ top: 95, left: 352 });
+            expect(vm.manualInspectorPosition).toEqual({ top: expectedTop, left: 352 });
             expect(vm.inspectorPlacement.left).toBe(352);
         },
     },
