@@ -608,33 +608,30 @@ public sealed class LocalVideoPersistenceStepDefinitions
             .Should().OnlyContain(obj => obj.PostBufferMsOverride == null);
     }
 
-    [When("the reviewer saves the first face with an occurrence blur and a track time buffer override")]
-    public async Task WhenTheReviewerSavesTheFirstFaceWithOccurrenceBlurAndTrackTimeBuffer()
+    [When("the reviewer saves the first face with an occurrence blur override")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithOccurrenceBlurOverride()
     {
         var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
         dto.OccurrenceBlurSizePercentOverride = 200;
-        dto.TrackTimeBufferMsOverride = 600;
 
         LastResult = await CreateDetectedObjectsController()
             .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
     }
 
-    [Then("the first face keeps the occurrence blur and track time buffer when reopening the video")]
-    public async Task ThenTheFirstFaceKeepsTheOccurrenceBlurAndTrackTimeBufferWhenReopeningTheVideo()
+    [Then("the first face keeps the occurrence blur override when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsTheOccurrenceBlurOverrideWhenReopeningTheVideo()
     {
         LastResult.Should().BeOfType<OkObjectResult>();
         ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
         var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
         first.OccurrenceBlurSizePercentOverride.Should().Be(200);
-        first.TrackTimeBufferMsOverride.Should().Be(600);
     }
 
-    [Then("the second face still has no occurrence or track overrides")]
-    public async Task ThenTheSecondFaceStillHasNoOccurrenceOrTrackOverrides()
+    [Then("the second face still has no occurrence override")]
+    public async Task ThenTheSecondFaceStillHasNoOccurrenceOverride()
     {
         var second = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == SecondObjectId);
         second.OccurrenceBlurSizePercentOverride.Should().BeNull();
-        second.TrackTimeBufferMsOverride.Should().BeNull();
     }
 
     [Given("one occurrence overrides its blur while its track carries a different override")]
@@ -650,13 +647,13 @@ public sealed class LocalVideoPersistenceStepDefinitions
         ResolvedBlurSizes.Should().Be((180, 150));
     }
 
-    [Given("a track with a time buffer override of 600 ms has a consecutive segment")]
-    public void GivenATrackWithATimeBufferOverrideHasAConsecutiveSegment()
+    [Given("a track with a consecutive segment without boundary overrides")]
+    public void GivenATrackWithAConsecutiveSegmentWithoutBoundaryOverrides()
     {
         NormalizationOccurrences =
         [
-            new DetectedObject { Id = Guid.NewGuid(), TrackId = 5, TrackTimeBufferMsOverride = 600 },
-            new DetectedObject { Id = Guid.NewGuid(), TrackId = 5, TrackTimeBufferMsOverride = 600 }
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 5 },
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 5 }
         ];
     }
 
@@ -668,10 +665,10 @@ public sealed class LocalVideoPersistenceStepDefinitions
             300);
     }
 
-    [Then("the segment pre and post values are 600 ms")]
-    public void ThenTheSegmentPreAndPostValuesAre600Ms()
+    [Then("the segment pre and post values are the global time buffer {int} ms")]
+    public void ThenTheSegmentPreAndPostValuesAreTheGlobalTimeBuffer(int globalTimeBufferMs)
     {
-        ResolvedBuffers.Should().Be((600, 600));
+        ResolvedBuffers.Should().Be((globalTimeBufferMs, globalTimeBufferMs));
     }
 
     [Given("a reviewer's video has a global blur size of {int} percent")]

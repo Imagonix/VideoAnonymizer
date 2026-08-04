@@ -15,7 +15,6 @@ function cloneObjects(objects: DetectedObjectDto[]): DetectedObjectDto[] {
 export type TrackSettings = {
     shape: string | null;
     blurSizePercentOverride: number | null;
-    trackTimeBufferMsOverride: number | null;
 };
 
 export type SegmentBufferValues = {
@@ -34,20 +33,18 @@ export function useTrackSettings(
         const occurrences = getTrackOccurrences(frames.value, trackId);
         return {
             shape: occurrences.find(obj => obj.blurShape)?.blurShape ?? null,
-            blurSizePercentOverride: occurrences.find(obj => obj.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null,
-            trackTimeBufferMsOverride: occurrences.find(obj => obj.trackTimeBufferMsOverride != null)?.trackTimeBufferMsOverride ?? null
+            blurSizePercentOverride: occurrences.find(obj => obj.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null
         };
     }
 
     function getSegmentBufferValues(segment: ConsecutiveSegment): SegmentBufferValues {
         const global = anonymizationSettings.value.timeBufferMs;
-        const trackTimeBuffer = segment.first.trackTimeBufferMsOverride ?? global;
         const preOverride = segment.first.preBufferMsOverride;
         const postOverride = segment.last.postBufferMsOverride;
         return {
-            pre: preOverride ?? trackTimeBuffer,
+            pre: preOverride ?? global,
             preIsCustom: preOverride != null,
-            post: postOverride ?? trackTimeBuffer,
+            post: postOverride ?? global,
             postIsCustom: postOverride != null
         };
     }
@@ -80,25 +77,6 @@ export function useTrackSettings(
         state.onDetectedObjectsBulkUpdated?.(state.videoId, occurrences, 'track-settings', before);
     }
 
-    function applyTrackTimeBuffer(trackId: number, valueMs: number) {
-        const occurrences = getTrackOccurrences(frames.value, trackId);
-        if (occurrences.length === 0) return;
-
-        const before = cloneObjects(occurrences);
-        const normalized = valueMs === anonymizationSettings.value.timeBufferMs ? null : valueMs;
-        occurrences.forEach(obj => { obj.trackTimeBufferMsOverride = normalized; });
-        state.onDetectedObjectsBulkUpdated?.(state.videoId, occurrences, 'track-settings', before);
-    }
-
-    function resetTrackTimeBuffer(trackId: number) {
-        const occurrences = getTrackOccurrences(frames.value, trackId);
-        if (occurrences.length === 0) return;
-
-        const before = cloneObjects(occurrences);
-        occurrences.forEach(obj => { obj.trackTimeBufferMsOverride = null; });
-        state.onDetectedObjectsBulkUpdated?.(state.videoId, occurrences, 'track-settings', before);
-    }
-
     function applyOccurrenceBlurSize(obj: DetectedObjectDto, percent: number) {
         const before = cloneObjects([obj]);
         const trackBlur = getTrackSettings(obj.trackId ?? -1).blurSizePercentOverride;
@@ -114,8 +92,7 @@ export function useTrackSettings(
     }
 
     function applySegmentPre(segment: ConsecutiveSegment, valueMs: number) {
-        const parent = segment.first.trackTimeBufferMsOverride ?? anonymizationSettings.value.timeBufferMs;
-        const normalized = valueMs === parent ? null : valueMs;
+        const normalized = valueMs === anonymizationSettings.value.timeBufferMs ? null : valueMs;
         const first = segment.first;
         const before = cloneObjects([first]);
         first.preBufferMsOverride = normalized;
@@ -123,8 +100,7 @@ export function useTrackSettings(
     }
 
     function applySegmentPost(segment: ConsecutiveSegment, valueMs: number) {
-        const parent = segment.last.trackTimeBufferMsOverride ?? anonymizationSettings.value.timeBufferMs;
-        const normalized = valueMs === parent ? null : valueMs;
+        const normalized = valueMs === anonymizationSettings.value.timeBufferMs ? null : valueMs;
         const last = segment.last;
         const before = cloneObjects([last]);
         last.postBufferMsOverride = normalized;
@@ -161,8 +137,6 @@ export function useTrackSettings(
         applyTrackBlurShape,
         applyTrackBlurSize,
         resetTrackBlurSize,
-        applyTrackTimeBuffer,
-        resetTrackTimeBuffer,
         applyOccurrenceBlurSize,
         resetOccurrenceBlurSize,
         applySegmentPre,

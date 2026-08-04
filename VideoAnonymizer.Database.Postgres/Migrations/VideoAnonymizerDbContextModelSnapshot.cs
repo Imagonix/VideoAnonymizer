@@ -83,9 +83,6 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.Property<int?>("TrackId")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("TrackTimeBufferMsOverride")
-                        .HasColumnType("integer");
-
                     b.Property<int>("Width")
                         .HasColumnType("integer");
 

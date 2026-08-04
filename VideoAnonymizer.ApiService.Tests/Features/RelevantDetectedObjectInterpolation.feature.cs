@@ -1255,13 +1255,13 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Interpolated boxes copy occurrence blur and track time buffer metadata")]
-        public async global::System.Threading.Tasks.Task InterpolatedBoxesCopyOccurrenceBlurAndTrackTimeBufferMetadata()
+        [global::NUnit.Framework.DescriptionAttribute("Interpolated boxes copy occurrence blur metadata")]
+        public async global::System.Threading.Tasks.Task InterpolatedBoxesCopyOccurrenceBlurMetadata()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "23";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Interpolated boxes copy occurrence blur and track time buffer metadata", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Interpolated boxes copy occurrence blur metadata", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 208
@@ -1278,20 +1278,17 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                             "timeSeconds",
                             "trackId",
                             "x",
-                            "occurrenceBlurSizePercentOverride",
-                            "trackTimeBufferMsOverride"});
+                            "occurrenceBlurSizePercentOverride"});
                 table46.AddRow(new string[] {
                             "0.0",
                             "7",
                             "10",
-                            "180",
-                            "600"});
+                            "180"});
                 table46.AddRow(new string[] {
                             "1.0",
                             "7",
                             "100",
-                            "",
-                            "600"});
+                            ""});
 #line 209
     await testRunner.GivenAsync("analyzed detections for prediction", ((string)(null)), table46, "Given ");
 #line hidden
@@ -1301,13 +1298,11 @@ namespace VideoAnonymizer.ApiService.Tests.Features
                 global::Reqnroll.Table table47 = new global::Reqnroll.Table(new string[] {
                             "trackId",
                             "x",
-                            "occurrenceBlurSizePercentOverride",
-                            "trackTimeBufferMsOverride"});
+                            "occurrenceBlurSizePercentOverride"});
                 table47.AddRow(new string[] {
                             "7",
                             "46",
-                            "180",
-                            "600"});
+                            "180"});
 #line 214
     await testRunner.ThenAsync("the predicted objects are", ((string)(null)), table47, "Then ");
 #line hidden

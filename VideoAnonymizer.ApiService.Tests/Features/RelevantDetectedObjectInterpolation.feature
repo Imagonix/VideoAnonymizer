@@ -205,12 +205,12 @@ Feature: Predicting object positions between analyzed frames
       | trackId | x  | blurShape | blurSizePercentOverride | postOverrideMs |
       | 7       | 55 | rectangle | 150                     | 400            |
 
-  Scenario: Interpolated boxes copy occurrence blur and track time buffer metadata
+  Scenario: Interpolated boxes copy occurrence blur metadata
     Given analyzed detections for prediction
-      | timeSeconds | trackId | x   | occurrenceBlurSizePercentOverride | trackTimeBufferMsOverride |
-      | 0.0         | 7       | 10  | 180                              | 600                       |
-      | 1.0         | 7       | 100 |                                  | 600                       |
+      | timeSeconds | trackId | x   | occurrenceBlurSizePercentOverride |
+      | 0.0         | 7       | 10  | 180                              |
+      | 1.0         | 7       | 100 |                                  |
     When the processor predicts objects at 0.4 seconds with a 0.0 second buffer
     Then the predicted objects are
-      | trackId | x  | occurrenceBlurSizePercentOverride | trackTimeBufferMsOverride |
-      | 7       | 46 | 180                               | 600                       |
+      | trackId | x  | occurrenceBlurSizePercentOverride |
+      | 7       | 46 | 180                               |

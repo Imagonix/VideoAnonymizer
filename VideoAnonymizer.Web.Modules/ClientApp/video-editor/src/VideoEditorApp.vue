@@ -134,8 +134,6 @@ const {
     applyTrackBlurShape,
     applyTrackBlurSize,
     resetTrackBlurSize,
-    applyTrackTimeBuffer,
-    resetTrackTimeBuffer,
     applyOccurrenceBlurSize,
     resetOccurrenceBlurSize,
     applySegmentPre,

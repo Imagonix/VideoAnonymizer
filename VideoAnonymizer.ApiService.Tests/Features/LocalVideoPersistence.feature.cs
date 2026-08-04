@@ -752,13 +752,13 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("Occurrence blur and track time buffer overrides round-trip")]
-        public async global::System.Threading.Tasks.Task OccurrenceBlurAndTrackTimeBufferOverridesRound_Trip()
+        [global::NUnit.Framework.DescriptionAttribute("Occurrence blur override round-trips")]
+        public async global::System.Threading.Tasks.Task OccurrenceBlurOverrideRound_Trips()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "18";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Occurrence blur and track time buffer overrides round-trip", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Occurrence blur override round-trips", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 111
@@ -775,15 +775,13 @@ namespace VideoAnonymizer.ApiService.Tests.Features
     await testRunner.GivenAsync("a reviewed video has two detected faces", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 113
-    await testRunner.WhenAsync("the reviewer saves the first face with an occurrence blur and a track time buffer" +
-                        " override", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.WhenAsync("the reviewer saves the first face with an occurrence blur override", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 114
-    await testRunner.ThenAsync("the first face keeps the occurrence blur and track time buffer when reopening the" +
-                        " video", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the first face keeps the occurrence blur override when reopening the video", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 115
-    await testRunner.AndAsync("the second face still has no occurrence or track overrides", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("the second face still has no occurrence override", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -826,13 +824,13 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         }
         
         [global::NUnit.Framework.TestAttribute()]
-        [global::NUnit.Framework.DescriptionAttribute("The track time buffer is the segment pre and post fallback")]
-        public async global::System.Threading.Tasks.Task TheTrackTimeBufferIsTheSegmentPreAndPostFallback()
+        [global::NUnit.Framework.DescriptionAttribute("Segment pre and post inherit the global time buffer directly")]
+        public async global::System.Threading.Tasks.Task SegmentPreAndPostInheritTheGlobalTimeBufferDirectly()
         {
             string[] tagsOfScenario = ((string[])(null));
             global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
             string pickleIndex = "20";
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("The track time buffer is the segment pre and post fallback", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Segment pre and post inherit the global time buffer directly", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
             string[] tagsOfRule = ((string[])(null));
             global::Reqnroll.RuleInfo ruleInfo = null;
 #line 123
@@ -846,13 +844,13 @@ namespace VideoAnonymizer.ApiService.Tests.Features
             {
                 await this.ScenarioStartAsync();
 #line 124
-    await testRunner.GivenAsync("a track with a time buffer override of 600 ms has a consecutive segment", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+    await testRunner.GivenAsync("a track with a consecutive segment without boundary overrides", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 125
     await testRunner.WhenAsync("the segment buffers are resolved for the track", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 126
-    await testRunner.ThenAsync("the segment pre and post values are 600 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the segment pre and post values are the global time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();

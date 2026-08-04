@@ -469,7 +469,7 @@ public sealed class ForwardTrackingStepDefinitions
                 CreateFrame(seedFrameId, VideoId, frameIndex: 0, timeSeconds: 0.0,
                 [
                     CreateObject(SeedObjectId, seedFrameId, trackId: 7, x: 10, y: 20, blurShape: "rectangle",
-                        blurSizePercentOverride: 140, trackTimeBufferMsOverride: 600, postBufferMsOverride: 500)
+                        blurSizePercentOverride: 140, postBufferMsOverride: 500)
                 ]),
                 CreateFrame(FirstFutureFrameId, VideoId, frameIndex: 1, timeSeconds: 0.1, []),
                 CreateFrame(SecondFutureFrameId, VideoId, frameIndex: 5, timeSeconds: 0.5, [])
@@ -506,7 +506,6 @@ public sealed class ForwardTrackingStepDefinitions
         generated.PreBufferMsOverride.Should().BeNull();
         generated.BlurShape.Should().Be("rectangle");
         generated.BlurSizePercentOverride.Should().Be(140);
-        generated.TrackTimeBufferMsOverride.Should().Be(600);
     }
 
     [Then("the seed face no longer stores the post override")]
@@ -612,7 +611,6 @@ public sealed class ForwardTrackingStepDefinitions
         int y,
         string blurShape = "ellipse",
         int? blurSizePercentOverride = null,
-        int? trackTimeBufferMsOverride = null,
         int? postBufferMsOverride = null) =>
         new()
         {
@@ -622,7 +620,6 @@ public sealed class ForwardTrackingStepDefinitions
             ClassName = "face",
             BlurShape = blurShape,
             BlurSizePercentOverride = blurSizePercentOverride,
-            TrackTimeBufferMsOverride = trackTimeBufferMsOverride,
             PostBufferMsOverride = postBufferMsOverride,
             Selected = true,
             TrackId = trackId,

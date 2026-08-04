@@ -97,15 +97,13 @@ export function useDetectedObjectActions(
         const defaults = getTrackSettings(trackId);
         obj.blurShape = defaults.shape;
         obj.blurSizePercentOverride = defaults.blurSizePercentOverride;
-        obj.trackTimeBufferMsOverride = defaults.trackTimeBufferMsOverride;
     }
 
-    function getTrackSettings(trackId: number): { shape: string | null; blurSizePercentOverride: number | null; trackTimeBufferMsOverride: number | null } {
+    function getTrackSettings(trackId: number): { shape: string | null; blurSizePercentOverride: number | null } {
         const occurrences = getTrackOccurrences(frames.value, trackId);
         return {
             shape: occurrences.find(o => o.blurShape)?.blurShape ?? null,
-            blurSizePercentOverride: occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null,
-            trackTimeBufferMsOverride: occurrences.find(o => o.trackTimeBufferMsOverride != null)?.trackTimeBufferMsOverride ?? null
+            blurSizePercentOverride: occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null
         };
     }
 
@@ -135,11 +133,6 @@ export function useDetectedObjectActions(
         return occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null;
     }
 
-    function getTrackTimeBufferForTrack(trackId: number): number | null {
-        const occurrences = getTrackOccurrences(frames.value, trackId);
-        return occurrences.find(o => o.trackTimeBufferMsOverride != null)?.trackTimeBufferMsOverride ?? null;
-    }
-
     function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
         if (!currentFrame.value) return;
 
@@ -158,9 +151,6 @@ export function useDetectedObjectActions(
         const blurSizePercentOverride = selectedExistingTrackId == null
             ? null
             : getBlurSizeOverrideForTrack(selectedExistingTrackId);
-        const trackTimeBufferMsOverride = selectedExistingTrackId == null
-            ? null
-            : getTrackTimeBufferForTrack(selectedExistingTrackId);
         const newObj: DetectedObjectDto = {
             id: crypto.randomUUID(),
             confidence: 1,
@@ -168,7 +158,6 @@ export function useDetectedObjectActions(
             blurShape,
             blurSizePercentOverride,
             occurrenceBlurSizePercentOverride: null,
-            trackTimeBufferMsOverride,
             selected: true,
             trackId: resolvedTrackId,
             x,

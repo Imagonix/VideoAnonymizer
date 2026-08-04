@@ -10,12 +10,9 @@ public static class AnonymizationSettingsResolver
 {
     public static (int PreBufferMs, int PostBufferMs) ResolveBuffers(
         ConsecutiveSegment segment,
-        int globalTimeBufferMs)
-    {
-        var trackTimeBufferMs = segment.First.TrackTimeBufferMsOverride ?? globalTimeBufferMs;
-        return (segment.First.PreBufferMsOverride ?? trackTimeBufferMs,
-            segment.Last.PostBufferMsOverride ?? trackTimeBufferMs);
-    }
+        int globalTimeBufferMs) =>
+        (segment.First.PreBufferMsOverride ?? globalTimeBufferMs,
+            segment.Last.PostBufferMsOverride ?? globalTimeBufferMs);
 
     /// <summary>
     /// Effective blur size for one occurrence: occurrence override -> materialized

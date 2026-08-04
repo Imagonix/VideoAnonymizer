@@ -47,7 +47,6 @@ function createFrame(
             blurShape: o.blurShape ?? null,
             blurSizePercentOverride: o.blurSizePercentOverride ?? null,
             occurrenceBlurSizePercentOverride: o.occurrenceBlurSizePercentOverride ?? null,
-            trackTimeBufferMsOverride: o.trackTimeBufferMsOverride ?? null,
             preBufferMsOverride: o.preBufferMsOverride ?? null,
             postBufferMsOverride: o.postBufferMsOverride ?? null,
             selected: o.selected ?? true,
@@ -97,18 +96,6 @@ function shapeAndBlurFrames() {
         ]),
         createFrame('f2', 1, 1, [
             { id: 'o2', trackId: 1 },
-        ]),
-        createFrame('f3', 2, 2, []),
-    ];
-}
-
-function shapeBlurAndTimeBufferFrames() {
-    return [
-        createFrame('f1', 0, 0, [
-            { id: 'o1', trackId: 1, blurShape: 'rectangle', blurSizePercentOverride: 150, trackTimeBufferMsOverride: 500 },
-        ]),
-        createFrame('f2', 1, 1, [
-            { id: 'o2', trackId: 1, blurSizePercentOverride: 150, trackTimeBufferMsOverride: 500 },
         ]),
         createFrame('f3', 2, 2, []),
     ];
@@ -194,12 +181,6 @@ function trackOneOccurrences(world: World) {
     return vm.getFrames()
         .flatMap((frame: AnalyzedFrameDto) => frame.detectedObjects)
         .filter((face: DetectedObjectDto) => face.trackId === 1);
-}
-
-function trackOneReactiveOccurrences(world: World) {
-    return world.state!.frames
-        .flatMap(frame => frame.detectedObjects)
-        .filter(obj => obj.trackId === 1);
 }
 
 const steps: StepDefinition[] = [
@@ -620,83 +601,6 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the editor is open with a track that carries shape and blur size and a time buffer$/,
-        handler: world => {
-            openEditor(world, shapeBlurAndTimeBufferFrames());
-        },
-    },
-    {
-        pattern: /^the editor is open with a track time buffer override of (\d+) on track 1$/,
-        handler: (world, match) => {
-            openEditor(world);
-            for (const obj of trackOneReactiveOccurrences(world)) {
-                obj.trackTimeBufferMsOverride = Number(match[1]);
-            }
-        },
-    },
-    {
-        pattern: /^the reviewer sets track (\d+) time buffer to (\d+) ms$/,
-        handler: (world, match) => {
-            const vm = world.wrapper!.vm as any;
-            vm.applyTrackTimeBuffer(Number(match[1]), Number(match[2]));
-        },
-    },
-    {
-        pattern: /^the reviewer sets track (\d+) time buffer to the global value (\d+)$/,
-        handler: (world, match) => {
-            const vm = world.wrapper!.vm as any;
-            vm.applyTrackTimeBuffer(Number(match[1]), Number(match[2]));
-        },
-    },
-    {
-        pattern: /^the reviewer resets the track (\d+) time buffer$/,
-        handler: (world, match) => {
-            const vm = world.wrapper!.vm as any;
-            vm.resetTrackTimeBuffer(Number(match[1]));
-        },
-    },
-    {
-        pattern: /^every track 1 occurrence stores a track time buffer override of (\d+)$/,
-        handler: (world, match) => {
-            const occurrences = trackOneOccurrences(world);
-            expect(occurrences.every(o => o.trackTimeBufferMsOverride === Number(match[1]))).toBe(true);
-        },
-    },
-    {
-        pattern: /^every track 1 occurrence stores a null track time buffer override$/,
-        handler: world => {
-            const occurrences = trackOneOccurrences(world);
-            expect(occurrences.every(o => o.trackTimeBufferMsOverride === null)).toBe(true);
-        },
-    },
-    {
-        pattern: /^the segment pre and post values inherit the track time buffer (\d+)$/,
-        handler: (world, match) => {
-            const vm = world.wrapper!.vm as any;
-            const segment = vm.findSegmentFor(findObject(world, 'o1'));
-            const buffers = vm.getSegmentBufferValues(segment);
-            expect(buffers.pre).toBe(Number(match[1]));
-            expect(buffers.post).toBe(Number(match[1]));
-        },
-    },
-    {
-        pattern: /^the segment pre and post values inherit the global time buffer (\d+)$/,
-        handler: (world, match) => {
-            const vm = world.wrapper!.vm as any;
-            const segment = vm.findSegmentFor(findObject(world, 'o1'));
-            const buffers = vm.getSegmentBufferValues(segment);
-            expect(buffers.pre).toBe(Number(match[1]));
-            expect(buffers.post).toBe(Number(match[1]));
-        },
-    },
-    {
-        pattern: /^the track time buffer override remains stored as (\d+)$/,
-        handler: (world, match) => {
-            const occurrences = trackOneOccurrences(world);
-            expect(occurrences.every(o => o.trackTimeBufferMsOverride === Number(match[1]))).toBe(true);
-        },
-    },
-    {
         pattern: /^the reviewer sets an occurrence blur size to (\d+) on the first occurrence and resets it$/,
         handler: (world, match) => {
             const vm = world.wrapper!.vm as any;
@@ -743,18 +647,6 @@ const steps: StepDefinition[] = [
         pattern: /^the first occurrence keeps its occurrence blur override of (\d+)$/,
         handler: (world, match) => {
             expect(findObject(world, 'o1')!.occurrenceBlurSizePercentOverride).toBe(Number(match[1]));
-        },
-    },
-    {
-        pattern: /^the new box inherits the track time buffer override$/,
-        handler: world => {
-            expect(world.addedObject!.trackTimeBufferMsOverride).toBe(500);
-        },
-    },
-    {
-        pattern: /^the new box keeps a null occurrence blur override$/,
-        handler: world => {
-            expect(world.addedObject!.occurrenceBlurSizePercentOverride).toBeNull();
         },
     },
 ];

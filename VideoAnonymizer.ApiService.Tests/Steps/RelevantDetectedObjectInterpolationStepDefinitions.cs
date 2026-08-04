@@ -132,7 +132,6 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
                 GetOptional(row, "blurShape"),
                 ParseOptionalInt(row, "blurSizePercentOverride"),
                 ParseOptionalInt(row, "occurrenceBlurSizePercentOverride"),
-                ParseOptionalInt(row, "trackTimeBufferMsOverride"),
                 ParseOptionalInt(row, "preOverrideMs"),
                 ParseOptionalInt(row, "postOverrideMs"));
             obj.AnalyzedFrame = frame;
@@ -151,7 +150,6 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         string? blurShape,
         int? blurSizePercentOverride,
         int? occurrenceBlurSizePercentOverride,
-        int? trackTimeBufferMsOverride,
         int? preOverrideMs,
         int? postOverrideMs) =>
         new()
@@ -162,7 +160,6 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
             BlurShape = blurShape,
             BlurSizePercentOverride = blurSizePercentOverride,
             OccurrenceBlurSizePercentOverride = occurrenceBlurSizePercentOverride,
-            TrackTimeBufferMsOverride = trackTimeBufferMsOverride,
             PreBufferMsOverride = preOverrideMs,
             PostBufferMsOverride = postOverrideMs,
             Selected = true,
@@ -192,7 +189,6 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
 
         AssertOptionalNullableInt(row, "blurSizePercentOverride", actual.BlurSizePercentOverride);
         AssertOptionalNullableInt(row, "occurrenceBlurSizePercentOverride", actual.OccurrenceBlurSizePercentOverride);
-        AssertOptionalNullableInt(row, "trackTimeBufferMsOverride", actual.TrackTimeBufferMsOverride);
         AssertOptionalNullableInt(row, "preOverrideMs", actual.PreBufferMsOverride);
         AssertOptionalNullableInt(row, "postOverrideMs", actual.PostBufferMsOverride);
     }

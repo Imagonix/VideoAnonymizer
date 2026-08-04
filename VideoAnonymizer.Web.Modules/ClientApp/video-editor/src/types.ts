@@ -5,7 +5,6 @@ export type DetectedObjectDto = {
   blurShape?: string | null;
   blurSizePercentOverride?: number | null;
   occurrenceBlurSizePercentOverride?: number | null;
-  trackTimeBufferMsOverride?: number | null;
   preBufferMsOverride?: number | null;
   postBufferMsOverride?: number | null;
   selected: boolean;
