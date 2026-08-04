@@ -343,7 +343,14 @@ const selectable = computed(() => props.mode === 'select');
 
     <template v-if="mode === 'adjust' && adjustObject">
       <div class="adjust-group">
-        <div class="adjust-blur" :style="getAdjustBlurStyle(adjustObject)" />
+        <div
+          class="adjust-blur"
+          :class="{
+            'adjust-blur--ellipse': (adjustObject.blurShape?.toLowerCase() ?? 'ellipse') !== 'rectangle',
+            'adjust-blur--rectangle': (adjustObject.blurShape?.toLowerCase() ?? 'ellipse') === 'rectangle'
+          }"
+          :style="getAdjustBlurStyle(adjustObject)"
+        />
         <div
           data-testid="adjust-box"
           class="adjust-box"
@@ -404,6 +411,7 @@ const selectable = computed(() => props.mode === 'select');
 .bbox {
   position: absolute;
   border: 2px dashed;
+  border-radius: 0;
   box-sizing: border-box;
   pointer-events: auto;
   cursor: pointer;
@@ -455,9 +463,14 @@ const selectable = computed(() => props.mode === 'select');
   background: color-mix(in srgb, var(--mud-palette-primary) 25%, transparent);
 }
 
+.adjust-blur--rectangle {
+  border-radius: 0;
+}
+
 .adjust-box {
   position: absolute;
   border: 2px solid var(--mud-palette-primary);
+  border-radius: 0;
   box-sizing: border-box;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--mud-palette-primary) 35%, transparent);
   pointer-events: auto;
@@ -470,12 +483,13 @@ const selectable = computed(() => props.mode === 'select');
   pointer-events: auto;
   background: var(--mud-palette-primary);
   border: 1px solid var(--mud-palette-surface);
-  border-radius: 50%;
+  border-radius: 0;
 }
 
 .draw-preview {
   position: absolute;
   border: 2px dashed var(--mud-palette-primary);
+  border-radius: 0;
   background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
   pointer-events: none;
   z-index: 20;

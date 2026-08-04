@@ -87,6 +87,16 @@ async function clickButton(wrapper: ReturnType<typeof mount>['wrapper'], text: s
     await btn.trigger('click');
 }
 
+function getToolButton(wrapper: ReturnType<typeof mount>['wrapper'], testid: string) {
+    return wrapper.find(`[data-testid="${testid}"]`);
+}
+
+async function clickTool(wrapper: ReturnType<typeof mount>['wrapper'], testid: string) {
+    const btn = getToolButton(wrapper, testid);
+    if (!btn.exists()) throw new Error(`Toolbar button "${testid}" not found`);
+    await btn.trigger('click');
+}
+
 function getTrackIds(wrapper: ReturnType<typeof mount>['wrapper'], frameIndex?: number): number[] {
     const vm = wrapper.vm as any;
     const frames = frameIndex != null
@@ -200,7 +210,7 @@ describe('VideoEditorApp integration', () => {
 
         it('exits split mode when cancelled', async () => {
             expect(wrapper.text()).toContain('Split out');
-            await clickButton(wrapper, 'Cancel');
+            await clickTool(wrapper, 'toolbar-discard');
             expect((wrapper.vm as any).activeMode).toBe('select');
         });
 
@@ -281,15 +291,15 @@ describe('VideoEditorApp integration', () => {
 
     describe('add', () => {
         it('enters add mode from the Add Object control', async () => {
-            await clickButton(wrapper, 'Add Object');
+            await clickTool(wrapper, 'toolbar-add-object');
             expect((wrapper.vm as any).activeMode).toBe('add');
-            expect(wrapper.text()).toContain('Cancel');
+            expect(getToolButton(wrapper, 'toolbar-discard').exists()).toBe(true);
         });
 
         it('toggles add mode on and off', async () => {
-            await clickButton(wrapper, 'Add Object');
+            await clickTool(wrapper, 'toolbar-add-object');
             expect((wrapper.vm as any).activeMode).toBe('add');
-            await clickButton(wrapper, 'Cancel');
+            await clickTool(wrapper, 'toolbar-discard');
             expect((wrapper.vm as any).activeMode).toBe('select');
         });
 
@@ -297,13 +307,13 @@ describe('VideoEditorApp integration', () => {
             const vm = wrapper.vm as any;
             vm.activate('merge');
             await wrapper.vm.$nextTick();
-            let toolsText = wrapper.find('[data-testid="review-tools"]').text();
+            const toolsText = wrapper.find('[data-testid="editor-toolbar"]').text();
             expect(toolsText).toContain('Merge');
-            expect(toolsText).not.toContain('Add Object');
+            expect(getToolButton(wrapper, 'toolbar-add-object').exists()).toBe(false);
 
-            await clickButton(wrapper, 'Cancel');
+            await clickTool(wrapper, 'toolbar-discard');
             expect(vm.activeMode).toBe('select');
-            await clickButton(wrapper, 'Add Object');
+            await clickTool(wrapper, 'toolbar-add-object');
             expect(vm.activeMode).toBe('add');
         });
 
@@ -311,13 +321,13 @@ describe('VideoEditorApp integration', () => {
             const vm = wrapper.vm as any;
             vm.activate('split');
             await wrapper.vm.$nextTick();
-            const toolsText = wrapper.find('[data-testid="review-tools"]').text();
+            const toolsText = wrapper.find('[data-testid="editor-toolbar"]').text();
             expect(toolsText).toContain('Split out');
-            expect(toolsText).not.toContain('Add Object');
+            expect(getToolButton(wrapper, 'toolbar-add-object').exists()).toBe(false);
 
-            await clickButton(wrapper, 'Cancel');
+            await clickTool(wrapper, 'toolbar-discard');
             expect(vm.activeMode).toBe('select');
-            await clickButton(wrapper, 'Add Object');
+            await clickTool(wrapper, 'toolbar-add-object');
             expect(vm.activeMode).toBe('add');
         });
 
@@ -401,7 +411,7 @@ describe('VideoEditorApp integration', () => {
             obj.x += 50;
             await wrapper.vm.$nextTick();
 
-            await clickButton(wrapper, 'Done');
+            await clickTool(wrapper, 'toolbar-confirm');
             expect(onDetectedObjectUpdated).toHaveBeenCalledTimes(1);
             const [videoId, analyzedFrameId, dto, operationType, beforeState] = onDetectedObjectUpdated.mock.calls[0];
             expect(videoId).toBe('v1');
@@ -414,7 +424,7 @@ describe('VideoEditorApp integration', () => {
             expect(vm.activeMode).toBe('select');
         });
 
-        it('reset restores the before state', async () => {
+        it('discard restores the before state and exits adjust', async () => {
             const onDetectedObjectUpdated = vi.fn();
             const mounted = mountEditor({ onDetectedObjectUpdated });
             wrapper = mounted.wrapper;
@@ -428,9 +438,9 @@ describe('VideoEditorApp integration', () => {
             obj.x += 50;
             await wrapper.vm.$nextTick();
 
-            await clickButton(wrapper, 'Reset');
+            await clickTool(wrapper, 'toolbar-discard');
             expect(obj.x).toBe(0);
-            expect(vm.activeMode).toBe('adjust');
+            expect(vm.activeMode).toBe('select');
             expect(onDetectedObjectUpdated).not.toHaveBeenCalled();
         });
     });

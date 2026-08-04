@@ -22,7 +22,7 @@ import TimelineRow from './TimelineRow.vue';
 import BoundingBoxOverlay from './BoundingBoxOverlay.vue';
 import TimelineRowLabel from './TimelineRowLabel.vue';
 import ObjectDetailsPanel from './ObjectDetailsPanel.vue';
-import ReviewTools from './ReviewTools.vue';
+import EditorToolbar from './EditorToolbar.vue';
 import AddBoxDialog from './AddBoxDialog.vue';
 import CollapsedTimelineBar from './CollapsedTimelineBar.vue';
 import PlayCircleOutlineIcon from './icons/PlayCircleOutlineIcon.vue';
@@ -465,14 +465,9 @@ function handleAdjustDone() {
     deactivate();
 }
 
-function handleAdjustReset() {
-    const obj = adjustObject.value;
-    if (obj && adjustBeforeState.value) {
-        Object.assign(obj, adjustBeforeState.value);
-    }
-}
-
 const pendingLabel = ref<{ x: number; y: number; width: number; height: number } | null>(null);
+const pendingClassName = ref('other');
+const pendingTrackId = ref<'new' | number>('new');
 
 const existingTrackIds = computed(() => {
     const ids = new Set<number>();
@@ -490,7 +485,16 @@ const trackIdsInCurrentFrame = computed(() => {
     return new Set(frame.detectedObjects.flatMap(obj => obj.trackId == null ? [] : [obj.trackId]));
 });
 
+const canConfirm = computed(() => {
+    if (activeMode.value === 'adjust') return adjustObject.value != null;
+    if (activeMode.value === 'add') return pendingLabel.value != null;
+    return false;
+});
+
 function handleAddObject() {
+    pendingClassName.value = 'other';
+    pendingTrackId.value = 'new';
+    pausePlayback();
     activate('add');
 }
 
@@ -498,17 +502,51 @@ function handleDrawComplete(box: { x: number; y: number; width: number; height: 
     pendingLabel.value = box;
 }
 
-function handleAddConfirm(className: string, trackId: 'new' | number) {
+function handleAddConfirm() {
     if (pendingLabel.value) {
-        addBox(pendingLabel.value.x, pendingLabel.value.y, pendingLabel.value.width, pendingLabel.value.height, className, trackId);
+        addBox(
+            pendingLabel.value.x,
+            pendingLabel.value.y,
+            pendingLabel.value.width,
+            pendingLabel.value.height,
+            pendingClassName.value,
+            pendingTrackId.value
+        );
     }
     pendingLabel.value = null;
     deactivate();
 }
 
-function handleAddCancel() {
-    pendingLabel.value = null;
-    deactivate();
+function handleConfirm() {
+    if (!canConfirm.value) return;
+    if (activeMode.value === 'adjust') { handleAdjustDone(); return; }
+    if (activeMode.value === 'add') { handleAddConfirm(); return; }
+}
+
+function handleDiscard() {
+    if (activeMode.value === 'adjust') {
+        const obj = adjustObject.value;
+        if (obj && adjustBeforeState.value) {
+            Object.assign(obj, adjustBeforeState.value);
+        }
+        adjustBeforeState.value = null;
+        deactivate();
+        return;
+    }
+    if (activeMode.value === 'add') {
+        pendingLabel.value = null;
+        deactivate();
+        return;
+    }
+    if (activeMode.value === 'merge') {
+        mergeSelectedTimelineKeys.value = new Set();
+        deactivate();
+        return;
+    }
+    if (activeMode.value === 'split') {
+        clearOccurrences();
+        deactivate();
+    }
 }
 
 function handleTrackForward() {
@@ -538,41 +576,24 @@ function handleDelete() {
     clearSelection();
 }
 
-function handleCancel() {
-    if (activeMode.value === 'merge') {
-        mergeSelectedTimelineKeys.value = new Set();
-        deactivate();
-    } else if (activeMode.value === 'split') {
-        clearOccurrences();
-        deactivate();
-    } else if (activeMode.value === 'add') {
-        pendingLabel.value = null;
-        deactivate();
-    }
-}
-
 function onKeyDown(event: KeyboardEvent) {
-    if (event.key !== 'Escape') return;
+    const target = event.target as HTMLElement | null;
+    const isTyping = target != null
+        && (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA');
 
-    if (activeMode.value === 'adjust') {
-        const obj = adjustObject.value;
-        if (obj && adjustBeforeState.value) {
-            Object.assign(obj, adjustBeforeState.value);
-        }
-        adjustBeforeState.value = null;
-        deactivate();
+    if (event.key === 'Enter' && !isTyping) {
+        if (canConfirm.value) handleConfirm();
         return;
     }
 
-    if (activeMode.value === 'add' && pendingLabel.value) {
-        pendingLabel.value = null;
-        deactivate();
-        return;
-    }
+    if (event.key !== 'Escape' || isTyping) return;
 
     if (activeMode.value === 'select') {
         clearSelection();
+        return;
     }
+
+    handleDiscard();
 }
 
 /** Inspector: include/exclude only the currently selected occurrence. */
@@ -842,27 +863,27 @@ function setVideoVolume(volume: number) {
               @drag-end="onInspectorDragEnd"
             />
 
-            <div class="editor-tools" @click.stop>
-                <ReviewTools
-                  :mode="activeMode"
-                  :merge-count="mergeSelectedTimelineKeys.size"
-                  :split-count="totalCount()"
-                  :can-split="hasOnlyTracked() && hasAny()"
-                  @add-object="handleAddObject"
-                  @adjust-reset="handleAdjustReset"
-                  @adjust-done="handleAdjustDone"
-                  @cancel="handleCancel"
-                  @merge="mergeAction"
-                  @split-out="splitAction"
-                />
-            </div>
+            <EditorToolbar
+              :mode="activeMode"
+              :merge-count="mergeSelectedTimelineKeys.size"
+              :split-count="totalCount()"
+              :can-split="hasOnlyTracked() && hasAny()"
+              :can-confirm="canConfirm"
+              @add-object="handleAddObject"
+              @confirm="handleConfirm"
+              @discard="handleDiscard"
+              @merge="mergeAction"
+              @split-out="splitAction"
+            />
 
             <AddBoxDialog
               v-if="pendingLabel"
               :existing-track-ids="existingTrackIds"
               :track-ids-in-current-frame="trackIdsInCurrentFrame"
-              @cancel="handleAddCancel"
-              @confirm="handleAddConfirm"
+              :class-name="pendingClassName"
+              :track-id="pendingTrackId"
+              @class-changed="pendingClassName = $event"
+              @track-changed="pendingTrackId = $event"
             />
         </div>
 
@@ -981,13 +1002,6 @@ function setVideoVolume(volume: number) {
     position: relative;
     line-height: 0;
     background: #000;
-}
-
-.editor-tools {
-    position: absolute;
-    left: 12px;
-    bottom: 12px;
-    z-index: 25;
 }
 
 .timeline-panel {

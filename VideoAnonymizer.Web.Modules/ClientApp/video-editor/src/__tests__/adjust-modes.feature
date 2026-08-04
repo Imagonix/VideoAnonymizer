@@ -24,15 +24,15 @@ Feature: Inline adjust and add modes on the main video
     When the reviewer enters adjust mode and resizes the selected box from the east handle
     Then the current occurrence width changes
 
-  Scenario: Reset restores the box before dispatch
+  Scenario: Discard restores the box and exits adjust without saving
     Given the editor is open in the review workspace
-    When the reviewer enters adjust mode, moves the box, and clicks Reset
+    When the reviewer enters adjust mode, moves the box, and clicks Discard
     Then the selected box is back at its original geometry
-    And the editor is still in adjust mode
+    And the editor returns to select mode
 
-  Scenario: Done dispatches one adjust action and returns to select
+  Scenario: Confirm dispatches one adjust action and returns to select
     Given the editor is open in the review workspace
-    When the reviewer enters adjust mode, moves the box, and clicks Done
+    When the reviewer enters adjust mode, moves the box, and clicks Confirm
     Then Vue sends one "adjust" update with the previous geometry
     And the editor returns to select mode
 
@@ -45,7 +45,7 @@ Feature: Inline adjust and add modes on the main video
 
   Scenario: Add Object draws on the main video and defaults to Other
     Given the editor is open in the review workspace
-    When the reviewer clicks Add Object, draws a box, and confirms the default class
+    When the reviewer clicks Add Object, draws a box, and confirms from the toolbar
     Then a new object is added with class other on the current frame
     And the editor returns to select mode
 

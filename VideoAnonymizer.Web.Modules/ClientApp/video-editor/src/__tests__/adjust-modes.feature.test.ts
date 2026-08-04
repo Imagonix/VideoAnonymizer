@@ -228,13 +228,13 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the reviewer enters adjust mode, moves the box, and clicks Reset$/,
+        pattern: /^the reviewer enters adjust mode, moves the box, and clicks Discard$/,
         handler: async world => {
             await selectFirstOccurrence(world);
             await enterAdjust(world);
             dragSelectedBox(world, 50);
             await world.wrapper!.vm.$nextTick();
-            await world.wrapper!.findAll('button').find(b => b.text() === 'Reset')!.trigger('click');
+            await world.wrapper!.find('[data-testid="toolbar-discard"]')!.trigger('click');
         },
     },
     {
@@ -248,19 +248,13 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the editor is still in adjust mode$/,
-        handler: world => {
-            expect((world.wrapper!.vm as any).activeMode).toBe('adjust');
-        },
-    },
-    {
-        pattern: /^the reviewer enters adjust mode, moves the box, and clicks Done$/,
+        pattern: /^the reviewer enters adjust mode, moves the box, and clicks Confirm$/,
         handler: async world => {
             await selectFirstOccurrence(world);
             await enterAdjust(world);
             dragSelectedBox(world, 50);
             await world.wrapper!.vm.$nextTick();
-            await world.wrapper!.findAll('button').find(b => b.text() === 'Done')!.trigger('click');
+            await world.wrapper!.find('[data-testid="toolbar-confirm"]')!.trigger('click');
         },
     },
     {
@@ -299,7 +293,7 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the reviewer clicks Add Object, draws a box, and confirms the default class$/,
+        pattern: /^the reviewer clicks Add Object, draws a box, and confirms from the toolbar$/,
         handler: async world => {
             const vm = world.wrapper!.vm as any;
             vm.handleAddObject();
@@ -310,8 +304,7 @@ const steps: StepDefinition[] = [
             const dialogSelect = world.wrapper!.find('.label-popup select');
             expect((dialogSelect.element as HTMLSelectElement).value).toBe('other');
 
-            const addButton = world.wrapper!.findAll('button').find(b => b.text() === 'Add')!;
-            await addButton.trigger('click');
+            await world.wrapper!.find('[data-testid="toolbar-confirm"]')!.trigger('click');
             await world.wrapper!.vm.$nextTick();
         },
     },
