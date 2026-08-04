@@ -164,73 +164,75 @@ onBeforeUnmount(() => {
 
     <div class="collapsed-main" data-testid="collapsed-timeline-main">
       <template v-if="!expanded">
-        <div
-          v-if="selectedTimelineObject && sampleObject"
-          class="collapsed-track-meta"
-          data-testid="collapsed-track-strip"
-          @click.stop
-        >
-          <TrackThumbnail
-            :object-url="thumbnailUrl"
-            :fallback-label="thumbnailFallbackLabel || trackLabel.slice(0, 2).toUpperCase() || '?'"
-            :fallback-color="thumbnailFallbackColor || trackColor"
-            :size="24"
-            :eager="true"
-            :aria-label="`Representative image for ${trackLabel}`"
-          />
-          <MudLikeCheckbox
-            :checked="inclusionChecked"
-            :indeterminate="inclusionIndeterminate"
-            @change="(value: boolean) => emit('toggle-include', value)"
-          />
-          <span class="track-label">{{ trackLabel }}</span>
-          <span class="track-color-dot" :style="{ background: trackColor }" aria-hidden="true" />
-        </div>
-
-        <div
-          ref="seekSurfaceRef"
-          class="collapsed-seek-surface"
-          data-testid="collapsed-seek-surface"
-          @click="onSeekSurfaceClick"
-        >
-          <PlaybackIndicator :time="currentTime" :duration="duration" />
-
-          <div v-if="selectedTimelineObject && sampleObject" class="collapsed-occurrence-track" data-testid="collapsed-occurrence-track">
-            <button
-              v-for="[time, obj] in occurrences"
-              :key="obj.id"
-              type="button"
-              class="collapsed-dot"
-              :class="{ 'collapsed-dot--current': selectedOccurrenceId === obj.id }"
-              :style="{
-                left: toPercent(time),
-                background: colorManager.getColor(obj),
-                opacity: obj.selected ? 1 : 0.35,
-              }"
-              :title="`Seek to ${formatTimelineTime(time)}`"
-              :aria-label="`Seek to occurrence at ${formatTimelineTime(time)}`"
-              @click="onDotClick($event, obj, time)"
+        <div class="collapsed-row" data-testid="collapsed-row">
+          <div
+            v-if="selectedTimelineObject && sampleObject"
+            class="collapsed-track-meta"
+            data-testid="collapsed-track-strip"
+            @click.stop
+          >
+            <TrackThumbnail
+              :object-url="thumbnailUrl"
+              :fallback-label="thumbnailFallbackLabel || trackLabel.slice(0, 2).toUpperCase() || '?'"
+              :fallback-color="thumbnailFallbackColor || trackColor"
+              :size="20"
+              :eager="true"
+              :aria-label="`Representative image for ${trackLabel}`"
             />
-            <div v-if="gapDotStyle" class="collapsed-dot collapsed-dot--pulsing" :style="gapDotStyle" />
+            <MudLikeCheckbox
+              :checked="inclusionChecked"
+              :indeterminate="inclusionIndeterminate"
+              @change="(value: boolean) => emit('toggle-include', value)"
+            />
+            <span class="track-color-dot" :style="{ background: trackColor }" aria-hidden="true" />
+            <span class="track-label" data-testid="collapsed-track-label">{{ trackLabel }}</span>
           </div>
 
-          <div v-else class="collapsed-overview" data-testid="collapsed-overview">
-            <TimelineOverview
-              :duration="duration"
+          <div
+            ref="seekSurfaceRef"
+            class="collapsed-seek-surface"
+            data-testid="collapsed-seek-surface"
+            @click="onSeekSurfaceClick"
+          >
+            <PlaybackIndicator :time="currentTime" :duration="duration" />
+
+            <div v-if="selectedTimelineObject && sampleObject" class="collapsed-occurrence-track" data-testid="collapsed-occurrence-track">
+              <button
+                v-for="[time, obj] in occurrences"
+                :key="obj.id"
+                type="button"
+                class="collapsed-dot"
+                :class="{ 'collapsed-dot--current': selectedOccurrenceId === obj.id }"
+                :style="{
+                  left: toPercent(time),
+                  background: colorManager.getColor(obj),
+                  opacity: obj.selected ? 1 : 0.35,
+                }"
+                :title="`Seek to ${formatTimelineTime(time)}`"
+                :aria-label="`Seek to occurrence at ${formatTimelineTime(time)}`"
+                @click="onDotClick($event, obj, time)"
+              />
+              <div v-if="gapDotStyle" class="collapsed-dot collapsed-dot--pulsing" :style="gapDotStyle" />
+            </div>
+
+            <div v-else class="collapsed-overview" data-testid="collapsed-overview">
+              <TimelineOverview
+                :duration="duration"
+                :current-time="currentTime"
+                :viewport-start-ratio="0"
+                :viewport-end-ratio="1"
+                :object-counts="objectCounts"
+                @seek="(time: number) => emit('seek', time)"
+              />
+            </div>
+
+            <TimelineRuler
+              compact
               :current-time="currentTime"
-              :viewport-start-ratio="0"
-              :viewport-end-ratio="1"
-              :object-counts="objectCounts"
-              @seek="(time: number) => emit('seek', time)"
+              :duration="duration"
+              :ticks="ticks"
             />
           </div>
-
-          <TimelineRuler
-            compact
-            :current-time="currentTime"
-            :duration="duration"
-            :ticks="ticks"
-          />
         </div>
       </template>
 
@@ -258,6 +260,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.collapsed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  min-width: 0;
 }
 
 .expanded-header-label {
@@ -305,11 +315,15 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 0 1 auto;
+  max-width: 42%;
   min-width: 0;
   min-height: 28px;
 }
 
 .track-label {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--mud-palette-text-primary);
@@ -327,6 +341,7 @@ onBeforeUnmount(() => {
 
 .collapsed-seek-surface {
   position: relative;
+  flex: 1 1 auto;
   min-width: 0;
   cursor: pointer;
   border: 1px solid var(--mud-palette-lines-default);
