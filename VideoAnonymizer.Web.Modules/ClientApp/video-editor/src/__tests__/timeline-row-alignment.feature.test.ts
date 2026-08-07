@@ -144,8 +144,9 @@ function centerY(rect: DOMRect) {
  */
 function installLayoutGeometry(world: World) {
     const headerTop = 100;
-    // toolbar + overview(+gap) + ruler(+gap) from shared contract
-    const rowsOrigin = headerTop + 36 + 28 + 4 + 22 + 6;
+    // labels-header (toolbar+overview+gap) + ruler(+gap) from shared contract
+    const labelsHeaderHeight = 36 + 28 + 4;
+    const rowsOrigin = headerTop + labelsHeaderHeight + 22 + 6;
 
     const labels = labelRows(world);
     const rows = occurrenceRows(world);

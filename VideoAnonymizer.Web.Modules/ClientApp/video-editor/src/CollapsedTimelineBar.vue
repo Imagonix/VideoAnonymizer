@@ -147,7 +147,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="collapsed-timeline-bar" data-testid="collapsed-timeline-bar">
+  <div
+    class="collapsed-timeline-bar"
+    :class="{ 'collapsed-timeline-bar--expanded-header': expanded }"
+    data-testid="collapsed-timeline-bar"
+  >
     <button
       type="button"
       class="timeline-caret"
@@ -253,6 +257,34 @@ onBeforeUnmount(() => {
   padding: 4px 8px 4px 4px;
   border-top: 1px solid var(--mud-palette-lines-default);
   background: var(--mud-palette-surface);
+}
+
+/*
+ * When placed in the expanded labels header band (toolbar + overview height),
+ * fill that slot flush so it aligns with TimelineToolbar / TimelineOverview.
+ */
+.collapsed-timeline-bar--expanded-header {
+  height: 100%;
+  min-height: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
+  padding: 2px 4px 0 0;
+  border-top: 0;
+  align-items: center;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 4px;
+}
+
+.collapsed-timeline-bar--expanded-header .collapsed-main {
+  justify-content: center;
+}
+
+.collapsed-timeline-bar--expanded-header .timeline-caret {
+  margin-top: 0;
+}
+
+.collapsed-timeline-bar--expanded-header .expanded-header-label {
+  padding: 0;
 }
 
 .collapsed-main {

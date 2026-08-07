@@ -990,8 +990,10 @@ function setVideoVolume(volume: number) {
             </div>
 
             <div class="timeline-main-column">
+                <!-- Collapsed: full-width compact bar (caret + overview/selected track). -->
                 <CollapsedTimelineBar
-                  :expanded="timelineExpanded"
+                  v-if="!timelineExpanded"
+                  :expanded="false"
                   :current-time="currentTime"
                   :duration="videoDuration"
                   :object-counts="timelineObjectCounts"
@@ -1013,8 +1015,32 @@ function setVideoVolume(volume: number) {
                   data-testid="expanded-timeline"
                 >
                     <div class="timeline-labels" data-testid="timeline-labels">
-                        <div class="timeline-toolbar-spacer" data-testid="timeline-toolbar-spacer"></div>
-                        <div class="timeline-overview-spacer" data-testid="timeline-overview-spacer"></div>
+                        <!--
+                          Expanded: caret/header occupies the same vertical band as
+                          TimelineToolbar + TimelineOverview (right column), replacing
+                          empty toolbar/overview spacers.
+                        -->
+                        <div
+                          class="timeline-labels-header"
+                          data-testid="timeline-labels-header"
+                        >
+                            <CollapsedTimelineBar
+                              :expanded="true"
+                              :current-time="currentTime"
+                              :duration="videoDuration"
+                              :object-counts="timelineObjectCounts"
+                              :selected-timeline-object="selectedTimelineObject"
+                              :selected-occurrence="selectedOccurrence"
+                              :active-gap-range="selectedTimelineObject ? getTrackingProgress(selectedTimelineObject) : null"
+                              :thumbnail-url="selectedThumbnail?.objectUrl"
+                              :thumbnail-fallback-label="selectedThumbnail?.fallbackLabel"
+                              :thumbnail-fallback-color="selectedThumbnail?.fallbackColor"
+                              @toggle-expanded="toggleTimelineExpanded"
+                              @seek="seekTo"
+                              @toggle-include="handleToggleTrackInclude"
+                              @select-occurrence="selectOccurrenceAndSeek"
+                            />
+                        </div>
                         <div class="timeline-header-spacer" data-testid="timeline-header-spacer"></div>
                         <TimelineRowLabel
                           v-for="obj in timelineObjects"
@@ -1184,32 +1210,37 @@ function setVideoVolume(volume: number) {
     background: var(--mud-palette-surface);
 }
 
-/* Spacers mirror Timeline toolbar / overview / ruler via shared CSS vars. */
-.timeline-toolbar-spacer {
+/*
+ * Labels header band = toolbar + overview + gap (right column).
+ * CollapsedTimelineBar (expanded mode) fills this band so caret/"Timeline"
+ * line up with TimelineToolbar / TimelineOverview.
+ */
+.timeline-labels-header {
     position: sticky;
     top: 0;
     z-index: 20;
-    background: var(--mud-palette-surface);
-    height: var(--timeline-toolbar-height, 36px);
-    min-height: var(--timeline-toolbar-height, 36px);
-    max-height: var(--timeline-toolbar-height, 36px);
+    height: calc(
+        var(--timeline-toolbar-height, 36px)
+        + var(--timeline-overview-height, 28px)
+        + var(--timeline-overview-gap, 4px)
+    );
+    min-height: calc(
+        var(--timeline-toolbar-height, 36px)
+        + var(--timeline-overview-height, 28px)
+        + var(--timeline-overview-gap, 4px)
+    );
+    max-height: calc(
+        var(--timeline-toolbar-height, 36px)
+        + var(--timeline-overview-height, 28px)
+        + var(--timeline-overview-gap, 4px)
+    );
     box-sizing: border-box;
+    background: var(--mud-palette-surface);
     isolation: isolate;
+    overflow: hidden;
 }
 
-.timeline-overview-spacer {
-    position: sticky;
-    top: var(--timeline-toolbar-height, 36px);
-    z-index: 20;
-    background: var(--mud-palette-surface);
-    height: var(--timeline-overview-height, 28px);
-    min-height: var(--timeline-overview-height, 28px);
-    max-height: var(--timeline-overview-height, 28px);
-    margin-bottom: var(--timeline-overview-gap, 4px);
-    box-sizing: border-box;
-    isolation: isolate;
-}
-
+/* Ruler-only spacer: still aligns label rows with occurrence dots under the ruler. */
 .timeline-header-spacer {
     height: var(--timeline-ruler-height, 22px);
     min-height: var(--timeline-ruler-height, 22px);
