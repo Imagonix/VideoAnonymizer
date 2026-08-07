@@ -36,7 +36,7 @@ namespace VideoAnonymizer.ApiService.DTO
                 OccurrenceBlurSizePercentOverride = entity.OccurrenceBlurSizePercentOverride,
                 PreBufferMsOverride = entity.PreBufferMsOverride,
                 PostBufferMsOverride = entity.PostBufferMsOverride,
-                NextGapHandlingMode = entity.NextGapHandlingMode,
+                NextGapHandlingMode = ToWireGapHandlingMode(entity.NextGapHandlingMode),
                 Selected = entity.Selected,
                 TrackId = entity.TrackId,
                 X = entity.X,
@@ -101,7 +101,7 @@ namespace VideoAnonymizer.ApiService.DTO
                 OccurrenceBlurSizePercentOverride = dto.OccurrenceBlurSizePercentOverride,
                 PreBufferMsOverride = dto.PreBufferMsOverride,
                 PostBufferMsOverride = dto.PostBufferMsOverride,
-                NextGapHandlingMode = dto.NextGapHandlingMode,
+                NextGapHandlingMode = FromWireGapHandlingMode(dto.NextGapHandlingMode),
                 Selected = dto.Selected,
                 TrackId = dto.TrackId,
                 X = dto.X,
@@ -174,7 +174,7 @@ namespace VideoAnonymizer.ApiService.DTO
             entity.OccurrenceBlurSizePercentOverride = dto.OccurrenceBlurSizePercentOverride;
             entity.PreBufferMsOverride = dto.PreBufferMsOverride;
             entity.PostBufferMsOverride = dto.PostBufferMsOverride;
-            entity.NextGapHandlingMode = dto.NextGapHandlingMode;
+            entity.NextGapHandlingMode = FromWireGapHandlingMode(dto.NextGapHandlingMode);
             entity.Selected = dto.Selected;
             entity.TrackId = dto.TrackId;
             entity.X = dto.X;
@@ -182,6 +182,41 @@ namespace VideoAnonymizer.ApiService.DTO
             entity.Width = dto.Width;
             entity.Height = dto.Height;
             entity.AnalyzedFrameId = dto.AnalyzedFrameId;
+        }
+
+        /// <summary>
+        /// Entity enum to the exact API wire name. Null remains null.
+        /// </summary>
+        public static string? ToWireGapHandlingMode(GapHandlingMode? mode) =>
+            mode switch
+            {
+                null => null,
+                GapHandlingMode.Interpolate => nameof(GapHandlingMode.Interpolate),
+                GapHandlingMode.UseBuffers => nameof(GapHandlingMode.UseBuffers),
+                _ => throw new ArgumentOutOfRangeException(
+                    nameof(mode),
+                    mode,
+                    $"Unsupported gap handling mode: {mode}")
+            };
+
+        /// <summary>
+        /// Exact wire name to entity enum. Null remains null. Unsupported non-null
+        /// values are rejected rather than silently treated as Interpolate.
+        /// </summary>
+        public static GapHandlingMode? FromWireGapHandlingMode(string? wireValue)
+        {
+            if (wireValue is null)
+                return null;
+
+            if (wireValue == nameof(GapHandlingMode.Interpolate))
+                return GapHandlingMode.Interpolate;
+
+            if (wireValue == nameof(GapHandlingMode.UseBuffers))
+                return GapHandlingMode.UseBuffers;
+
+            throw new ArgumentException(
+                $"Unsupported gap handling mode: '{wireValue}'. Expected 'Interpolate', 'UseBuffers', or null.",
+                nameof(wireValue));
         }
     }
 }

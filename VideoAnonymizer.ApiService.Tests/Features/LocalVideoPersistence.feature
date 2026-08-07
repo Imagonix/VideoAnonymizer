@@ -124,3 +124,36 @@ Feature: Local video persistence
     Given a track with a consecutive segment without boundary overrides
     When the segment buffers are resolved for the track
     Then the segment pre and post values are the global time buffer 300 ms
+
+  Scenario: Next gap handling mode UseBuffers round-trips with exact wire name
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with next gap handling mode "UseBuffers"
+    Then the first face keeps next gap handling mode "UseBuffers" when reopening the video
+    And the SQLite-style stored text for that gap mode is "UseBuffers"
+    And the second face still has no next gap handling mode
+
+  Scenario: Next gap handling mode Interpolate round-trips with exact wire name
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with next gap handling mode "Interpolate"
+    Then the first face keeps next gap handling mode "Interpolate" when reopening the video
+    And the SQLite-style stored text for that gap mode is "Interpolate"
+
+  Scenario: Null next gap handling mode remains null and defaults to Interpolate
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with a null next gap handling mode
+    Then the first face keeps a null next gap handling mode when reopening the video
+    And a null next gap handling mode resolves to Interpolate
+
+  Scenario: Unsupported next gap handling mode is rejected at the API boundary
+    When the API maps an unsupported next gap handling mode "SomethingElse"
+    Then mapping the gap handling mode fails
+
+  Scenario: Exact UseBuffers wire name maps to the typed GapHandlingMode enum
+    When the API maps next gap handling mode "UseBuffers"
+    Then the mapped entity gap handling mode is UseBuffers
+    And mapping that entity back yields wire name "UseBuffers"
+
+  Scenario: Exact Interpolate wire name maps to the typed GapHandlingMode enum
+    When the API maps next gap handling mode "Interpolate"
+    Then the mapped entity gap handling mode is Interpolate
+    And mapping that entity back yields wire name "Interpolate"

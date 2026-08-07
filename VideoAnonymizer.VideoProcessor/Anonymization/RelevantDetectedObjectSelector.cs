@@ -66,14 +66,18 @@ public static class RelevantDetectedObjectSelector
                     || candidate.Occurrences.Any(obj => obj.Id == segment.First.Id));
                 if (index > 0)
                 {
-                    precedingGapInterpolates = !GapHandlingModes.IsUseBuffers(
-                        trackSegments[index - 1].Last.NextGapHandlingMode);
+                    precedingGapInterpolates =
+                        AnonymizationSettingsResolver.ResolveGapHandlingMode(
+                            trackSegments[index - 1].Last.NextGapHandlingMode)
+                        == GapHandlingMode.Interpolate;
                 }
 
                 if (index >= 0 && index < trackSegments.Count - 1)
                 {
-                    followingGapInterpolates = !GapHandlingModes.IsUseBuffers(
-                        segment.Last.NextGapHandlingMode);
+                    followingGapInterpolates =
+                        AnonymizationSettingsResolver.ResolveGapHandlingMode(
+                            segment.Last.NextGapHandlingMode)
+                        == GapHandlingMode.Interpolate;
                 }
             }
 
@@ -114,7 +118,9 @@ public static class RelevantDetectedObjectSelector
             {
                 var previous = trackSegments[index];
                 var next = trackSegments[index + 1];
-                if (GapHandlingModes.IsUseBuffers(previous.Last.NextGapHandlingMode))
+                if (AnonymizationSettingsResolver.ResolveGapHandlingMode(
+                        previous.Last.NextGapHandlingMode)
+                    == GapHandlingMode.UseBuffers)
                     continue;
 
                 var previousBoundary = previous.Last;

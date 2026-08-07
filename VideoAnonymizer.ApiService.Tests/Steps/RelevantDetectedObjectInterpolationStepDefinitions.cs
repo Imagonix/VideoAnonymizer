@@ -191,7 +191,7 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
                 ParseOptionalInt(row, "occurrenceBlurSizePercentOverride"),
                 ParseOptionalInt(row, "preOverrideMs"),
                 ParseOptionalInt(row, "postOverrideMs"),
-                GetOptional(row, "nextGapHandlingMode"),
+                ParseOptionalGapHandlingMode(row, "nextGapHandlingMode"),
                 ParseOptionalBool(row, "selected") ?? true);
             obj.AnalyzedFrame = frame;
             frame.DetectedObjects.Add(obj);
@@ -211,7 +211,7 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         int? occurrenceBlurSizePercentOverride,
         int? preOverrideMs,
         int? postOverrideMs,
-        string? nextGapHandlingMode = null,
+        GapHandlingMode? nextGapHandlingMode = null,
         bool selected = true) =>
         new()
         {
@@ -256,8 +256,25 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
 
         if (HasColumn(row, "nextGapHandlingMode"))
         {
-            actual.NextGapHandlingMode.Should().Be(GetOptional(row, "nextGapHandlingMode"));
+            actual.NextGapHandlingMode.Should().Be(ParseOptionalGapHandlingMode(row, "nextGapHandlingMode"));
         }
+    }
+
+    private static GapHandlingMode? ParseOptionalGapHandlingMode(DataTableRow row, string column)
+    {
+        var value = GetOptional(row, column);
+        if (value is null)
+            return null;
+
+        if (value == nameof(GapHandlingMode.Interpolate))
+            return GapHandlingMode.Interpolate;
+
+        if (value == nameof(GapHandlingMode.UseBuffers))
+            return GapHandlingMode.UseBuffers;
+
+        throw new ArgumentException(
+            $"Unsupported gap handling mode in test table: '{value}'.",
+            column);
     }
 
     private static bool? ParseOptionalBool(DataTableRow row, string column)

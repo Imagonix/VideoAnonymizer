@@ -11,6 +11,7 @@ using NUnit.Framework;
 using Reqnroll;
 using VideoAnonymizer.ApiService.Controllers;
 using VideoAnonymizer.ApiService.DataServices;
+using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
@@ -669,6 +670,166 @@ public sealed class LocalVideoPersistenceStepDefinitions
     public void ThenTheSegmentPreAndPostValuesAreTheGlobalTimeBuffer(int globalTimeBufferMs)
     {
         ResolvedBuffers.Should().Be((globalTimeBufferMs, globalTimeBufferMs));
+    }
+
+    [When(@"the reviewer saves the first face with next gap handling mode ""(.*)""")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithNextGapHandlingMode(string mode)
+    {
+        var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
+        dto.NextGapHandlingMode = mode;
+
+        LastResult = await CreateDetectedObjectsController()
+            .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
+    }
+
+    [When("the reviewer saves the first face with a null next gap handling mode")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithANullNextGapHandlingMode()
+    {
+        var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
+        dto.NextGapHandlingMode = null;
+
+        LastResult = await CreateDetectedObjectsController()
+            .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
+    }
+
+    [Then(@"the first face keeps next gap handling mode ""(.*)"" when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsNextGapHandlingModeWhenReopeningTheVideo(string mode)
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
+        first.NextGapHandlingMode.Should().Be(mode);
+
+        await AssertDetectedObjectAsync(ExistingObjectId, entity =>
+        {
+            entity.NextGapHandlingMode.Should().Be(Mapper.FromWireGapHandlingMode(mode));
+        });
+    }
+
+    [Then("the first face keeps a null next gap handling mode when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsANullNextGapHandlingModeWhenReopeningTheVideo()
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
+        first.NextGapHandlingMode.Should().BeNull();
+
+        await AssertDetectedObjectAsync(ExistingObjectId, entity =>
+        {
+            entity.NextGapHandlingMode.Should().BeNull();
+        });
+    }
+
+    [Then("the second face still has no next gap handling mode")]
+    public void ThenTheSecondFaceStillHasNoNextGapHandlingMode()
+    {
+        var second = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == SecondObjectId);
+        second.NextGapHandlingMode.Should().BeNull();
+    }
+
+    [Then(@"the SQLite-style stored text for that gap mode is ""(.*)""")]
+    public async Task ThenTheSqliteStyleStoredTextForThatGapModeIs(string expectedText)
+    {
+        // Provider-neutral text column: EF stores enum names (not ordinals).
+        // Scan rows because SQLite Guid storage formats vary; match by string equality.
+        await using var command = Connection.CreateCommand();
+        command.CommandText = "SELECT Id, NextGapHandlingMode FROM DetectedObjects";
+        await using var reader = await command.ExecuteReaderAsync();
+
+        string? raw = null;
+        var expectedId = ExistingObjectId.ToString();
+        while (await reader.ReadAsync())
+        {
+            var idValue = reader.GetValue(0);
+            var idText = idValue switch
+            {
+                Guid g => g.ToString(),
+                byte[] bytes when bytes.Length == 16 => new Guid(bytes).ToString(),
+                _ => idValue?.ToString()
+            };
+
+            if (!string.Equals(idText, expectedId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            raw = reader.IsDBNull(1) ? null : reader.GetString(1);
+            break;
+        }
+
+        raw.Should().Be(expectedText);
+        // Prove the value is the enum name, not a numeric ordinal.
+        raw.Should().NotBe("0").And.NotBe("1");
+    }
+
+    [Then("a null next gap handling mode resolves to Interpolate")]
+    public void ThenANullNextGapHandlingModeResolvesToInterpolate()
+    {
+        AnonymizationSettingsResolver.ResolveGapHandlingMode(null)
+            .Should().Be(GapHandlingMode.Interpolate);
+    }
+
+    private GapHandlingMode? MappedGapHandlingMode
+    {
+        get => _scenarioContext.ContainsKey(nameof(MappedGapHandlingMode))
+            ? _scenarioContext.Get<GapHandlingMode?>(nameof(MappedGapHandlingMode))
+            : null;
+        set => _scenarioContext.Set(value, nameof(MappedGapHandlingMode));
+    }
+
+    private Exception? MappingException
+    {
+        get => _scenarioContext.ContainsKey(nameof(MappingException))
+            ? _scenarioContext.Get<Exception?>(nameof(MappingException))
+            : null;
+        set => _scenarioContext.Set(value, nameof(MappingException));
+    }
+
+    [When(@"the API maps an unsupported next gap handling mode ""(.*)""")]
+    public void WhenTheApiMapsAnUnsupportedNextGapHandlingMode(string mode)
+    {
+        try
+        {
+            MappedGapHandlingMode = Mapper.FromWireGapHandlingMode(mode);
+            MappingException = null;
+        }
+        catch (Exception ex)
+        {
+            MappingException = ex;
+            MappedGapHandlingMode = null;
+        }
+    }
+
+    [When(@"the API maps next gap handling mode ""(.*)""")]
+    public void WhenTheApiMapsNextGapHandlingMode(string mode)
+    {
+        MappingException = null;
+        MappedGapHandlingMode = Mapper.FromWireGapHandlingMode(mode);
+    }
+
+    [Then("mapping the gap handling mode fails")]
+    public void ThenMappingTheGapHandlingModeFails()
+    {
+        MappingException.Should().BeOfType<ArgumentException>();
+        MappingException!.Message.Should().Contain("Unsupported gap handling mode");
+    }
+
+    [Then("the mapped entity gap handling mode is UseBuffers")]
+    public void ThenTheMappedEntityGapHandlingModeIsUseBuffers()
+    {
+        MappingException.Should().BeNull();
+        MappedGapHandlingMode.Should().Be(GapHandlingMode.UseBuffers);
+    }
+
+    [Then("the mapped entity gap handling mode is Interpolate")]
+    public void ThenTheMappedEntityGapHandlingModeIsInterpolate()
+    {
+        MappingException.Should().BeNull();
+        MappedGapHandlingMode.Should().Be(GapHandlingMode.Interpolate);
+    }
+
+    [Then(@"mapping that entity back yields wire name ""(.*)""")]
+    public void ThenMappingThatEntityBackYieldsWireName(string expectedWire)
+    {
+        Mapper.ToWireGapHandlingMode(MappedGapHandlingMode).Should().Be(expectedWire);
     }
 
     [Given("a reviewer's video has a global blur size of {int} percent")]

@@ -109,7 +109,7 @@ namespace VideoAnonymizer.ApiService.Tests.Features
         
         private static global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages InitializeCucumberMessages()
         {
-            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/LocalVideoPersistence.feature.ndjson", 23);
+            return new global::Reqnroll.Formatters.RuntimeSupport.FeatureLevelCucumberMessages("Features/LocalVideoPersistence.feature.ndjson", 29);
         }
         
         [global::NUnit.Framework.TestAttribute()]
@@ -851,6 +851,215 @@ namespace VideoAnonymizer.ApiService.Tests.Features
 #line hidden
 #line 126
     await testRunner.ThenAsync("the segment pre and post values are the global time buffer 300 ms", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Next gap handling mode UseBuffers round-trips with exact wire name")]
+        public async global::System.Threading.Tasks.Task NextGapHandlingModeUseBuffersRound_TripsWithExactWireName()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "21";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Next gap handling mode UseBuffers round-trips with exact wire name", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 128
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 129
+    await testRunner.GivenAsync("a reviewed video has two detected faces", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 130
+    await testRunner.WhenAsync("the reviewer saves the first face with next gap handling mode \"UseBuffers\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 131
+    await testRunner.ThenAsync("the first face keeps next gap handling mode \"UseBuffers\" when reopening the video" +
+                        "", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 132
+    await testRunner.AndAsync("the SQLite-style stored text for that gap mode is \"UseBuffers\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 133
+    await testRunner.AndAsync("the second face still has no next gap handling mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Next gap handling mode Interpolate round-trips with exact wire name")]
+        public async global::System.Threading.Tasks.Task NextGapHandlingModeInterpolateRound_TripsWithExactWireName()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "22";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Next gap handling mode Interpolate round-trips with exact wire name", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 135
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 136
+    await testRunner.GivenAsync("a reviewed video has two detected faces", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 137
+    await testRunner.WhenAsync("the reviewer saves the first face with next gap handling mode \"Interpolate\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 138
+    await testRunner.ThenAsync("the first face keeps next gap handling mode \"Interpolate\" when reopening the vide" +
+                        "o", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 139
+    await testRunner.AndAsync("the SQLite-style stored text for that gap mode is \"Interpolate\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Null next gap handling mode remains null and defaults to Interpolate")]
+        public async global::System.Threading.Tasks.Task NullNextGapHandlingModeRemainsNullAndDefaultsToInterpolate()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "23";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Null next gap handling mode remains null and defaults to Interpolate", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 141
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 142
+    await testRunner.GivenAsync("a reviewed video has two detected faces", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 143
+    await testRunner.WhenAsync("the reviewer saves the first face with a null next gap handling mode", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 144
+    await testRunner.ThenAsync("the first face keeps a null next gap handling mode when reopening the video", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 145
+    await testRunner.AndAsync("a null next gap handling mode resolves to Interpolate", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Unsupported next gap handling mode is rejected at the API boundary")]
+        public async global::System.Threading.Tasks.Task UnsupportedNextGapHandlingModeIsRejectedAtTheAPIBoundary()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "24";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Unsupported next gap handling mode is rejected at the API boundary", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 147
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 148
+    await testRunner.WhenAsync("the API maps an unsupported next gap handling mode \"SomethingElse\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 149
+    await testRunner.ThenAsync("mapping the gap handling mode fails", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Exact UseBuffers wire name maps to the typed GapHandlingMode enum")]
+        public async global::System.Threading.Tasks.Task ExactUseBuffersWireNameMapsToTheTypedGapHandlingModeEnum()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "25";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Exact UseBuffers wire name maps to the typed GapHandlingMode enum", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 151
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 152
+    await testRunner.WhenAsync("the API maps next gap handling mode \"UseBuffers\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 153
+    await testRunner.ThenAsync("the mapped entity gap handling mode is UseBuffers", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 154
+    await testRunner.AndAsync("mapping that entity back yields wire name \"UseBuffers\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [global::NUnit.Framework.TestAttribute()]
+        [global::NUnit.Framework.DescriptionAttribute("Exact Interpolate wire name maps to the typed GapHandlingMode enum")]
+        public async global::System.Threading.Tasks.Task ExactInterpolateWireNameMapsToTheTypedGapHandlingModeEnum()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            global::System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new global::System.Collections.Specialized.OrderedDictionary();
+            string pickleIndex = "26";
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Exact Interpolate wire name maps to the typed GapHandlingMode enum", null, tagsOfScenario, argumentsOfScenario, featureTags, pickleIndex);
+            string[] tagsOfRule = ((string[])(null));
+            global::Reqnroll.RuleInfo ruleInfo = null;
+#line 156
+  this.ScenarioInitialize(scenarioInfo, ruleInfo);
+#line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                await testRunner.SkipScenarioAsync();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
+#line 157
+    await testRunner.WhenAsync("the API maps next gap handling mode \"Interpolate\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 158
+    await testRunner.ThenAsync("the mapped entity gap handling mode is Interpolate", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 159
+    await testRunner.AndAsync("mapping that entity back yields wire name \"Interpolate\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
