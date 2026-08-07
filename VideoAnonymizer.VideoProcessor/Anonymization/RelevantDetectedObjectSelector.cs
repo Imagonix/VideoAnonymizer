@@ -9,7 +9,9 @@ public static class RelevantDetectedObjectSelector
         int currentFrameIndex,
         double fps,
         int globalTimeBufferMs,
-        bool interpolateTrackedObjects)
+        bool interpolateTrackedObjects,
+        int videoWidth = 0,
+        int videoHeight = 0)
     {
         var currentTime = currentFrameIndex / fps;
         var segments = ConsecutiveSegmentResolver.BuildAll(analyzedFrames);
@@ -21,6 +23,9 @@ public static class RelevantDetectedObjectSelector
         return sourceObjects
             .Where(obj => obj.Selected && obj.Width > 0 && obj.Height > 0)
             .Select(CopyObject)
+            // Keep raw unbounded geometry for export; BlurRegion intersects at rasterization.
+            // Drop only boxes whose raw region is fully outside when frame size is known.
+            .Where(obj => !ProjectedRegionClipper.IsFullyOutside(obj, videoWidth, videoHeight))
             .ToList();
     }
 
@@ -30,6 +35,12 @@ public static class RelevantDetectedObjectSelector
         int globalTimeBufferMs)
     {
         var result = new List<DetectedObject>();
+        var trackedGroups = segments
+            .Where(segment => segment.First.TrackId is not null)
+            .GroupBy(segment => segment.First.TrackId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(segment => segment.First.AnalyzedFrame.FrameIndex).ToList());
 
         foreach (var segment in segments)
         {
@@ -46,25 +57,78 @@ public static class RelevantDetectedObjectSelector
             var firstTime = first.AnalyzedFrame.TimeSeconds;
             var lastTime = last.AnalyzedFrame.TimeSeconds;
 
-            if (currentTime < firstTime - preBufferSeconds)
+            var precedingGapInterpolates = false;
+            var followingGapInterpolates = false;
+            if (segment.First.TrackId is int trackId
+                && trackedGroups.TryGetValue(trackId, out var trackSegments))
+            {
+                var index = trackSegments.FindIndex(candidate => ReferenceEquals(candidate, segment)
+                    || candidate.Occurrences.Any(obj => obj.Id == segment.First.Id));
+                if (index > 0)
+                {
+                    precedingGapInterpolates = !GapHandlingModes.IsUseBuffers(
+                        trackSegments[index - 1].Last.NextGapHandlingMode);
+                }
+
+                if (index >= 0 && index < trackSegments.Count - 1)
+                {
+                    followingGapInterpolates = !GapHandlingModes.IsUseBuffers(
+                        segment.Last.NextGapHandlingMode);
+                }
+            }
+
+            // Internal Interpolate gaps ignore the bordering After/Before buffers.
+            var effectivePreSeconds = precedingGapInterpolates ? 0 : preBufferSeconds;
+            var effectivePostSeconds = followingGapInterpolates ? 0 : postBufferSeconds;
+
+            if (currentTime < firstTime - effectivePreSeconds)
                 continue;
 
             if (currentTime < firstTime)
             {
+                if (effectivePreSeconds <= 0)
+                    continue;
+
                 result.Add(ProjectPreBufferObject(selectedOccurrences, currentTime));
                 continue;
             }
 
             if (currentTime > lastTime)
             {
-                if (currentTime > lastTime + postBufferSeconds)
+                if (effectivePostSeconds <= 0 || currentTime > lastTime + effectivePostSeconds)
                     continue;
 
+                // Keep projecting from the segment-boundary motion model for the full
+                // post-buffer. Never fall back to a historical stored position.
                 result.Add(ProjectPostBufferObject(selectedOccurrences, currentTime));
                 continue;
             }
 
             result.Add(InterpolateInSegment(selectedOccurrences, currentTime));
+        }
+
+        // Default Interpolate bridges each real same-track gap with one current-time region.
+        foreach (var trackSegments in trackedGroups.Values)
+        {
+            for (var index = 0; index < trackSegments.Count - 1; index++)
+            {
+                var previous = trackSegments[index];
+                var next = trackSegments[index + 1];
+                if (GapHandlingModes.IsUseBuffers(previous.Last.NextGapHandlingMode))
+                    continue;
+
+                var previousBoundary = previous.Last;
+                var nextBoundary = next.First;
+                if (!previousBoundary.Selected || !nextBoundary.Selected)
+                    continue;
+
+                var previousTime = previousBoundary.AnalyzedFrame.TimeSeconds;
+                var nextTime = nextBoundary.AnalyzedFrame.TimeSeconds;
+                if (currentTime <= previousTime || currentTime >= nextTime)
+                    continue;
+
+                result.Add(ProjectObject(previousBoundary, nextBoundary, currentTime, clampAlpha: true));
+            }
         }
 
         return result;
@@ -204,6 +268,7 @@ public static class RelevantDetectedObjectSelector
             OccurrenceBlurSizePercentOverride = metadataSource.OccurrenceBlurSizePercentOverride,
             PreBufferMsOverride = metadataSource.PreBufferMsOverride,
             PostBufferMsOverride = metadataSource.PostBufferMsOverride,
+            NextGapHandlingMode = metadataSource.NextGapHandlingMode,
             Selected = true,
             TrackId = previous.TrackId,
             X = left,
@@ -226,6 +291,7 @@ public static class RelevantDetectedObjectSelector
             OccurrenceBlurSizePercentOverride = source.OccurrenceBlurSizePercentOverride,
             PreBufferMsOverride = source.PreBufferMsOverride,
             PostBufferMsOverride = source.PostBufferMsOverride,
+            NextGapHandlingMode = source.NextGapHandlingMode,
             Selected = source.Selected,
             TrackId = source.TrackId,
             X = source.X,

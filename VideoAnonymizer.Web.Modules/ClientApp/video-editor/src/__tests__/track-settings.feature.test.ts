@@ -49,6 +49,7 @@ function createFrame(
             occurrenceBlurSizePercentOverride: o.occurrenceBlurSizePercentOverride ?? null,
             preBufferMsOverride: o.preBufferMsOverride ?? null,
             postBufferMsOverride: o.postBufferMsOverride ?? null,
+            nextGapHandlingMode: o.nextGapHandlingMode ?? null,
             selected: o.selected ?? true,
             trackId: o.trackId ?? null,
             x: o.x ?? 0,

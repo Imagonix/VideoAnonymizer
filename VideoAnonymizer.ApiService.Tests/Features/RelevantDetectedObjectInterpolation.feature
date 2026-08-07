@@ -98,6 +98,119 @@ Feature: Predicting object positions between analyzed frames
       | trackId | x   | width |
       | 7       | -16 | 30    |
 
+  Scenario: Post-buffer extrapolation continues past the last stored box
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+      | 3.0         | 9       | 200 |
+    When the processor predicts objects at 1.2 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x   |
+      | 7       | 118 |
+
+  Scenario: Post-buffer never snaps back to a historical stored box after the buffer ends
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   |
+      | 0.0         | 7       | 10  |
+      | 1.0         | 7       | 100 |
+      | 3.0         | 9       | 200 |
+    When the processor predicts objects at 1.4 seconds with a 0.25 second buffer
+    Then no predicted objects are returned
+
+  Scenario: Close boundary frames keep continuous post-buffer motion just after the last sample
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  |
+      | 0.0         | 7       | 10 |
+      | 1.0         | 7       | 20 |
+    When the processor predicts objects at 1.05 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 20 |
+
+  Scenario: Close boundary frames keep continuous post-buffer motion later in the buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  |
+      | 0.0         | 7       | 10 |
+      | 1.0         | 7       | 20 |
+    When the processor predicts objects at 1.2 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 22 |
+
+  Scenario: Partial left-edge exit keeps raw width and center velocity
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | y  | width | height |
+      | 0.0         | 7       | 20  | 20 | 30    | 40     |
+      | 1.0         | 7       | -10 | 20 | 30    | 40     |
+    And the video frame size is 200 by 100
+    When the processor predicts objects at 1.2 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x   | y  | width | height |
+      | 7       | -16 | 20 | 30    | 40     |
+
+  Scenario: Partial right-edge exit keeps raw width and center velocity
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  | y  | width | height |
+      | 0.0         | 7       | 50 | 20 | 40    | 30     |
+      | 1.0         | 7       | 80 | 20 | 40    | 30     |
+    And the video frame size is 100 by 100
+    When the processor predicts objects at 1.2 seconds with a 0.5 second buffer
+    Then the predicted objects are
+      | trackId | x  | y  | width | height |
+      | 7       | 86 | 20 | 40    | 30     |
+
+  Scenario: Partial top-edge exit keeps raw height and center velocity
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  | y   | width | height |
+      | 0.0         | 7       | 20 | 20  | 30    | 40     |
+      | 1.0         | 7       | 20 | -10 | 30    | 40     |
+    And the video frame size is 200 by 100
+    When the processor predicts objects at 1.2 seconds with a 0.5 second buffer
+    Then the predicted objects are
+      | trackId | x  | y  | width | height |
+      | 7       | 20 | -16 | 30    | 40     |
+
+  Scenario: Partial bottom-edge exit keeps raw height and center velocity
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  | y  | width | height |
+      | 0.0         | 7       | 20 | 40 | 30    | 40     |
+      | 1.0         | 7       | 20 | 80 | 30    | 40     |
+    And the video frame size is 200 by 100
+    When the processor predicts objects at 1.2 seconds with a 0.5 second buffer
+    Then the predicted objects are
+      | trackId | x  | y  | width | height |
+      | 7       | 20 | 88 | 30    | 40     |
+
+  Scenario: A fully outside projected box yields no export region
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | y  | width | height |
+      | 0.0         | 7       | 10  | 20 | 30    | 40     |
+      | 1.0         | 7       | -20 | 20 | 30    | 40     |
+    And the video frame size is 100 by 100
+    When the processor predicts objects at 1.5 seconds with a 1.0 second buffer
+    Then no predicted objects are returned
+
+  Scenario: Buffer ending before complete exit keeps the final projected position
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  | y  | width | height |
+      | 0.0         | 7       | 40 | 20 | 30    | 40     |
+      | 1.0         | 7       | 50 | 20 | 30    | 40     |
+    And the video frame size is 200 by 100
+    When the processor predicts objects at 1.25 seconds with a 0.25 second buffer
+    Then the predicted objects are
+      | trackId | x  | y  | width | height |
+      | 7       | 52 | 20 | 31    | 40     |
+
+  Scenario: After buffer end the projected box disappears without historical fallback
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x  | y  | width | height |
+      | 0.0         | 7       | 40 | 20 | 30    | 40     |
+      | 1.0         | 7       | 50 | 20 | 30    | 40     |
+    And the video frame size is 200 by 100
+    When the processor predicts objects at 1.26 seconds with a 0.25 second buffer
+    Then no predicted objects are returned
+
   Scenario: An upcoming track is not used outside the time buffer
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   |
@@ -186,13 +299,105 @@ Feature: Predicting object positions between analyzed frames
     When the processor predicts objects at 1.5 seconds with a 0.25 second buffer
     Then no predicted objects are returned
 
-  Scenario: Interpolation stops at a missing analyzed frame
+  Scenario: Default Interpolate bridges a real missing-track gap
     Given analyzed detections for prediction
       | timeSeconds | trackId | x   | frameIndex |
       | 0.0         | 7       | 10  | 0          |
       | 1.0         | 7       | 100 | 1          |
       | 3.0         | 7       | 200 | 3          |
+    And an empty analyzed frame at 2.0 seconds with frame index 2
     When the processor predicts objects at 2.0 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x   |
+      | 7       | 150 |
+    And exactly one predicted region is returned for track 7
+
+  Scenario: Non-unit FrameIndex steps still form one segment for an uninterrupted track
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex |
+      | 0.0         | 7       | 10  | 0          |
+      | 0.5         | 7       | 55  | 15         |
+      | 1.0         | 7       | 100 | 30         |
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 55 |
+    And exactly one predicted region is returned for track 7
+
+  Scenario: Default Interpolate bridges non-unit FrameIndex samples split by a missing middle track
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex |
+      | 0.0         | 7       | 10  | 0          |
+      | 1.0         | 7       | 100 | 30         |
+    And an empty analyzed frame at 0.5 seconds with frame index 15
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 55 |
+    And exactly one predicted region is returned for track 7
+
+  Scenario: An uninterrupted track does not render a multi-box history trail
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex |
+      | 0.0         | 7       | 10  | 0          |
+      | 0.5         | 7       | 55  | 15         |
+      | 1.0         | 7       | 100 | 30         |
+      | 1.5         | 7       | 145 | 45         |
+    When the processor predicts objects at 0.75 seconds with a 0.25 second buffer
+    Then exactly one predicted region is returned for track 7
+
+  Scenario: UseBuffers lets a post-buffer cover alone before the next segment pre-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex | postOverrideMs | preOverrideMs | nextGapHandlingMode |
+      | 0.0         | 7       | 10  | 0          | 400            |               | UseBuffers          |
+      | 1.0         | 7       | 100 | 30         |                | 400           |                     |
+    And an empty analyzed frame at 0.5 seconds with frame index 15
+    When the processor predicts objects at 0.3 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 10 |
+    And exactly one predicted region is returned for track 7
+
+  Scenario: UseBuffers lets a pre-buffer cover alone after the previous segment post-buffer
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex | postOverrideMs | preOverrideMs | nextGapHandlingMode |
+      | 0.0         | 7       | 10  | 0          | 400            |               | UseBuffers          |
+      | 1.0         | 7       | 100 | 30         |                | 400           |                     |
+    And an empty analyzed frame at 0.5 seconds with frame index 15
+    When the processor predicts objects at 0.7 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x   |
+      | 7       | 100 |
+    And exactly one predicted region is returned for track 7
+
+  Scenario: UseBuffers allows overlapping pre and post regions across a gap
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex | postOverrideMs | preOverrideMs | nextGapHandlingMode |
+      | 0.0         | 7       | 10  | 0          | 700            |               | UseBuffers          |
+      | 1.0         | 7       | 100 | 30         |                | 700           |                     |
+    And an empty analyzed frame at 0.5 seconds with frame index 15
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then exactly two predicted regions are returned for track 7
+
+  Scenario: Interpolate ignores stored boundary buffers across a real gap
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex | postOverrideMs | preOverrideMs | nextGapHandlingMode |
+      | 0.0         | 7       | 10  | 0          | 400            |               |                     |
+      | 1.0         | 7       | 100 | 30         |                | 400           |                     |
+    And an empty analyzed frame at 0.5 seconds with frame index 15
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
+    Then the predicted objects are
+      | trackId | x  |
+      | 7       | 55 |
+    And exactly one predicted region is returned for track 7
+
+  Scenario: Excluded gap endpoints are not used as included interpolate endpoints
+    Given analyzed detections for prediction
+      | timeSeconds | trackId | x   | frameIndex | selected |
+      | 0.0         | 7       | 10  | 0          | true     |
+      | 1.0         | 7       | 100 | 30         | false    |
+    And an empty analyzed frame at 0.5 seconds with frame index 15
+    When the processor predicts objects at 0.5 seconds with a 0.0 second buffer
     Then no predicted objects are returned
 
   Scenario: Interpolated boxes copy override metadata and blur shape

@@ -3,9 +3,10 @@ using VideoAnonymizer.Database;
 namespace VideoAnonymizer.VideoProcessor.Anonymization;
 
 /// <summary>
-/// The maximal run of occurrences that share the same TrackId in adjacent analyzed
-/// frames. An untracked occurrence is a one-object segment and is both its first
-/// and last boundary. Occurrence inclusion/exclusion does not affect segment identity.
+/// The maximal run of occurrences that share the same TrackId in adjacent entries of
+/// the complete analyzed-frame sequence. An untracked occurrence is a one-object
+/// segment and is both its first and last boundary. Occurrence inclusion/exclusion
+/// does not affect segment identity.
 /// </summary>
 public sealed record ConsecutiveSegment(IReadOnlyList<DetectedObject> Occurrences)
 {
@@ -15,8 +16,10 @@ public sealed record ConsecutiveSegment(IReadOnlyList<DetectedObject> Occurrence
 
 /// <summary>
 /// Resolves consecutive segments from the complete analyzed-frame sequence ordered by
-/// FrameIndex. A missing occurrence in any analyzed frame ends the segment; no time
-/// thresholds are applied and the Selected flag never changes segment identity.
+/// FrameIndex. FrameIndex is only the ordering key — adjacency means successive entries
+/// in that ordered list, not a numeric FrameIndex difference of 1. A missing occurrence
+/// of the track in any intervening analyzed frame ends the segment; the Selected flag
+/// never changes segment identity.
 /// </summary>
 public static class ConsecutiveSegmentResolver
 {
@@ -40,47 +43,44 @@ public static class ConsecutiveSegmentResolver
         var orderedFrames = analyzedFrames.OrderBy(frame => frame.FrameIndex).ToList();
         var segments = new List<ConsecutiveSegment>();
 
+        // Untracked occurrences are always one-object segments.
+        foreach (var obj in orderedFrames
+            .SelectMany(frame => frame.DetectedObjects)
+            .Where(obj => obj.TrackId is null))
+        {
+            segments.Add(new ConsecutiveSegment([obj]));
+        }
+
         var trackIds = orderedFrames
             .SelectMany(frame => frame.DetectedObjects)
             .Select(obj => obj.TrackId)
+            .Where(trackId => trackId is not null)
             .Distinct()
             .ToList();
 
         foreach (var trackId in trackIds)
         {
-            if (trackId is null)
-            {
-                foreach (var obj in orderedFrames
-                    .SelectMany(frame => frame.DetectedObjects)
-                    .Where(obj => obj.TrackId is null))
-                {
-                    segments.Add(new ConsecutiveSegment([obj]));
-                }
-
-                continue;
-            }
-
-            var occurrences = new List<(int FrameIndex, DetectedObject Object)>();
+            // Walk every analyzed frame in order. Continue the run when this frame has
+            // the track; an intervening analyzed frame without the track breaks it.
+            var currentRun = new List<DetectedObject>();
             foreach (var frame in orderedFrames)
             {
                 var match = frame.DetectedObjects.FirstOrDefault(obj => obj.TrackId == trackId);
                 if (match is not null)
-                    occurrences.Add((frame.FrameIndex, match));
-            }
-
-            var runStart = 0;
-            for (var index = 1; index <= occurrences.Count; index++)
-            {
-                if (index < occurrences.Count
-                    && occurrences[index].FrameIndex == occurrences[index - 1].FrameIndex + 1)
                 {
+                    currentRun.Add(match);
                     continue;
                 }
 
-                segments.Add(new ConsecutiveSegment(
-                    occurrences[runStart..index].Select(item => item.Object).ToList()));
-                runStart = index;
+                if (currentRun.Count > 0)
+                {
+                    segments.Add(new ConsecutiveSegment(currentRun));
+                    currentRun = [];
+                }
             }
+
+            if (currentRun.Count > 0)
+                segments.Add(new ConsecutiveSegment(currentRun));
         }
 
         return segments;

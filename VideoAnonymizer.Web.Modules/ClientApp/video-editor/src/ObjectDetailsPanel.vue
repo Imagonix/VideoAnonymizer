@@ -16,6 +16,12 @@ const props = withDefaults(defineProps<{
     preIsCustom: boolean;
     post: number;
     postIsCustom: boolean;
+    preInactiveForGap?: boolean;
+    postInactiveForGap?: boolean;
+    hasGapBefore?: boolean;
+    hasGapAfter?: boolean;
+    gapBeforeMode?: string | null;
+    gapAfterMode?: string | null;
     trackTimeBufferEffective: number | null;
     trackTimeBufferIsMixed: boolean;
     canGoPrevious: boolean;
@@ -42,6 +48,8 @@ const emit = defineEmits<{
     (e: 'update-post', valueMs: number): void;
     (e: 'reset-pre'): void;
     (e: 'reset-post'): void;
+    (e: 'update-gap-before', mode: string): void;
+    (e: 'update-gap-after', mode: string): void;
     (e: 'previous-occurrence'): void;
     (e: 'next-occurrence'): void;
     (e: 'adjust-detection'): void;
@@ -254,6 +262,26 @@ function onHandleKeydown(event: KeyboardEvent) {
                     </span>
                     <button class="details-reset" title="Reset segment pre-buffer to global" @click="emit('reset-pre')">Reset</button>
                 </div>
+                <p
+                    v-if="preInactiveForGap"
+                    class="scope-row-hint gap-inactive-hint"
+                    data-testid="pre-inactive-hint"
+                >
+                    Stored but inactive while Gap before uses Interpolate
+                </p>
+
+                <div v-if="hasGapBefore" class="scope-row" data-testid="gap-before-control">
+                    <span class="details-field-label">Gap before</span>
+                    <select
+                        class="details-input"
+                        data-testid="gap-before-select"
+                        :value="gapBeforeMode ?? 'Interpolate'"
+                        @change="(e) => emit('update-gap-before', (e.target as HTMLSelectElement).value)"
+                    >
+                        <option value="Interpolate">Interpolate</option>
+                        <option value="UseBuffers">Use Before/After buffers</option>
+                    </select>
+                </div>
 
                 <div class="scope-row">
                     <span class="details-field-label">After</span>
@@ -262,6 +290,26 @@ function onHandleKeydown(event: KeyboardEvent) {
                         {{ postIsCustom ? 'Custom' : 'Global' }}
                     </span>
                     <button class="details-reset" title="Reset segment post-buffer to global" @click="emit('reset-post')">Reset</button>
+                </div>
+                <p
+                    v-if="postInactiveForGap"
+                    class="scope-row-hint gap-inactive-hint"
+                    data-testid="post-inactive-hint"
+                >
+                    Stored but inactive while Gap after uses Interpolate
+                </p>
+
+                <div v-if="hasGapAfter" class="scope-row" data-testid="gap-after-control">
+                    <span class="details-field-label">Gap after</span>
+                    <select
+                        class="details-input"
+                        data-testid="gap-after-select"
+                        :value="gapAfterMode ?? 'Interpolate'"
+                        @change="(e) => emit('update-gap-after', (e.target as HTMLSelectElement).value)"
+                    >
+                        <option value="Interpolate">Interpolate</option>
+                        <option value="UseBuffers">Use Before/After buffers</option>
+                    </select>
                 </div>
             </div>
         </section>
@@ -456,6 +504,11 @@ function onHandleKeydown(event: KeyboardEvent) {
     display: block;
     font-size: 0.7rem;
     color: var(--mud-palette-text-secondary);
+}
+
+.gap-inactive-hint {
+    margin: -2px 0 4px 68px;
+    font-style: italic;
 }
 
 .scope-row {

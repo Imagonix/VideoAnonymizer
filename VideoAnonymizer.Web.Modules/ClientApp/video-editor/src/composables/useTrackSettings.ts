@@ -5,9 +5,18 @@ import type {
     DetectedObjectDto,
     VideoEditorProps
 } from '../types';
-import { getTrackOccurrences, buildAllSegments, findSegment } from './useConsecutiveTrackSegment';
+import {
+    getTrackOccurrences,
+    buildAllSegments,
+    findSegment,
+    getPrecedingGapBoundary,
+    getTrackSegments,
+    hasFollowingGap,
+    hasPrecedingGap,
+} from './useConsecutiveTrackSegment';
 import type { ConsecutiveSegment } from './useConsecutiveTrackSegment';
 import { getChangedObjects } from '../utils/objectDiff';
+import { GapHandlingModes, resolveGapHandlingMode, type GapHandlingMode } from '../utils/gapHandling';
 
 function cloneObjects(objects: DetectedObjectDto[]): DetectedObjectDto[] {
     return JSON.parse(JSON.stringify(objects));
@@ -28,6 +37,17 @@ export type SegmentBufferValues = {
 export type TrackTimeBufferState = {
     effective: number | null;
     isMixed: boolean;
+};
+
+export type SegmentGapState = {
+    hasGapBefore: boolean;
+    hasGapAfter: boolean;
+    gapBeforeMode: GapHandlingMode | null;
+    gapAfterMode: GapHandlingMode | null;
+    /** True when After is inactive because Gap after is Interpolate. */
+    postInactiveForGap: boolean;
+    /** True when Before is inactive because Gap before is Interpolate. */
+    preInactiveForGap: boolean;
 };
 
 export function useTrackSettings(
@@ -52,6 +72,27 @@ export function useTrackSettings(
             preIsCustom: preOverride != null,
             post: postOverride ?? global,
             postIsCustom: postOverride != null
+        };
+    }
+
+    function getSegmentGapState(segment: ConsecutiveSegment): SegmentGapState {
+        const hasGapBefore = hasPrecedingGap(frames.value, segment);
+        const hasGapAfter = hasFollowingGap(frames.value, segment);
+        const precedingBoundary = hasGapBefore ? getPrecedingGapBoundary(frames.value, segment) : null;
+        const gapBeforeMode = precedingBoundary
+            ? resolveGapHandlingMode(precedingBoundary.nextGapHandlingMode)
+            : null;
+        const gapAfterMode = hasGapAfter
+            ? resolveGapHandlingMode(segment.last.nextGapHandlingMode)
+            : null;
+
+        return {
+            hasGapBefore,
+            hasGapAfter,
+            gapBeforeMode,
+            gapAfterMode,
+            preInactiveForGap: gapBeforeMode === GapHandlingModes.Interpolate,
+            postInactiveForGap: gapAfterMode === GapHandlingModes.Interpolate,
         };
     }
 
@@ -97,19 +138,47 @@ export function useTrackSettings(
         state.onDetectedObjectUpdated?.(state.videoId, obj.analyzedFrameId, obj, 'occurrence-blur', before);
     }
 
+    /**
+     * Editing Before at a segment that has a preceding gap switches that gap to
+     * UseBuffers in the same undoable action. Track-start Before never changes a gap.
+     */
     function applySegmentPre(segment: ConsecutiveSegment, valueMs: number) {
         const normalized = valueMs === anonymizationSettings.value.timeBufferMs ? null : valueMs;
         const first = segment.first;
-        const before = cloneObjects([first]);
+        const precedingBoundary = getPrecedingGapBoundary(frames.value, segment);
+        const affected: DetectedObjectDto[] = [first];
+        if (precedingBoundary && precedingBoundary.id !== first.id) {
+            affected.push(precedingBoundary);
+        }
+        const before = cloneObjects(affected);
+
         first.preBufferMsOverride = normalized;
-        state.onDetectedObjectUpdated?.(state.videoId, first.analyzedFrameId, first, 'pre-buffer', before);
+        if (precedingBoundary) {
+            precedingBoundary.nextGapHandlingMode = GapHandlingModes.UseBuffers;
+        }
+
+        if (affected.length === 1) {
+            state.onDetectedObjectUpdated?.(state.videoId, first.analyzedFrameId, first, 'pre-buffer', before);
+        } else {
+            const { changed, beforeState } = getChangedObjects(affected, before);
+            if (changed.length > 0) {
+                state.onDetectedObjectsBulkUpdated?.(state.videoId, changed, 'pre-buffer', beforeState);
+            }
+        }
     }
 
+    /**
+     * Editing After at a segment that has a following gap switches that gap to
+     * UseBuffers in the same undoable action. Track-end After never changes a gap.
+     */
     function applySegmentPost(segment: ConsecutiveSegment, valueMs: number) {
         const normalized = valueMs === anonymizationSettings.value.timeBufferMs ? null : valueMs;
         const last = segment.last;
         const before = cloneObjects([last]);
         last.postBufferMsOverride = normalized;
+        if (hasFollowingGap(frames.value, segment)) {
+            last.nextGapHandlingMode = GapHandlingModes.UseBuffers;
+        }
         state.onDetectedObjectUpdated?.(state.videoId, last.analyzedFrameId, last, 'post-buffer', before);
     }
 
@@ -117,6 +186,7 @@ export function useTrackSettings(
         const first = segment.first;
         const before = cloneObjects([first]);
         first.preBufferMsOverride = null;
+        // Reset never changes gap mode.
         state.onDetectedObjectUpdated?.(state.videoId, first.analyzedFrameId, first, 'pre-buffer', before);
     }
 
@@ -124,7 +194,36 @@ export function useTrackSettings(
         const last = segment.last;
         const before = cloneObjects([last]);
         last.postBufferMsOverride = null;
+        // Reset never changes gap mode.
         state.onDetectedObjectUpdated?.(state.videoId, last.analyzedFrameId, last, 'post-buffer', before);
+    }
+
+    function applyGapBeforeMode(segment: ConsecutiveSegment, mode: GapHandlingMode) {
+        const boundary = getPrecedingGapBoundary(frames.value, segment);
+        if (!boundary) return;
+        const before = cloneObjects([boundary]);
+        boundary.nextGapHandlingMode = mode === GapHandlingModes.Interpolate ? null : mode;
+        state.onDetectedObjectUpdated?.(
+            state.videoId,
+            boundary.analyzedFrameId,
+            boundary,
+            'gap-handling',
+            before
+        );
+    }
+
+    function applyGapAfterMode(segment: ConsecutiveSegment, mode: GapHandlingMode) {
+        if (!hasFollowingGap(frames.value, segment)) return;
+        const last = segment.last;
+        const before = cloneObjects([last]);
+        last.nextGapHandlingMode = mode === GapHandlingModes.Interpolate ? null : mode;
+        state.onDetectedObjectUpdated?.(
+            state.videoId,
+            last.analyzedFrameId,
+            last,
+            'gap-handling',
+            before
+        );
     }
 
     /**
@@ -133,7 +232,7 @@ export function useTrackSettings(
      */
     function getScopeSegments(scope: { trackId: number | null; object: DetectedObjectDto }): ConsecutiveSegment[] {
         if (scope.trackId != null) {
-            return buildAllSegments(frames.value).filter(segment => segment.first.trackId === scope.trackId);
+            return getTrackSegments(frames.value, scope.trackId);
         }
         const segment = findSegment(buildAllSegments(frames.value), scope.object);
         return segment ? [segment] : [];
@@ -162,10 +261,8 @@ export function useTrackSettings(
 
     /**
      * Bulk operation over the current segments: writes the same symmetric value to
-     * every segment's boundary fields (pre on each first occurrence, post on each last
-     * occurrence). A value equal to the global buffer is normalized to null so the
-     * boundary falls back directly to Video.TimeBufferMs. Dispatches only the changed
-     * boundary occurrences with cloned before-state through the bulk action queue.
+     * every segment's boundary fields and switches every affected internal gap to
+     * UseBuffers in the same undoable bulk action.
      */
     function applyTimeBufferToSegments(segments: ConsecutiveSegment[], valueMs: number) {
         if (segments.length === 0) return;
@@ -187,6 +284,9 @@ export function useTrackSettings(
         for (const segment of segments) {
             segment.first.preBufferMsOverride = normalized;
             segment.last.postBufferMsOverride = normalized;
+            if (hasFollowingGap(frames.value, segment)) {
+                segment.last.nextGapHandlingMode = GapHandlingModes.UseBuffers;
+            }
         }
 
         const { changed, beforeState } = getChangedObjects(affected, before);
@@ -195,8 +295,35 @@ export function useTrackSettings(
         }
     }
 
+    /**
+     * Clears all current segment boundary overrides to global without changing gap modes.
+     */
     function resetTimeBufferToSegments(segments: ConsecutiveSegment[]) {
-        applyTimeBufferToSegments(segments, anonymizationSettings.value.timeBufferMs);
+        if (segments.length === 0) return;
+
+        const affected: DetectedObjectDto[] = [];
+        const before: DetectedObjectDto[] = [];
+        const seen = new Set<string>();
+
+        for (const segment of segments) {
+            for (const boundary of [segment.first, segment.last]) {
+                if (seen.has(boundary.id)) continue;
+                seen.add(boundary.id);
+                affected.push(boundary);
+                before.push(JSON.parse(JSON.stringify(boundary)));
+            }
+        }
+
+        for (const segment of segments) {
+            segment.first.preBufferMsOverride = null;
+            segment.last.postBufferMsOverride = null;
+            // Gap modes intentionally left unchanged.
+        }
+
+        const { changed, beforeState } = getChangedObjects(affected, before);
+        if (changed.length > 0) {
+            state.onDetectedObjectsBulkUpdated?.(state.videoId, changed, 'track-settings', beforeState);
+        }
     }
 
     function resolveOccurrenceBlurSize(obj: DetectedObjectDto): number {
@@ -211,6 +338,7 @@ export function useTrackSettings(
     return {
         getTrackSettings,
         getSegmentBufferValues,
+        getSegmentGapState,
         resolveOccurrenceBlurSize,
         applyTrackBlurShape,
         applyTrackBlurSize,
@@ -221,6 +349,8 @@ export function useTrackSettings(
         applySegmentPost,
         resetSegmentPre,
         resetSegmentPost,
+        applyGapBeforeMode,
+        applyGapAfterMode,
         getScopeSegments,
         getTimeBufferState,
         applyTimeBufferToSegments,

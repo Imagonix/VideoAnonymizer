@@ -112,7 +112,15 @@ const { mergeSelectedKeys: mergeSelectedTimelineKeys, toggle: mergeToggle, execu
 const { selectedOccurrences, toggle: toggleOccurrence, totalCount, hasAny, hasOnlyTracked, clear: clearOccurrences } = useOccurrenceSelection();
 const { splitSourceKey, execute: splitExecute } = useSplit();
 const { currentFrame, timelineObjects, timelineObjectCounts } = useTimelineObjects(frames, currentTime);
-const visibleBlurPreviewObjects = useBlurPreviewObjects(frames, currentFrame, currentTime, anonymizationSettings, isAdjust);
+const visibleBlurPreviewObjects = useBlurPreviewObjects(
+    frames,
+    currentFrame,
+    currentTime,
+    anonymizationSettings,
+    isAdjust,
+    videoNaturalWidth,
+    videoNaturalHeight
+);
 const videoSourceUrl = computed(() => props.state.videoSourceUrl);
 const {
     markVisible: markThumbnailVisible,
@@ -130,6 +138,7 @@ const { findSegmentFor } = useConsecutiveTrackSegment(frames);
 const {
     getTrackSettings,
     getSegmentBufferValues,
+    getSegmentGapState,
     resolveOccurrenceBlurSize,
     applyTrackBlurShape,
     applyTrackBlurSize,
@@ -140,6 +149,8 @@ const {
     applySegmentPost,
     resetSegmentPre,
     resetSegmentPost,
+    applyGapBeforeMode,
+    applyGapAfterMode,
     getScopeSegments,
     getTimeBufferState,
     applyTimeBufferToSegments,
@@ -279,6 +290,7 @@ const selectedTrackSettings = computed(() => {
     const segment = findSegmentFor(obj);
     if (!segment) return null;
     const buffers = getSegmentBufferValues(segment);
+    const gaps = getSegmentGapState(segment);
     const trackId = obj.trackId;
     const settings = trackId != null
         ? getTrackSettings(trackId)
@@ -296,6 +308,12 @@ const selectedTrackSettings = computed(() => {
         preIsCustom: buffers.preIsCustom,
         post: buffers.post,
         postIsCustom: buffers.postIsCustom,
+        preInactiveForGap: gaps.preInactiveForGap,
+        postInactiveForGap: gaps.postInactiveForGap,
+        hasGapBefore: gaps.hasGapBefore,
+        hasGapAfter: gaps.hasGapAfter,
+        gapBeforeMode: gaps.gapBeforeMode,
+        gapAfterMode: gaps.gapAfterMode,
         trackTimeBufferEffective: selectedTimeBufferState.value.effective,
         trackTimeBufferIsMixed: selectedTimeBufferState.value.isMixed
     };
@@ -683,6 +701,22 @@ function handleResetPost() {
     if (segment) resetSegmentPost(segment);
 }
 
+function handleUpdateGapBefore(mode: string) {
+    const segment = getSelectedSegment();
+    if (!segment) return;
+    if (mode === 'Interpolate' || mode === 'UseBuffers') {
+        applyGapBeforeMode(segment, mode);
+    }
+}
+
+function handleUpdateGapAfter(mode: string) {
+    const segment = getSelectedSegment();
+    if (!segment) return;
+    if (mode === 'Interpolate' || mode === 'UseBuffers') {
+        applyGapAfterMode(segment, mode);
+    }
+}
+
 function trackForward(obj: DetectedObjectDto) {
     trackingObjectIds.value.add(obj.id);
     trackingObjectIds.value = new Set(trackingObjectIds.value);
@@ -851,6 +885,8 @@ function setVideoVolume(volume: number) {
               @update-post="handleUpdatePost"
               @reset-pre="handleResetPre"
               @reset-post="handleResetPost"
+              @update-gap-before="handleUpdateGapBefore"
+              @update-gap-after="handleUpdateGapAfter"
               @previous-occurrence="goToPreviousOccurrence"
               @next-occurrence="goToNextOccurrence"
               @adjust-detection="handleAdjustDetection"

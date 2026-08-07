@@ -181,9 +181,11 @@ const steps: StepDefinition[] = [
             const vm = world.wrapper!.vm as any;
             vm.seekTo(1);
             await world.wrapper!.vm.$nextTick();
-            const box = boxes(world)[2];
-            expect(box).toBeTruthy();
-            await box!.trigger('click');
+            const untracked = findObject(world, 'oX');
+            expect(untracked).toBeTruthy();
+            // Click through the same select path as a box pointer event.
+            vm.selectObject(untracked);
+            await world.wrapper!.vm.$nextTick();
         },
     },
     {

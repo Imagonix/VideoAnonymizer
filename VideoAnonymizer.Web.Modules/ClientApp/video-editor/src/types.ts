@@ -7,6 +7,8 @@ export type DetectedObjectDto = {
   occurrenceBlurSizePercentOverride?: number | null;
   preBufferMsOverride?: number | null;
   postBufferMsOverride?: number | null;
+  /** "Interpolate" | "UseBuffers"; null at a valid gap boundary defaults to Interpolate. */
+  nextGapHandlingMode?: string | null;
   selected: boolean;
   trackId: number | null;
   x: number;

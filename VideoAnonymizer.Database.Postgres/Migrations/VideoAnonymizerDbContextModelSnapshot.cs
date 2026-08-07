@@ -68,6 +68,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.Property<int>("Height")
                         .HasColumnType("integer");
 
+                    b.Property<string>("NextGapHandlingMode")
+                        .HasColumnType("text");
+
                     b.Property<int?>("OccurrenceBlurSizePercentOverride")
                         .HasColumnType("integer");
 

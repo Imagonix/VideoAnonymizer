@@ -107,7 +107,9 @@ public class VideoAnonymizer(
                     currentFrameIndex,
                     fps,
                     video.TimeBufferMs,
-                    job.InterpolateTrackedObjects);
+                    job.InterpolateTrackedObjects,
+                    frameWidth,
+                    frameHeight);
 
                 foreach (var obj in objectsToBlur)
                 {

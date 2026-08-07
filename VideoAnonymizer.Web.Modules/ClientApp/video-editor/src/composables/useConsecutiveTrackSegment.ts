@@ -24,10 +24,17 @@ export function getTrackOccurrences(frames: AnalyzedFrameDto[], trackId: number)
     return occurrences;
 }
 
+/**
+ * Builds consecutive segments from the complete analyzed-frame sequence ordered by
+ * FrameIndex. FrameIndex is only the ordering key — adjacency means successive entries
+ * in that ordered list, not a numeric FrameIndex difference of 1. A missing occurrence
+ * of the track in any intervening analyzed frame ends the segment.
+ */
 export function buildAllSegments(frames: AnalyzedFrameDto[]): ConsecutiveSegment[] {
     const ordered = orderedAnalyzedFrames(frames);
     const segments: ConsecutiveSegment[] = [];
 
+    // Untracked occurrences are always one-object segments.
     for (const frame of ordered) {
         for (const obj of frame.detectedObjects) {
             if (obj.trackId == null) {
@@ -44,21 +51,32 @@ export function buildAllSegments(frames: AnalyzedFrameDto[]): ConsecutiveSegment
     }
 
     for (const trackId of trackIds) {
-        const entries: { key: number; obj: DetectedObjectDto }[] = [];
+        // Walk every analyzed frame in order. Continue the run when this frame has the
+        // track; an intervening analyzed frame without the track breaks it.
+        let currentRun: DetectedObjectDto[] = [];
         for (const frame of ordered) {
             const match = frame.detectedObjects.find(obj => obj.trackId === trackId);
-            if (match) entries.push({ key: frameOrderKey(frame), obj: match });
-        }
-
-        let runStart = 0;
-        for (let index = 1; index <= entries.length; index++) {
-            if (index < entries.length && entries[index].key === entries[index - 1].key + 1) {
+            if (match) {
+                currentRun.push(match);
                 continue;
             }
 
-            const run = entries.slice(runStart, index).map(entry => entry.obj);
-            segments.push({ occurrences: run, first: run[0], last: run[run.length - 1] });
-            runStart = index;
+            if (currentRun.length > 0) {
+                segments.push({
+                    occurrences: currentRun,
+                    first: currentRun[0],
+                    last: currentRun[currentRun.length - 1],
+                });
+                currentRun = [];
+            }
+        }
+
+        if (currentRun.length > 0) {
+            segments.push({
+                occurrences: currentRun,
+                first: currentRun[0],
+                last: currentRun[currentRun.length - 1],
+            });
         }
     }
 
@@ -73,26 +91,109 @@ export function findSegment(
 }
 
 /**
+ * Ordered same-track consecutive segments that have a real gap between them.
+ */
+export function getTrackSegments(frames: AnalyzedFrameDto[], trackId: number): ConsecutiveSegment[] {
+    return buildAllSegments(frames)
+        .filter(segment => segment.first.trackId === trackId)
+        .sort((a, b) => {
+            const aKey = a.first.analyzedFrameId;
+            const bKey = b.first.analyzedFrameId;
+            const ordered = orderedAnalyzedFrames(frames);
+            return ordered.findIndex(f => f.id === aKey) - ordered.findIndex(f => f.id === bKey);
+        });
+}
+
+/**
+ * True when this segment has a real following same-track gap (another later segment).
+ */
+export function hasFollowingGap(
+    frames: AnalyzedFrameDto[],
+    segment: ConsecutiveSegment
+): boolean {
+    const trackId = segment.first.trackId;
+    if (trackId == null) return false;
+    const trackSegments = getTrackSegments(frames, trackId);
+    const index = trackSegments.findIndex(s => s.occurrences.some(o => o.id === segment.first.id));
+    return index >= 0 && index < trackSegments.length - 1;
+}
+
+/**
+ * True when this segment has a real preceding same-track gap.
+ */
+export function hasPrecedingGap(
+    frames: AnalyzedFrameDto[],
+    segment: ConsecutiveSegment
+): boolean {
+    const trackId = segment.first.trackId;
+    if (trackId == null) return false;
+    const trackSegments = getTrackSegments(frames, trackId);
+    const index = trackSegments.findIndex(s => s.occurrences.some(o => o.id === segment.first.id));
+    return index > 0;
+}
+
+/**
+ * The previous segment's last occurrence that owns "Gap before" for the selected segment.
+ */
+export function getPrecedingGapBoundary(
+    frames: AnalyzedFrameDto[],
+    segment: ConsecutiveSegment
+): DetectedObjectDto | null {
+    const trackId = segment.first.trackId;
+    if (trackId == null) return null;
+    const trackSegments = getTrackSegments(frames, trackId);
+    const index = trackSegments.findIndex(s => s.occurrences.some(o => o.id === segment.first.id));
+    if (index <= 0) return null;
+    return trackSegments[index - 1].last;
+}
+
+/**
  * Keeps the boundary-storage invariant for every consecutive segment: only its first
  * occurrence may store a pre-buffer override and only its last may store a post-buffer
- * override. Interior boundary overrides are cleared in-place.
+ * override or next-gap handling mode. Gap modes are retained only on last occurrences
+ * that still have a real following same-track gap.
  */
 export function normalizeSegmentBoundaries(frames: AnalyzedFrameDto[]): void {
-    for (const segment of buildAllSegments(frames)) {
+    const segments = buildAllSegments(frames);
+    const lastBeforeGap = new Set<string>();
+
+    const byTrack = new Map<number, ConsecutiveSegment[]>();
+    for (const segment of segments) {
+        if (segment.first.trackId == null) continue;
+        const list = byTrack.get(segment.first.trackId) ?? [];
+        list.push(segment);
+        byTrack.set(segment.first.trackId, list);
+    }
+
+    for (const trackSegments of byTrack.values()) {
+        const ordered = getTrackSegments(
+            frames,
+            trackSegments[0].first.trackId!
+        );
+        for (let i = 0; i < ordered.length - 1; i++) {
+            lastBeforeGap.add(ordered[i].last.id);
+        }
+    }
+
+    for (const segment of segments) {
         for (const obj of segment.occurrences) {
             if (obj.id !== segment.first.id) obj.preBufferMsOverride = null;
-            if (obj.id !== segment.last.id) obj.postBufferMsOverride = null;
+            if (obj.id !== segment.last.id) {
+                obj.postBufferMsOverride = null;
+                obj.nextGapHandlingMode = null;
+            } else if (!lastBeforeGap.has(obj.id)) {
+                obj.nextGapHandlingMode = null;
+            }
         }
     }
 }
 
 /**
  * Applies the boundary-storage invariant after a newly added occurrence. When the
- * addition extends a consecutive run, the previous outer boundary override is moved to
- * the new outer boundary; a new run keeps null overrides. Mirrors the server-side
- * track-forward transfer behavior. Returns the neighboring occurrences whose boundary
- * overrides were cleared, together with their pre-transfer state, so callers can persist
- * those changes.
+ * addition extends a consecutive run, the previous outer boundary override and gap
+ * mode are moved to the new outer boundary; a new run keeps null overrides. Returns
+ * the neighboring occurrences whose boundary overrides were cleared, together with
+ * their pre-transfer state, so callers can persist those changes.
  */
 export function applyBoundaryTransferOnAdd(
     frames: AnalyzedFrameDto[],
@@ -105,10 +206,12 @@ export function applyBoundaryTransferOnAdd(
     const indexInSegment = segment.occurrences.findIndex(obj => obj.id === addedObject.id);
     if (indexInSegment === segment.occurrences.length - 1) {
         const previous = segment.occurrences[indexInSegment - 1];
-        if (previous.postBufferMsOverride != null) {
+        if (previous.postBufferMsOverride != null || previous.nextGapHandlingMode != null) {
             cleared.push({ obj: previous, before: JSON.parse(JSON.stringify(previous)) });
-            addedObject.postBufferMsOverride = previous.postBufferMsOverride;
+            addedObject.postBufferMsOverride = previous.postBufferMsOverride ?? null;
+            addedObject.nextGapHandlingMode = previous.nextGapHandlingMode ?? null;
             previous.postBufferMsOverride = null;
+            previous.nextGapHandlingMode = null;
         }
     } else if (indexInSegment === 0) {
         const next = segment.occurrences[indexInSegment + 1];

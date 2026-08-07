@@ -14,6 +14,7 @@ namespace VideoAnonymizer.Database
         public int? OccurrenceBlurSizePercentOverride { get; set; }
         public int? PreBufferMsOverride { get; set; }
         public int? PostBufferMsOverride { get; set; }
+        public string? NextGapHandlingMode { get; set; }
         public bool Selected { get; set; }
         public int? TrackId { get; set; }
         public int X { get; set; }

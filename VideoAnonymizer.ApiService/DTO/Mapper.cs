@@ -36,6 +36,7 @@ namespace VideoAnonymizer.ApiService.DTO
                 OccurrenceBlurSizePercentOverride = entity.OccurrenceBlurSizePercentOverride,
                 PreBufferMsOverride = entity.PreBufferMsOverride,
                 PostBufferMsOverride = entity.PostBufferMsOverride,
+                NextGapHandlingMode = entity.NextGapHandlingMode,
                 Selected = entity.Selected,
                 TrackId = entity.TrackId,
                 X = entity.X,
@@ -100,6 +101,7 @@ namespace VideoAnonymizer.ApiService.DTO
                 OccurrenceBlurSizePercentOverride = dto.OccurrenceBlurSizePercentOverride,
                 PreBufferMsOverride = dto.PreBufferMsOverride,
                 PostBufferMsOverride = dto.PostBufferMsOverride,
+                NextGapHandlingMode = dto.NextGapHandlingMode,
                 Selected = dto.Selected,
                 TrackId = dto.TrackId,
                 X = dto.X,
@@ -172,6 +174,7 @@ namespace VideoAnonymizer.ApiService.DTO
             entity.OccurrenceBlurSizePercentOverride = dto.OccurrenceBlurSizePercentOverride;
             entity.PreBufferMsOverride = dto.PreBufferMsOverride;
             entity.PostBufferMsOverride = dto.PostBufferMsOverride;
+            entity.NextGapHandlingMode = dto.NextGapHandlingMode;
             entity.Selected = dto.Selected;
             entity.TrackId = dto.TrackId;
             entity.X = dto.X;

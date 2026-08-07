@@ -10,6 +10,12 @@
         public int? OccurrenceBlurSizePercentOverride { get; set; }
         public int? PreBufferMsOverride { get; set; }
         public int? PostBufferMsOverride { get; set; }
+        /// <summary>
+        /// Handling for the real same-track gap after this occurrence when it is the last
+        /// of its consecutive segment. Values: "Interpolate", "UseBuffers". Null defaults
+        /// to Interpolate at a valid gap boundary.
+        /// </summary>
+        public string? NextGapHandlingMode { get; set; }
         public bool Selected { get; set; }
         public int? TrackId { get; set; }
         public int X { get; set; }

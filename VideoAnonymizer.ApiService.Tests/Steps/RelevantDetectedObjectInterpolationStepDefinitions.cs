@@ -29,6 +29,22 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         set => _scenarioContext.Set(value, nameof(InterpolateTrackedObjects));
     }
 
+    private int VideoWidth
+    {
+        get => _scenarioContext.ContainsKey(nameof(VideoWidth))
+            ? _scenarioContext.Get<int>(nameof(VideoWidth))
+            : 0;
+        set => _scenarioContext.Set(value, nameof(VideoWidth));
+    }
+
+    private int VideoHeight
+    {
+        get => _scenarioContext.ContainsKey(nameof(VideoHeight))
+            ? _scenarioContext.Get<int>(nameof(VideoHeight))
+            : 0;
+        set => _scenarioContext.Set(value, nameof(VideoHeight));
+    }
+
     public RelevantDetectedObjectInterpolationStepDefinitions(ScenarioContext scenarioContext)
     {
         _scenarioContext = scenarioContext;
@@ -39,12 +55,39 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
     {
         AnalyzedFrames = BuildFrames(table);
         InterpolateTrackedObjects = true;
+        VideoWidth = 0;
+        VideoHeight = 0;
     }
 
     [Given("object interpolation is disabled")]
     public void GivenObjectInterpolationIsDisabled()
     {
         InterpolateTrackedObjects = false;
+    }
+
+    [Given("the video frame size is {int} by {int}")]
+    public void GivenTheVideoFrameSizeIs(int width, int height)
+    {
+        VideoWidth = width;
+        VideoHeight = height;
+    }
+
+    [Given("an empty analyzed frame at {double} seconds with frame index {int}")]
+    public void GivenAnEmptyAnalyzedFrameAtSecondsWithFrameIndex(double timeSeconds, int frameIndex)
+    {
+        var frames = AnalyzedFrames;
+        if (frames.Any(frame => frame.FrameIndex == frameIndex))
+            return;
+
+        frames.Add(new AnalyzedFrame
+        {
+            Id = Guid.NewGuid(),
+            VideoId = frames.FirstOrDefault()?.VideoId ?? Guid.NewGuid(),
+            FrameIndex = frameIndex,
+            TimeSeconds = timeSeconds,
+            DetectedObjects = []
+        });
+        AnalyzedFrames = frames.OrderBy(frame => frame.FrameIndex).ToList();
     }
 
     [When("the processor predicts objects at {double} seconds with a {double} second buffer")]
@@ -60,7 +103,9 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
             frameIndex,
             fps,
             (int)Math.Round(timeBufferSeconds * 1000),
-            InterpolateTrackedObjects);
+            InterpolateTrackedObjects,
+            VideoWidth,
+            VideoHeight);
     }
 
     [Then("the predicted objects are")]
@@ -89,6 +134,18 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
     public void ThenNoPredictedObjectsAreReturned()
     {
         PredictedObjects.Should().BeEmpty();
+    }
+
+    [Then("exactly one predicted region is returned for track {int}")]
+    public void ThenExactlyOnePredictedRegionIsReturnedForTrack(int trackId)
+    {
+        PredictedObjects.Where(obj => obj.TrackId == trackId).Should().HaveCount(1);
+    }
+
+    [Then("exactly two predicted regions are returned for track {int}")]
+    public void ThenExactlyTwoPredictedRegionsAreReturnedForTrack(int trackId)
+    {
+        PredictedObjects.Where(obj => obj.TrackId == trackId).Should().HaveCount(2);
     }
 
     private static List<AnalyzedFrame> BuildFrames(Table table)
@@ -133,7 +190,9 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
                 ParseOptionalInt(row, "blurSizePercentOverride"),
                 ParseOptionalInt(row, "occurrenceBlurSizePercentOverride"),
                 ParseOptionalInt(row, "preOverrideMs"),
-                ParseOptionalInt(row, "postOverrideMs"));
+                ParseOptionalInt(row, "postOverrideMs"),
+                GetOptional(row, "nextGapHandlingMode"),
+                ParseOptionalBool(row, "selected") ?? true);
             obj.AnalyzedFrame = frame;
             frame.DetectedObjects.Add(obj);
         }
@@ -151,7 +210,9 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         int? blurSizePercentOverride,
         int? occurrenceBlurSizePercentOverride,
         int? preOverrideMs,
-        int? postOverrideMs) =>
+        int? postOverrideMs,
+        string? nextGapHandlingMode = null,
+        bool selected = true) =>
         new()
         {
             Id = Guid.NewGuid(),
@@ -162,7 +223,8 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
             OccurrenceBlurSizePercentOverride = occurrenceBlurSizePercentOverride,
             PreBufferMsOverride = preOverrideMs,
             PostBufferMsOverride = postOverrideMs,
-            Selected = true,
+            NextGapHandlingMode = nextGapHandlingMode,
+            Selected = selected,
             TrackId = trackId,
             X = x,
             Y = y,
@@ -191,6 +253,18 @@ public sealed class RelevantDetectedObjectInterpolationStepDefinitions
         AssertOptionalNullableInt(row, "occurrenceBlurSizePercentOverride", actual.OccurrenceBlurSizePercentOverride);
         AssertOptionalNullableInt(row, "preOverrideMs", actual.PreBufferMsOverride);
         AssertOptionalNullableInt(row, "postOverrideMs", actual.PostBufferMsOverride);
+
+        if (HasColumn(row, "nextGapHandlingMode"))
+        {
+            actual.NextGapHandlingMode.Should().Be(GetOptional(row, "nextGapHandlingMode"));
+        }
+    }
+
+    private static bool? ParseOptionalBool(DataTableRow row, string column)
+    {
+        var value = GetOptional(row, column);
+        if (value is null) return null;
+        return bool.Parse(value);
     }
 
     private static void AssertOptionalInt(DataTableRow row, string column, int actual)
