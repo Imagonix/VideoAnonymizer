@@ -50,6 +50,13 @@ Feature: Persisting review editor actions
     Then the settings are saved with a single symmetric time buffer of 650 ms
     And the saved settings payload contains no global pre-buffer or post-buffer
 
+  Scenario: Global settings use 10 percent blur steps and 100 ms time steps
+    Given the review editor is open with blur size 120 percent and time buffer 300 ms
+    Then the global blur size field uses step 10
+    And the global time buffer field uses step 100
+    When the reviewer changes the time buffer to 250 ms
+    Then the settings are saved with a single symmetric time buffer of 250 ms
+
   Scenario: Persisted settings actions reload and remain undoable
     Given the review editor is reopened with a persisted settings action
     When the reviewer undoes the last review action

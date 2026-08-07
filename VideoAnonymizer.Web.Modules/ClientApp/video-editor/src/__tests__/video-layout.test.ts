@@ -80,7 +80,7 @@ describe('computeInspectorPlacement', () => {
             box: { x: 50, y: 100, width: 200, height: 100 },
         });
         expect(placement.left).toBeGreaterThan(450);
-        expect(placement.width).toBe(240);
+        expect(placement.width).toBe(320);
     });
 
     it('places the inspector on the left side when the box is on the right', () => {
@@ -110,7 +110,7 @@ describe('computeInspectorPlacement', () => {
 
     it('only ever uses the left or right edge as the initial left position', () => {
         const margin = 8;
-        const rightEdge = base.stageWidth - 240 - margin;
+        const rightEdge = base.stageWidth - 320 - margin;
         for (const box of [
             { x: 50, y: 100, width: 200, height: 100 },
             { x: 1400, y: 100, width: 200, height: 100 },
@@ -135,7 +135,7 @@ describe('computeInspectorPlacement', () => {
         }
     });
 
-    it('prefers the horizontal letterbox margin over overlaying the video', () => {
+    it('places the inspector on the stage edge opposite the box', () => {
         const placement = computeInspectorPlacement({
             stageWidth: 1200,
             stageHeight: 600,
@@ -144,10 +144,13 @@ describe('computeInspectorPlacement', () => {
             videoHeight: 600,
             box: { x: 40, y: 200, width: 100, height: 100 },
         });
-        expect(placement.left).toBeGreaterThan(300 + 600);
+        // Default desktop width is 320 px on the right edge of the stage.
+        expect(placement.left).toBe(1200 - 320 - 8);
+        expect(placement.width).toBe(320);
     });
 
     it('clamps to the stage when the stage is smaller than the inspector', () => {
+        // Callers shrink the effective width to fit; placement then clamps top/left.
         const placement = computeInspectorPlacement({
             stageWidth: 260,
             stageHeight: 220,
@@ -155,6 +158,7 @@ describe('computeInspectorPlacement', () => {
             videoWidth: 900,
             videoHeight: 300,
             box: { x: 100, y: 100, width: 100, height: 50 },
+            inspectorWidth: 260 - 16,
         });
         expect(placement.left).toBeGreaterThanOrEqual(0);
         expect(placement.top).toBeGreaterThanOrEqual(0);

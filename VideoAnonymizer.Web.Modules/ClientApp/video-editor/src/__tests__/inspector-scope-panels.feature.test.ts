@@ -346,7 +346,7 @@ const steps: StepDefinition[] = [
             expect(placement.top).toBeGreaterThanOrEqual(8);
             expect(placement.top + vm.inspectorGroupHeight).toBeLessThanOrEqual(600);
             expect(placement.left).toBeGreaterThanOrEqual(8);
-            expect(placement.left + 240).toBeLessThanOrEqual(900);
+            expect(placement.left + 320).toBeLessThanOrEqual(900);
         },
     },
     {

@@ -351,16 +351,29 @@ watch(
     { immediate: true }
 );
 
+/** Desktop inspector group width; shrinks to fit narrow stages inside margins. */
+const INSPECTOR_WIDTH = 320;
+const INSPECTOR_MARGIN = 8;
+const DEFAULT_GROUP_HEIGHT = 340;
+
+const effectiveInspectorWidth = computed(() => {
+    const { width: stageWidth } = workspaceSize.value;
+    if (stageWidth <= 0) return INSPECTOR_WIDTH;
+    const available = Math.max(0, stageWidth - INSPECTOR_MARGIN * 2);
+    return Math.min(INSPECTOR_WIDTH, available);
+});
+
 const inspectorPlacement = computed(() => {
     const obj = selectedOccurrence.value;
     if (!obj) return null;
+    const width = effectiveInspectorWidth.value;
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
     if (stageWidth <= 0 || stageHeight <= 0) {
-        return { top: 8, left: 8, width: INSPECTOR_WIDTH };
+        return { top: 8, left: 8, width };
     }
     if (manualInspectorPosition.value) {
         const clamped = clampInspectorPosition(manualInspectorPosition.value.top, manualInspectorPosition.value.left);
-        return { top: clamped.top, left: clamped.left, width: INSPECTOR_WIDTH };
+        return { top: clamped.top, left: clamped.left, width };
     }
     return computeInspectorPlacement({
         stageWidth,
@@ -369,7 +382,7 @@ const inspectorPlacement = computed(() => {
         box: obj,
         videoWidth: videoNaturalWidth.value,
         videoHeight: videoNaturalHeight.value,
-        inspectorWidth: INSPECTOR_WIDTH,
+        inspectorWidth: width,
         inspectorHeight: inspectorGroupHeight.value,
         margin: INSPECTOR_MARGIN
     });
@@ -385,9 +398,6 @@ const inspectorScrollStyle = computed(() => {
     return null;
 });
 
-const INSPECTOR_WIDTH = 240;
-const INSPECTOR_MARGIN = 8;
-const DEFAULT_GROUP_HEIGHT = 340;
 const manualInspectorPosition = ref<{ top: number; left: number } | null>(null);
 const isInspectorDragging = ref(false);
 const inspectorPanelRef = ref<{ $el: HTMLElement } | null>(null);
@@ -399,8 +409,9 @@ const inspectorGroupHeight = computed(() =>
 function clampInspectorPosition(top: number, left: number) {
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
     const height = inspectorGroupHeight.value;
+    const width = effectiveInspectorWidth.value;
     const maxTop = Math.max(INSPECTOR_MARGIN, stageHeight - height - INSPECTOR_MARGIN);
-    const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - INSPECTOR_WIDTH - INSPECTOR_MARGIN);
+    const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - width - INSPECTOR_MARGIN);
     return {
         top: Math.min(maxTop, Math.max(INSPECTOR_MARGIN, top)),
         left: Math.min(maxLeft, Math.max(INSPECTOR_MARGIN, left))

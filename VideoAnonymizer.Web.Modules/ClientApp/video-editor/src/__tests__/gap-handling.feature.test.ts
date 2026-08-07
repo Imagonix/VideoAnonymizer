@@ -183,6 +183,55 @@ const steps: StepDefinition[] = [
         },
     },
     {
+        pattern: /^Interpolate gap after is checked$/,
+        handler: world => {
+            expect(settings(world).gapAfterMode).toBe('Interpolate');
+            const label = world.wrapper!.find('[data-testid="gap-after-label"]');
+            expect(label.exists()).toBe(true);
+            expect(label.text()).toBe('Interpolate gap after');
+            const control = world.wrapper!.find('[data-testid="gap-after-control"]');
+            expect(control.find('input[type="checkbox"]').element).toHaveProperty('checked', true);
+        },
+    },
+    {
+        pattern: /^Interpolate gap after is unchecked$/,
+        handler: world => {
+            expect(settings(world).gapAfterMode).toBe('UseBuffers');
+            const control = world.wrapper!.find('[data-testid="gap-after-control"]');
+            expect(control.find('input[type="checkbox"]').element).toHaveProperty('checked', false);
+        },
+    },
+    {
+        pattern: /^Interpolate gap before is unchecked$/,
+        handler: world => {
+            expect(settings(world).gapBeforeMode).toBe('UseBuffers');
+            const control = world.wrapper!.find('[data-testid="gap-before-control"]');
+            expect(control.find('input[type="checkbox"]').element).toHaveProperty('checked', false);
+        },
+    },
+    {
+        pattern: /^the After buffer controls are hidden$/,
+        handler: world => {
+            expect(world.wrapper!.find('[data-testid="segment-post-controls"]').exists()).toBe(false);
+            expect(world.wrapper!.find('[data-testid="segment-post-input"]').exists()).toBe(false);
+        },
+    },
+    {
+        pattern: /^the After buffer controls are visible$/,
+        handler: world => {
+            expect(world.wrapper!.find('[data-testid="segment-post-controls"]').exists()).toBe(true);
+            expect(world.wrapper!.find('[data-testid="segment-post-input"]').exists()).toBe(true);
+        },
+    },
+    {
+        pattern: /^unchecks Interpolate gap after$/,
+        handler: async world => {
+            const vm = world.wrapper!.vm as any;
+            vm.handleUpdateGapAfter('UseBuffers');
+            await nextTick();
+        },
+    },
+    {
         pattern: /^the last occurrence before the gap stores a null nextGapHandlingMode$/,
         handler: world => {
             expect(findObject(world, 'o4').nextGapHandlingMode ?? null).toBeNull();
@@ -192,6 +241,8 @@ const steps: StepDefinition[] = [
         pattern: /^the reviewer selects the first segment and sets After to (\d+)$/,
         handler: async (world, match) => {
             await selectById(world, 'o4');
+            // Uncheck interpolate first so After controls are editable, then set value.
+            // Setting After itself switches the gap to UseBuffers.
             const vm = world.wrapper!.vm as any;
             vm.handleUpdatePost(Number(match[1]));
             await nextTick();
@@ -285,10 +336,30 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the inspector explains that After is inactive while Interpolate is selected$/,
+        pattern: /^the editor is open with a continuous track without real gaps$/,
         handler: world => {
-            expect(settings(world).postInactiveForGap).toBe(true);
-            expect(world.wrapper!.find('[data-testid="post-inactive-hint"]').exists()).toBe(true);
+            // Track 1 is continuous across f1/f2/f3 with no missing-track gap.
+            openEditor(world, gappedTrackFrames());
+        },
+    },
+    {
+        pattern: /^the reviewer selects an occurrence$/,
+        handler: async world => {
+            await selectById(world, 'o1');
+        },
+    },
+    {
+        pattern: /^the Before and After buffer controls are visible$/,
+        handler: world => {
+            expect(world.wrapper!.find('[data-testid="segment-pre-controls"]').exists()).toBe(true);
+            expect(world.wrapper!.find('[data-testid="segment-post-controls"]').exists()).toBe(true);
+        },
+    },
+    {
+        pattern: /^no Interpolate gap checkboxes are shown$/,
+        handler: world => {
+            expect(world.wrapper!.find('[data-testid="gap-before-control"]').exists()).toBe(false);
+            expect(world.wrapper!.find('[data-testid="gap-after-control"]').exists()).toBe(false);
         },
     },
     {

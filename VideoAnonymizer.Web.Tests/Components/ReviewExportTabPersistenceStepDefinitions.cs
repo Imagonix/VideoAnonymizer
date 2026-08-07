@@ -388,6 +388,23 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
         await _cut.InvokeAsync(() => settings.TimeBufferMsChanged.InvokeAsync(timeBufferMs));
     }
 
+    [Then("the global blur size field uses step {int}")]
+    public void ThenTheGlobalBlurSizeFieldUsesStep(int step)
+    {
+        var numericFields = _cut.FindComponents<MudBlazor.MudNumericField<int>>();
+        // Blur size is the first numeric field in ReviewExportSettings.
+        numericFields.Should().NotBeEmpty();
+        numericFields[0].Instance.Step.Should().Be(step);
+    }
+
+    [Then("the global time buffer field uses step {int}")]
+    public void ThenTheGlobalTimeBufferFieldUsesStep(int step)
+    {
+        var numericFields = _cut.FindComponents<MudBlazor.MudNumericField<int>>();
+        numericFields.Should().HaveCountGreaterThanOrEqualTo(2);
+        numericFields[1].Instance.Step.Should().Be(step);
+    }
+
     [Then("the settings are saved with a single symmetric time buffer of {int} ms")]
     public void ThenTheSettingsAreSavedWithASingleSymmetricTimeBuffer(int timeBufferMs)
     {

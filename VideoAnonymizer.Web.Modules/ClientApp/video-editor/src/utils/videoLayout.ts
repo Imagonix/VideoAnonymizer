@@ -79,7 +79,7 @@ export function computeInspectorPlacement(input: {
     inspectorHeight?: number;
     margin?: number;
 }): InspectorPlacement {
-    const inspectorWidth = input.inspectorWidth ?? 240;
+    const inspectorWidth = input.inspectorWidth ?? 320;
     const inspectorHeight = input.inspectorHeight ?? 210;
     const margin = input.margin ?? 8;
 

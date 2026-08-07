@@ -96,6 +96,22 @@ const trackTimeBufferBadgeClass = computed(() => {
         : 'badge-custom';
 });
 
+/** Checked means Interpolate; null/default renders checked. */
+const gapBeforeInterpolate = computed(
+    () => (props.gapBeforeMode ?? 'Interpolate') !== 'UseBuffers'
+);
+const gapAfterInterpolate = computed(
+    () => (props.gapAfterMode ?? 'Interpolate') !== 'UseBuffers'
+);
+
+/** Outer track boundaries stay visible; gap-adjacent buffers show only when UseBuffers. */
+const showPreControls = computed(
+    () => !props.hasGapBefore || !gapBeforeInterpolate.value
+);
+const showPostControls = computed(
+    () => !props.hasGapAfter || !gapAfterInterpolate.value
+);
+
 function emitBlurSize(event: Event) {
     const value = Number((event.target as HTMLInputElement).value);
     if (!isNaN(value)) emit('update-blur-size', value);
@@ -119,6 +135,14 @@ function emitPre(event: Event) {
 function emitPost(event: Event) {
     const value = Number((event.target as HTMLInputElement).value);
     if (!isNaN(value)) emit('update-post', value);
+}
+
+function onGapBeforeChange(checked: boolean) {
+    emit('update-gap-before', checked ? 'Interpolate' : 'UseBuffers');
+}
+
+function onGapAfterChange(checked: boolean) {
+    emit('update-gap-after', checked ? 'Interpolate' : 'UseBuffers');
 }
 
 const handleRef = ref<HTMLElement | null>(null);
@@ -223,13 +247,14 @@ function onHandleKeydown(event: KeyboardEvent) {
                     </MudLikeCheckbox>
                 </div>
 
-                <div class="scope-row">
+                <div class="scope-row scope-row--wrap">
                     <span class="details-field-label">Blur size</span>
                     <input
                         class="details-input"
                         type="number"
                         min="100"
                         max="300"
+                        step="10"
                         data-testid="occurrence-blur-input"
                         :value="occurrenceBlurEffective"
                         @change="emitOccurrenceBlurSize"
@@ -254,62 +279,64 @@ function onHandleKeydown(event: KeyboardEvent) {
             </header>
 
             <div class="scope-panel-body">
-                <div class="scope-row">
+                <div
+                    v-if="hasGapBefore"
+                    class="scope-row scope-row--checkbox"
+                    data-testid="gap-before-control"
+                >
+                    <MudLikeCheckbox
+                        :checked="gapBeforeInterpolate"
+                        @change="onGapBeforeChange"
+                    >
+                        <span class="gap-checkbox-label" data-testid="gap-before-label">Interpolate gap before</span>
+                    </MudLikeCheckbox>
+                </div>
+
+                <div v-if="showPreControls" class="scope-row scope-row--wrap" data-testid="segment-pre-controls">
                     <span class="details-field-label">Before</span>
-                    <input class="details-input" type="number" min="0" data-testid="segment-pre-input" :value="pre" @change="emitPre" />
+                    <input
+                        class="details-input"
+                        type="number"
+                        min="0"
+                        step="100"
+                        data-testid="segment-pre-input"
+                        :value="pre"
+                        @change="emitPre"
+                    />
                     <span class="details-badge" :class="preIsCustom ? 'badge-custom' : 'badge-global'" data-testid="badge-pre">
                         {{ preIsCustom ? 'Custom' : 'Global' }}
                     </span>
                     <button class="details-reset" title="Reset segment pre-buffer to global" @click="emit('reset-pre')">Reset</button>
                 </div>
-                <p
-                    v-if="preInactiveForGap"
-                    class="scope-row-hint gap-inactive-hint"
-                    data-testid="pre-inactive-hint"
-                >
-                    Stored but inactive while Gap before uses Interpolate
-                </p>
 
-                <div v-if="hasGapBefore" class="scope-row" data-testid="gap-before-control">
-                    <span class="details-field-label">Gap before</span>
-                    <select
-                        class="details-input"
-                        data-testid="gap-before-select"
-                        :value="gapBeforeMode ?? 'Interpolate'"
-                        @change="(e) => emit('update-gap-before', (e.target as HTMLSelectElement).value)"
+                <div
+                    v-if="hasGapAfter"
+                    class="scope-row scope-row--checkbox"
+                    data-testid="gap-after-control"
+                >
+                    <MudLikeCheckbox
+                        :checked="gapAfterInterpolate"
+                        @change="onGapAfterChange"
                     >
-                        <option value="Interpolate">Interpolate</option>
-                        <option value="UseBuffers">Use Before/After buffers</option>
-                    </select>
+                        <span class="gap-checkbox-label" data-testid="gap-after-label">Interpolate gap after</span>
+                    </MudLikeCheckbox>
                 </div>
 
-                <div class="scope-row">
+                <div v-if="showPostControls" class="scope-row scope-row--wrap" data-testid="segment-post-controls">
                     <span class="details-field-label">After</span>
-                    <input class="details-input" type="number" min="0" data-testid="segment-post-input" :value="post" @change="emitPost" />
+                    <input
+                        class="details-input"
+                        type="number"
+                        min="0"
+                        step="100"
+                        data-testid="segment-post-input"
+                        :value="post"
+                        @change="emitPost"
+                    />
                     <span class="details-badge" :class="postIsCustom ? 'badge-custom' : 'badge-global'" data-testid="badge-post">
                         {{ postIsCustom ? 'Custom' : 'Global' }}
                     </span>
                     <button class="details-reset" title="Reset segment post-buffer to global" @click="emit('reset-post')">Reset</button>
-                </div>
-                <p
-                    v-if="postInactiveForGap"
-                    class="scope-row-hint gap-inactive-hint"
-                    data-testid="post-inactive-hint"
-                >
-                    Stored but inactive while Gap after uses Interpolate
-                </p>
-
-                <div v-if="hasGapAfter" class="scope-row" data-testid="gap-after-control">
-                    <span class="details-field-label">Gap after</span>
-                    <select
-                        class="details-input"
-                        data-testid="gap-after-select"
-                        :value="gapAfterMode ?? 'Interpolate'"
-                        @change="(e) => emit('update-gap-after', (e.target as HTMLSelectElement).value)"
-                    >
-                        <option value="Interpolate">Interpolate</option>
-                        <option value="UseBuffers">Use Before/After buffers</option>
-                    </select>
                 </div>
             </div>
         </section>
@@ -328,13 +355,14 @@ function onHandleKeydown(event: KeyboardEvent) {
                     </select>
                 </div>
 
-                <div class="scope-row">
+                <div class="scope-row scope-row--wrap">
                     <span class="details-field-label">Blur size</span>
                     <input
                         class="details-input"
                         type="number"
                         min="100"
                         max="300"
+                        step="10"
                         data-testid="track-blur-input"
                         :value="trackBlurEffective"
                         @change="emitBlurSize"
@@ -345,12 +373,13 @@ function onHandleKeydown(event: KeyboardEvent) {
                     <button class="details-reset" title="Reset track blur size to global" @click="emit('reset-blur-size')">Reset</button>
                 </div>
 
-                <div class="scope-row">
+                <div class="scope-row scope-row--wrap">
                     <span class="details-field-label">Time buffer</span>
                     <input
                         class="details-input"
                         type="number"
                         min="0"
+                        step="100"
                         data-testid="track-time-buffer-input"
                         :value="trackTimeBufferIsMixed ? '' : (trackTimeBufferEffective ?? globalTimeBufferMs)"
                         :placeholder="trackTimeBufferIsMixed ? 'Mixed' : String(globalTimeBufferMs)"
@@ -398,6 +427,10 @@ function onHandleKeydown(event: KeyboardEvent) {
     flex-direction: column;
     gap: 10px;
     z-index: 30;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .scope-panel {
@@ -405,16 +438,19 @@ function onHandleKeydown(event: KeyboardEvent) {
     flex-direction: column;
     gap: 6px;
     width: 100%;
+    box-sizing: border-box;
     padding: 8px 10px;
     border: 1px solid var(--mud-palette-lines-default);
     border-radius: 8px;
     background: var(--mud-palette-surface);
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+    min-width: 0;
 }
 
 .scope-panel-header {
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
 }
@@ -450,10 +486,11 @@ function onHandleKeydown(event: KeyboardEvent) {
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--mud-palette-text-secondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
     min-width: 0;
+    flex: 1 1 auto;
 }
 
 .occurrence-nav {
@@ -498,17 +535,16 @@ function onHandleKeydown(event: KeyboardEvent) {
 .details-title {
     font-size: 0.9rem;
     font-weight: 600;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .scope-row-hint {
     display: block;
     font-size: 0.7rem;
     color: var(--mud-palette-text-secondary);
-}
-
-.gap-inactive-hint {
-    margin: -2px 0 4px 68px;
-    font-style: italic;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .scope-row {
@@ -518,11 +554,31 @@ function onHandleKeydown(event: KeyboardEvent) {
     min-width: 0;
 }
 
+.scope-row--wrap {
+    flex-wrap: wrap;
+}
+
+.scope-row--checkbox {
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.gap-checkbox-label {
+    display: inline-block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
+}
+
 .details-field-label {
     font-size: 0.8rem;
     color: var(--mud-palette-text-secondary);
-    width: 62px;
-    flex-shrink: 0;
+    min-width: 62px;
+    flex: 0 1 auto;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .details-input {
@@ -535,6 +591,7 @@ function onHandleKeydown(event: KeyboardEvent) {
     font-size: 0.85rem;
     outline: none;
     min-width: 0;
+    flex: 0 1 auto;
 }
 
 .details-input:focus {
@@ -545,7 +602,7 @@ function onHandleKeydown(event: KeyboardEvent) {
     font-size: 0.7rem;
     padding: 1px 6px;
     border-radius: 999px;
-    white-space: nowrap;
+    white-space: normal;
     flex-shrink: 0;
 }
 
@@ -577,6 +634,7 @@ function onHandleKeydown(event: KeyboardEvent) {
     font-size: 0.75rem;
     cursor: pointer;
     flex-shrink: 0;
+    white-space: normal;
 }
 
 .details-reset:hover {
@@ -585,6 +643,7 @@ function onHandleKeydown(event: KeyboardEvent) {
 
 .scope-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     justify-content: flex-end;
     border-top: 1px solid var(--mud-palette-lines-default);
@@ -600,6 +659,7 @@ function onHandleKeydown(event: KeyboardEvent) {
     cursor: pointer;
     font-size: 0.8rem;
     font-weight: 600;
+    white-space: normal;
 }
 
 .details-action-btn--active,
@@ -626,6 +686,8 @@ function onHandleKeydown(event: KeyboardEvent) {
     cursor: pointer;
     font-size: 0.8rem;
     font-weight: 600;
+    white-space: normal;
+    word-break: break-word;
 }
 
 .advanced-item:hover {

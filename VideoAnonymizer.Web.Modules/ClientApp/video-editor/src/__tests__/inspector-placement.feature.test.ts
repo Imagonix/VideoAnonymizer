@@ -241,7 +241,7 @@ const steps: StepDefinition[] = [
             const vm = world.wrapper!.vm as any;
             const placement = vm.inspectorPlacement;
             expect(placement.left).toBeGreaterThanOrEqual(8);
-            expect(placement.left + 240).toBeLessThanOrEqual(900);
+            expect(placement.left + 320).toBeLessThanOrEqual(900);
             expect(placement.top).toBeGreaterThanOrEqual(8);
             expect(placement.top + vm.inspectorGroupHeight).toBeLessThanOrEqual(600);
         },
@@ -261,8 +261,9 @@ const steps: StepDefinition[] = [
             const vm = world.wrapper!.vm as any;
             const expectedTop = Math.round((600 - vm.inspectorGroupHeight) / 2) - 100;
             expect(vm.selectedKey).toBe('track-1');
-            expect(vm.manualInspectorPosition).toEqual({ top: expectedTop, left: 352 });
-            expect(vm.inspectorPlacement.left).toBe(352);
+            // Desktop width 320: initial right-edge left is 900-320-8=572; drag dx=-300 -> 272.
+            expect(vm.manualInspectorPosition).toEqual({ top: expectedTop, left: 272 });
+            expect(vm.inspectorPlacement.left).toBe(272);
         },
     },
     {
@@ -281,7 +282,7 @@ const steps: StepDefinition[] = [
         handler: world => {
             const vm = world.wrapper!.vm as any;
             expect(vm.manualInspectorPosition).toBeNull();
-            expect(vm.inspectorPlacement.left).toBe(900 - 240 - 8);
+            expect(vm.inspectorPlacement.left).toBe(900 - 320 - 8);
         },
     },
     {
