@@ -363,66 +363,6 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the reviewer applies Time buffer (\d+) to the entire track$/,
-        handler: async (world, match) => {
-            await selectById(world, 'o4');
-            const vm = world.wrapper!.vm as any;
-            vm.handleUpdateTrackTimeBuffer(Number(match[1]));
-            await nextTick();
-        },
-    },
-    {
-        pattern: /^every current segment boundary stores (\d+)$/,
-        handler: (world, match) => {
-            const value = Number(match[1]);
-            expect(findObject(world, 'o4').preBufferMsOverride).toBe(value);
-            expect(findObject(world, 'o4').postBufferMsOverride).toBe(value);
-            expect(findObject(world, 'o5').preBufferMsOverride).toBe(value);
-            expect(findObject(world, 'o5').postBufferMsOverride).toBe(value);
-        },
-    },
-    {
-        pattern: /^every internal gap is UseBuffers$/,
-        handler: world => {
-            expect(findObject(world, 'o4').nextGapHandlingMode).toBe('UseBuffers');
-        },
-    },
-    {
-        pattern: /^the editor is open with custom segment boundaries and UseBuffers gaps$/,
-        handler: async world => {
-            openEditor(world);
-            findObject(world, 'o4').preBufferMsOverride = 450;
-            findObject(world, 'o4').postBufferMsOverride = 450;
-            findObject(world, 'o4').nextGapHandlingMode = 'UseBuffers';
-            findObject(world, 'o5').preBufferMsOverride = 450;
-            findObject(world, 'o5').postBufferMsOverride = 450;
-            await selectById(world, 'o4');
-        },
-    },
-    {
-        pattern: /^the reviewer resets the track Time buffer$/,
-        handler: async world => {
-            const vm = world.wrapper!.vm as any;
-            vm.handleResetTrackTimeBuffer();
-            await nextTick();
-        },
-    },
-    {
-        pattern: /^every segment boundary override is cleared$/,
-        handler: world => {
-            expect(findObject(world, 'o4').preBufferMsOverride ?? null).toBeNull();
-            expect(findObject(world, 'o4').postBufferMsOverride ?? null).toBeNull();
-            expect(findObject(world, 'o5').preBufferMsOverride ?? null).toBeNull();
-            expect(findObject(world, 'o5').postBufferMsOverride ?? null).toBeNull();
-        },
-    },
-    {
-        pattern: /^every internal gap remains UseBuffers$/,
-        handler: world => {
-            expect(findObject(world, 'o4').nextGapHandlingMode).toBe('UseBuffers');
-        },
-    },
-    {
         pattern: /^the editor is open with a UseBuffers gap between two segments$/,
         handler: world => {
             openEditor(world);

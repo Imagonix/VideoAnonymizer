@@ -9,11 +9,11 @@ Feature: Track settings and consecutive-segment boundary overrides
     Then the selected segment contains all three occurrences of track 1
     And a gap in analyzed frames splits track 2 into two one-object segments
 
-  Scenario: Inherited segment values display the global buffer while storage stays null
+  Scenario: Inherited segment values display the video buffer while storage stays null
     Given the editor is open with consecutive track segments
     When the reviewer selects an occurrence of a track without boundary overrides
-    Then the pre value shows the global buffer and is marked Global
-    And the post value shows the global buffer and is marked Global
+    Then the pre value shows the video buffer and is marked Inherited: Video
+    And the post value shows the video buffer and is marked Inherited: Video
     And the first and last occurrences keep null boundary overrides
 
   Scenario: Editing pre writes only the segment first occurrence

@@ -105,7 +105,11 @@ function onVolumeInput(e: Event) {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 36px;
+  /* Fixed height must match --timeline-toolbar-height / label spacers. */
+  height: var(--timeline-toolbar-height, 36px);
+  min-height: var(--timeline-toolbar-height, 36px);
+  max-height: var(--timeline-toolbar-height, 36px);
+  box-sizing: border-box;
   background: var(--mud-palette-surface);
   color: var(--mud-palette-text-primary);
   font-family: var(--mud-typography-default-family);
@@ -161,7 +165,7 @@ function onVolumeInput(e: Event) {
 
 .timeline-icon-button,
 .timeline-fit-button {
-  height: 36px;
+  height: 32px;
   border-radius: var(--mud-default-borderradius);
   background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
   color: var(--mud-palette-text-primary);
@@ -177,20 +181,21 @@ function onVolumeInput(e: Event) {
   background: color-mix(in srgb, var(--mud-palette-primary) 14%, var(--mud-palette-surface));
 }
 
+/* Sized to fit the shared 36px toolbar height so labels and rows stay aligned. */
 .timeline-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  padding: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--mud-palette-primary);
   overflow: visible;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   line-height: 1;
   text-align: center;
 }

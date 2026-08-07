@@ -86,10 +86,13 @@ function onClick(e: MouseEvent) {
 .timeline-overview {
   margin-right: 9px;
   position: sticky;
-  top: 36px;
+  top: var(--timeline-toolbar-height, 36px);
   z-index: 119;
-  height: 28px;
-  margin-bottom: 4px;
+  height: var(--timeline-overview-height, 28px);
+  min-height: var(--timeline-overview-height, 28px);
+  max-height: var(--timeline-overview-height, 28px);
+  margin-bottom: var(--timeline-overview-gap, 4px);
+  box-sizing: border-box;
   border: 1px solid var(--mud-palette-lines-default);
   border-radius: 6px;
   overflow: hidden;

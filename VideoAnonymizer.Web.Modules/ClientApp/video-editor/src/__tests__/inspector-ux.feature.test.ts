@@ -232,9 +232,10 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the track Time buffer input uses step 100$/,
+        pattern: /^the track Time buffer control is absent$/,
         handler: world => {
-            expect(world.wrapper!.find('[data-testid="track-time-buffer-input"]').attributes('step')).toBe('100');
+            expect(world.wrapper!.find('[data-testid="track-time-buffer-input"]').exists()).toBe(false);
+            expect(world.wrapper!.find('[data-testid="badge-time-buffer"]').exists()).toBe(false);
         },
     },
     {

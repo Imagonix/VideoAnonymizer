@@ -266,20 +266,21 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the pre value shows the global buffer and is marked Global$/,
+        pattern: /^the pre value shows the video buffer and is marked Inherited: Video$/,
         handler: world => {
             const vm = world.wrapper!.vm as any;
             expect(vm.selectedTrackSettings.pre).toBe(300);
             expect(vm.selectedTrackSettings.preIsCustom).toBe(false);
-            expect(world.wrapper!.find('[data-testid="badge-pre"]').text()).toBe('Global');
+            expect(world.wrapper!.find('[data-testid="badge-pre"]').text()).toBe('Inherited: Video');
         },
     },
     {
-        pattern: /^the post value shows the global buffer and is marked Global$/,
+        pattern: /^the post value shows the video buffer and is marked Inherited: Video$/,
         handler: world => {
             const vm = world.wrapper!.vm as any;
             expect(vm.selectedTrackSettings.post).toBe(300);
             expect(vm.selectedTrackSettings.postIsCustom).toBe(false);
+            expect(world.wrapper!.find('[data-testid="badge-post"]').text()).toBe('Inherited: Video');
         },
     },
     {

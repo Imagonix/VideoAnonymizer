@@ -220,9 +220,11 @@
 </template>
 
 <style scoped>
+    /* No top margin: expanded label column and occurrence column share one top edge. */
     .timeline-shell {
-        margin: 8px 8px 8px 4px;
+        margin: 0 8px 0 4px;
         min-width: 0;
+        box-sizing: border-box;
     }
 
     .timeline-viewport {

@@ -180,9 +180,12 @@ public partial class VideoEditor : ComponentBase, IAsyncDisposable
                 _lastFrames = Frames;
                 _mounted = true;
             }
-            catch
+            catch (Exception ex)
             {
+                // Surface the failure so an empty host is not mistaken for a healthy editor.
+                Console.Error.WriteLine($"VideoEditor mount failed: {ex}");
                 _loadFailed = true;
+                StateHasChanged();
             }
         }
     }

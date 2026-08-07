@@ -163,11 +163,26 @@ function onRowClick() {
 .label-container {
     display: flex;
     align-items: center;
-    height: 28px;
-    padding: 0 4px 1px 4px;
+    justify-content: flex-start;
+    gap: 4px;
+    height: var(--timeline-row-height, 28px);
+    min-height: var(--timeline-row-height, 28px);
+    max-height: var(--timeline-row-height, 28px);
+    margin: 0;
+    /* Horizontal inset only — vertical padding would desync from occurrence rows. */
+    padding: 0 4px;
+    box-sizing: border-box;
     border-radius: 4px;
     transition: background 0.1s;
     cursor: pointer;
+}
+
+/* Keep multi-root checkbox parts on one centered row with the thumbnail. */
+.label-container :deep(.mud-checkbox),
+.label-container :deep(.mud-checkbox__label) {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
 }
 
 .label-container--merge-mode {

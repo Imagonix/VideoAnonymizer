@@ -36,45 +36,44 @@ Feature: Three-scope floating inspector panels
     Given the editor is open with a selected tracked occurrence
     Then the Current occurrence panel contains only occurrence-level controls
     And the Current segment panel contains only the Before and After controls
-    And the Entire track panel contains shape, track blur, time buffer, and advanced controls
+    And the Entire track panel contains shape, track blur, and advanced controls
+    And the Entire track panel has no Time buffer control
 
   Scenario: The inspector does not duplicate track-wide inclusion
     Given the editor is open with a selected tracked occurrence
     Then the inspector has no track-wide inclusion control
 
-  Scenario: Occurrence blur inheritance is labeled by its scope
+  Scenario: Occurrence blur inheritance uses exact provenance badges
     Given the editor is open with a track without any blur overrides
     When the reviewer selects the box
-    Then the occurrence blur badge reads Global
+    Then the occurrence blur badge reads "Inherited: Video"
     Given the editor is open with a track whose blur size is overridden
     When the reviewer selects the box
-    Then the occurrence blur badge reads Track
+    Then the occurrence blur badge reads "Inherited: Track"
     Given the editor is open with a track whose occurrence blur is overridden
     When the reviewer selects the box
-    Then the occurrence blur badge reads Custom
+    Then the occurrence blur badge reads "Occurrence override"
 
-  Scenario: The Apply Time buffer to track control reports a common value or Mixed
-    Given the editor is open with a track whose segment boundaries share one value
+  Scenario: Track and segment badges use exact provenance labels
+    Given the editor is open with a track without any blur overrides
     When the reviewer selects the box
-    Then the time buffer control reports that common value
-    Given the editor is open with a track whose segments carry different boundary values
+    Then the track blur badge reads "Inherited: Video"
+    And the segment Before and After badges read "Inherited: Video"
+    Given the editor is open with a track whose blur size is overridden
     When the reviewer selects the box
-    Then the time buffer control reports Mixed
+    Then the track blur badge reads "Track override"
+    Given the editor is open with a segment whose first occurrence holds a pre override
+    When the reviewer selects the middle occurrence of that segment
+    Then the segment Before badge reads "Segment override"
+    And the segment After badge reads "Inherited: Video"
 
-  Scenario: Applying a time buffer to the track writes every current segment boundary
-    Given the editor is open with a track whose segments carry different boundary values
+  Scenario: Reset controls use inherited and video destinations
+    Given the editor is open with a track whose occurrence blur is overridden
     When the reviewer selects the box
-    And applies a time buffer of 450 to the track
-    Then every current segment stores the new pre and post boundary values
-    And Vue sends one bulk update with cloned before-state
+    Then the occurrence blur reset control is labeled Reset to inherited value
+    And the track blur and segment buffer reset controls are labeled Reset to video value
 
-  Scenario: Resetting the time buffer clears all current segment boundaries to global
-    Given the editor is open with a track whose segments carry custom boundary values
-    When the reviewer selects the box
-    And resets the track time buffer
-    Then every current segment boundary falls back to global and stores null
-
-  Scenario: Resetting occurrence blur falls back to the track or global value
+  Scenario: Resetting occurrence blur falls back to the track or video value
     Given the editor is open with a track whose occurrence blur is overridden
     When the reviewer selects the box and resets the occurrence blur size
     Then the occurrence stores a null occurrence blur override

@@ -22,8 +22,6 @@ const props = withDefaults(defineProps<{
     hasGapAfter?: boolean;
     gapBeforeMode?: string | null;
     gapAfterMode?: string | null;
-    trackTimeBufferEffective: number | null;
-    trackTimeBufferIsMixed: boolean;
     canGoPrevious: boolean;
     canGoNext: boolean;
     thumbnailUrl?: string | null;
@@ -42,8 +40,6 @@ const emit = defineEmits<{
     (e: 'update-shape', shape: string): void;
     (e: 'update-blur-size', percent: number): void;
     (e: 'reset-blur-size'): void;
-    (e: 'update-track-time-buffer', valueMs: number): void;
-    (e: 'reset-track-time-buffer'): void;
     (e: 'update-pre', valueMs: number): void;
     (e: 'update-post', valueMs: number): void;
     (e: 'reset-pre'): void;
@@ -70,31 +66,30 @@ function toggleAdvanced() {
 
 const occurrenceBlurEffective = computed(() =>
     props.occurrenceBlurSizePercentOverride ?? props.trackBlurSizePercentOverride ?? props.globalBlurSizePercent);
+/** Exact provenance badges for occurrence blur. */
 const occurrenceBlurBadge = computed(() =>
-    props.occurrenceBlurSizePercentOverride != null ? 'Custom'
-        : props.trackBlurSizePercentOverride != null ? 'Track'
-            : 'Global');
+    props.occurrenceBlurSizePercentOverride != null ? 'Occurrence override'
+        : props.trackBlurSizePercentOverride != null ? 'Inherited: Track'
+            : 'Inherited: Video');
 const occurrenceBlurBadgeClass = computed(() =>
-    props.occurrenceBlurSizePercentOverride != null ? 'badge-custom'
+    props.occurrenceBlurSizePercentOverride != null ? 'badge-override'
         : props.trackBlurSizePercentOverride != null ? 'badge-track'
-            : 'badge-global');
+            : 'badge-video');
 
 const trackBlurEffective = computed(() => props.trackBlurSizePercentOverride ?? props.globalBlurSizePercent);
-const trackBlurBadge = computed(() => (props.trackBlurSizePercentOverride != null ? 'Custom' : 'Global'));
-const trackBlurBadgeClass = computed(() => (props.trackBlurSizePercentOverride != null ? 'badge-custom' : 'badge-global'));
+const trackBlurBadge = computed(() =>
+    props.trackBlurSizePercentOverride != null ? 'Track override' : 'Inherited: Video');
+const trackBlurBadgeClass = computed(() =>
+    props.trackBlurSizePercentOverride != null ? 'badge-override' : 'badge-video');
 
-const trackTimeBufferBadge = computed(() => {
-    if (props.trackTimeBufferIsMixed) return 'Mixed';
-    return props.trackTimeBufferEffective == null || props.trackTimeBufferEffective === props.globalTimeBufferMs
-        ? 'Global'
-        : 'Custom';
-});
-const trackTimeBufferBadgeClass = computed(() => {
-    if (props.trackTimeBufferIsMixed) return 'badge-mixed';
-    return props.trackTimeBufferEffective == null || props.trackTimeBufferEffective === props.globalTimeBufferMs
-        ? 'badge-global'
-        : 'badge-custom';
-});
+const segmentPreBadge = computed(() =>
+    props.preIsCustom ? 'Segment override' : 'Inherited: Video');
+const segmentPostBadge = computed(() =>
+    props.postIsCustom ? 'Segment override' : 'Inherited: Video');
+const segmentPreBadgeClass = computed(() =>
+    props.preIsCustom ? 'badge-override' : 'badge-video');
+const segmentPostBadgeClass = computed(() =>
+    props.postIsCustom ? 'badge-override' : 'badge-video');
 
 /** Checked means Interpolate; null/default renders checked. */
 const gapBeforeInterpolate = computed(
@@ -120,11 +115,6 @@ function emitBlurSize(event: Event) {
 function emitOccurrenceBlurSize(event: Event) {
     const value = Number((event.target as HTMLInputElement).value);
     if (!isNaN(value)) emit('update-occurrence-blur-size', value);
-}
-
-function emitTrackTimeBuffer(event: Event) {
-    const value = Number((event.target as HTMLInputElement).value);
-    if (!isNaN(value)) emit('update-track-time-buffer', value);
 }
 
 function emitPre(event: Event) {
@@ -262,7 +252,12 @@ function onHandleKeydown(event: KeyboardEvent) {
                     <span class="details-badge" :class="occurrenceBlurBadgeClass" data-testid="badge-occurrence-blur">
                         {{ occurrenceBlurBadge }}
                     </span>
-                    <button class="details-reset" title="Reset blur size to the track or global value" @click="emit('reset-occurrence-blur-size')">Reset</button>
+                    <button
+                        class="details-reset"
+                        title="Reset to inherited value"
+                        aria-label="Reset to inherited value"
+                        @click="emit('reset-occurrence-blur-size')"
+                    >Reset</button>
                 </div>
 
                 <div class="scope-actions">
@@ -303,10 +298,15 @@ function onHandleKeydown(event: KeyboardEvent) {
                         :value="pre"
                         @change="emitPre"
                     />
-                    <span class="details-badge" :class="preIsCustom ? 'badge-custom' : 'badge-global'" data-testid="badge-pre">
-                        {{ preIsCustom ? 'Custom' : 'Global' }}
+                    <span class="details-badge" :class="segmentPreBadgeClass" data-testid="badge-pre">
+                        {{ segmentPreBadge }}
                     </span>
-                    <button class="details-reset" title="Reset segment pre-buffer to global" @click="emit('reset-pre')">Reset</button>
+                    <button
+                        class="details-reset"
+                        title="Reset to video value"
+                        aria-label="Reset to video value"
+                        @click="emit('reset-pre')"
+                    >Reset</button>
                 </div>
 
                 <div
@@ -333,10 +333,15 @@ function onHandleKeydown(event: KeyboardEvent) {
                         :value="post"
                         @change="emitPost"
                     />
-                    <span class="details-badge" :class="postIsCustom ? 'badge-custom' : 'badge-global'" data-testid="badge-post">
-                        {{ postIsCustom ? 'Custom' : 'Global' }}
+                    <span class="details-badge" :class="segmentPostBadgeClass" data-testid="badge-post">
+                        {{ segmentPostBadge }}
                     </span>
-                    <button class="details-reset" title="Reset segment post-buffer to global" @click="emit('reset-post')">Reset</button>
+                    <button
+                        class="details-reset"
+                        title="Reset to video value"
+                        aria-label="Reset to video value"
+                        @click="emit('reset-post')"
+                    >Reset</button>
                 </div>
             </div>
         </section>
@@ -370,25 +375,12 @@ function onHandleKeydown(event: KeyboardEvent) {
                     <span class="details-badge" :class="trackBlurBadgeClass" data-testid="badge-track-blur">
                         {{ trackBlurBadge }}
                     </span>
-                    <button class="details-reset" title="Reset track blur size to global" @click="emit('reset-blur-size')">Reset</button>
-                </div>
-
-                <div class="scope-row scope-row--wrap">
-                    <span class="details-field-label">Time buffer</span>
-                    <input
-                        class="details-input"
-                        type="number"
-                        min="0"
-                        step="100"
-                        data-testid="track-time-buffer-input"
-                        :value="trackTimeBufferIsMixed ? '' : (trackTimeBufferEffective ?? globalTimeBufferMs)"
-                        :placeholder="trackTimeBufferIsMixed ? 'Mixed' : String(globalTimeBufferMs)"
-                        @change="emitTrackTimeBuffer"
-                    />
-                    <span class="details-badge" :class="trackTimeBufferBadgeClass" data-testid="badge-time-buffer">
-                        {{ trackTimeBufferBadge }}
-                    </span>
-                    <button class="details-reset" title="Clear all current segment boundaries to global" @click="emit('reset-track-time-buffer')">Reset</button>
+                    <button
+                        class="details-reset"
+                        title="Reset to video value"
+                        aria-label="Reset to video value"
+                        @click="emit('reset-blur-size')"
+                    >Reset</button>
                 </div>
 
                 <div class="scope-actions">
@@ -606,12 +598,12 @@ function onHandleKeydown(event: KeyboardEvent) {
     flex-shrink: 0;
 }
 
-.badge-global {
+.badge-video {
     color: var(--mud-palette-text-secondary);
     background: color-mix(in srgb, var(--mud-palette-text-secondary) 12%, transparent);
 }
 
-.badge-custom {
+.badge-override {
     color: var(--mud-palette-primary);
     background: color-mix(in srgb, var(--mud-palette-primary) 15%, transparent);
 }
@@ -619,11 +611,6 @@ function onHandleKeydown(event: KeyboardEvent) {
 .badge-track {
     color: var(--mud-palette-tertiary, var(--mud-palette-primary));
     background: color-mix(in srgb, var(--mud-palette-tertiary, var(--mud-palette-primary)) 15%, transparent);
-}
-
-.badge-mixed {
-    color: var(--mud-palette-warning, #ff9800);
-    background: color-mix(in srgb, var(--mud-palette-warning, #ff9800) 15%, transparent);
 }
 
 .details-reset {

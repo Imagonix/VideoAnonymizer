@@ -7,10 +7,7 @@ import type {
 } from '../types';
 import {
     getTrackOccurrences,
-    buildAllSegments,
-    findSegment,
     getPrecedingGapBoundary,
-    getTrackSegments,
     hasFollowingGap,
     hasPrecedingGap,
 } from './useConsecutiveTrackSegment';
@@ -32,11 +29,6 @@ export type SegmentBufferValues = {
     preIsCustom: boolean;
     post: number;
     postIsCustom: boolean;
-};
-
-export type TrackTimeBufferState = {
-    effective: number | null;
-    isMixed: boolean;
 };
 
 export type SegmentGapState = {
@@ -226,106 +218,6 @@ export function useTrackSettings(
         );
     }
 
-    /**
-     * All consecutive segments belonging to a track, ordered by analyzed frame index.
-     * An untracked occurrence is resolved as its own one-object segment.
-     */
-    function getScopeSegments(scope: { trackId: number | null; object: DetectedObjectDto }): ConsecutiveSegment[] {
-        if (scope.trackId != null) {
-            return getTrackSegments(frames.value, scope.trackId);
-        }
-        const segment = findSegment(buildAllSegments(frames.value), scope.object);
-        return segment ? [segment] : [];
-    }
-
-    /**
-     * The track Time buffer control reports a common effective value only when every
-     * current segment boundary (pre and post of every segment) matches; otherwise it
-     * shows a Mixed state.
-     */
-    function getTimeBufferState(segments: ConsecutiveSegment[]): TrackTimeBufferState {
-        const boundaryValues: number[] = [];
-        for (const segment of segments) {
-            const buffers = getSegmentBufferValues(segment);
-            boundaryValues.push(buffers.pre, buffers.post);
-        }
-        if (boundaryValues.length === 0) {
-            return { effective: null, isMixed: false };
-        }
-        const unique = new Set(boundaryValues);
-        if (unique.size === 1) {
-            return { effective: boundaryValues[0], isMixed: false };
-        }
-        return { effective: null, isMixed: true };
-    }
-
-    /**
-     * Bulk operation over the current segments: writes the same symmetric value to
-     * every segment's boundary fields and switches every affected internal gap to
-     * UseBuffers in the same undoable bulk action.
-     */
-    function applyTimeBufferToSegments(segments: ConsecutiveSegment[], valueMs: number) {
-        if (segments.length === 0) return;
-
-        const affected: DetectedObjectDto[] = [];
-        const before: DetectedObjectDto[] = [];
-        const seen = new Set<string>();
-        const normalized = valueMs === anonymizationSettings.value.timeBufferMs ? null : valueMs;
-
-        for (const segment of segments) {
-            for (const boundary of [segment.first, segment.last]) {
-                if (seen.has(boundary.id)) continue;
-                seen.add(boundary.id);
-                affected.push(boundary);
-                before.push(JSON.parse(JSON.stringify(boundary)));
-            }
-        }
-
-        for (const segment of segments) {
-            segment.first.preBufferMsOverride = normalized;
-            segment.last.postBufferMsOverride = normalized;
-            if (hasFollowingGap(frames.value, segment)) {
-                segment.last.nextGapHandlingMode = GapHandlingModes.UseBuffers;
-            }
-        }
-
-        const { changed, beforeState } = getChangedObjects(affected, before);
-        if (changed.length > 0) {
-            state.onDetectedObjectsBulkUpdated?.(state.videoId, changed, 'track-settings', beforeState);
-        }
-    }
-
-    /**
-     * Clears all current segment boundary overrides to global without changing gap modes.
-     */
-    function resetTimeBufferToSegments(segments: ConsecutiveSegment[]) {
-        if (segments.length === 0) return;
-
-        const affected: DetectedObjectDto[] = [];
-        const before: DetectedObjectDto[] = [];
-        const seen = new Set<string>();
-
-        for (const segment of segments) {
-            for (const boundary of [segment.first, segment.last]) {
-                if (seen.has(boundary.id)) continue;
-                seen.add(boundary.id);
-                affected.push(boundary);
-                before.push(JSON.parse(JSON.stringify(boundary)));
-            }
-        }
-
-        for (const segment of segments) {
-            segment.first.preBufferMsOverride = null;
-            segment.last.postBufferMsOverride = null;
-            // Gap modes intentionally left unchanged.
-        }
-
-        const { changed, beforeState } = getChangedObjects(affected, before);
-        if (changed.length > 0) {
-            state.onDetectedObjectsBulkUpdated?.(state.videoId, changed, 'track-settings', beforeState);
-        }
-    }
-
     function resolveOccurrenceBlurSize(obj: DetectedObjectDto): number {
         const trackBlur = obj.trackId == null
             ? null
@@ -350,10 +242,6 @@ export function useTrackSettings(
         resetSegmentPre,
         resetSegmentPost,
         applyGapBeforeMode,
-        applyGapAfterMode,
-        getScopeSegments,
-        getTimeBufferState,
-        applyTimeBufferToSegments,
-        resetTimeBufferToSegments
+        applyGapAfterMode
     };
 }

@@ -62,18 +62,6 @@ Feature: Per-gap Interpolate versus Use Before/After buffers
     Then the Before and After buffer controls are visible
     And no Interpolate gap checkboxes are shown
 
-  Scenario: Track-wide Time buffer apply switches internal gaps to UseBuffers
-    Given the editor is open with a track that has two segments separated by a real gap
-    When the reviewer applies Time buffer 500 to the entire track
-    Then every current segment boundary stores 500
-    And every internal gap is UseBuffers
-
-  Scenario: Track-wide Time buffer reset clears boundaries without changing gap modes
-    Given the editor is open with custom segment boundaries and UseBuffers gaps
-    When the reviewer resets the track Time buffer
-    Then every segment boundary override is cleared
-    And every internal gap remains UseBuffers
-
   Scenario: Closing a gap clears the obsolete nextGapHandlingMode
     Given the editor is open with a UseBuffers gap between two segments
     When the reviewer adds an occurrence that closes the gap

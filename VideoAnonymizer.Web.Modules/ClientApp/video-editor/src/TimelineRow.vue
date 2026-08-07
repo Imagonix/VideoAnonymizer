@@ -156,6 +156,12 @@ function onDotClick(obj: DetectedObjectDto, time: number, event: MouseEvent) {
 <style scoped>
 .timeline-row-wrapper {
     position: relative;
+    height: var(--timeline-row-height, 28px);
+    min-height: var(--timeline-row-height, 28px);
+    max-height: var(--timeline-row-height, 28px);
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
 
 .timeline-row-wrapper--selected {
@@ -167,7 +173,8 @@ function onDotClick(obj: DetectedObjectDto, time: number, event: MouseEvent) {
 
 .timeline-row {
     position: relative;
-    height: 28px;
+    height: 100%;
+    box-sizing: border-box;
     border-bottom: 1px solid var(--mud-palette-lines-default);
     border-radius: 6px;
     overflow: hidden;

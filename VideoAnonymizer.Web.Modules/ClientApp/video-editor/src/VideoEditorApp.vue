@@ -78,7 +78,10 @@ function updateWorkspaceSize() {
     const height = el.clientHeight;
     if (width <= 0 || height <= 0) return;
 
-    workspaceSize.value = { width, height };
+    // Avoid thrashing watches when ResizeObserver re-fires with the same size.
+    if (workspaceSize.value.width !== width || workspaceSize.value.height !== height) {
+        workspaceSize.value = { width, height };
+    }
     videoFrameSize.value = computeVideoFrameSize({
         containerWidth: width,
         containerHeight: height,
@@ -150,11 +153,7 @@ const {
     resetSegmentPre,
     resetSegmentPost,
     applyGapBeforeMode,
-    applyGapAfterMode,
-    getScopeSegments,
-    getTimeBufferState,
-    applyTimeBufferToSegments,
-    resetTimeBufferToSegments
+    applyGapAfterMode
 } = useTrackSettings(props.state, frames, anonymizationSettings);
 
 const allObjects = computed(() => frames.value.flatMap(frame => frame.detectedObjects));
@@ -276,14 +275,6 @@ function goToNextOccurrence() {
     seekTo(frameTimeFor(selectedTrackOccurrences.value[index + 1]));
 }
 
-const selectedScopeSegments = computed(() => {
-    const obj = selectedOccurrence.value;
-    if (!obj) return [];
-    return getScopeSegments({ trackId: obj.trackId, object: obj });
-});
-
-const selectedTimeBufferState = computed(() => getTimeBufferState(selectedScopeSegments.value));
-
 const selectedTrackSettings = computed(() => {
     const obj = selectedOccurrence.value;
     if (!obj) return null;
@@ -313,9 +304,7 @@ const selectedTrackSettings = computed(() => {
         hasGapBefore: gaps.hasGapBefore,
         hasGapAfter: gaps.hasGapAfter,
         gapBeforeMode: gaps.gapBeforeMode,
-        gapAfterMode: gaps.gapAfterMode,
-        trackTimeBufferEffective: selectedTimeBufferState.value.effective,
-        trackTimeBufferIsMixed: selectedTimeBufferState.value.isMixed
+        gapAfterMode: gaps.gapAfterMode
     };
 });
 
@@ -740,14 +729,6 @@ function handleResetOccurrenceBlurSize() {
     resetOccurrenceBlurSize(obj);
 }
 
-function handleUpdateTrackTimeBuffer(valueMs: number) {
-    applyTimeBufferToSegments(selectedScopeSegments.value, valueMs);
-}
-
-function handleResetTrackTimeBuffer() {
-    resetTimeBufferToSegments(selectedScopeSegments.value);
-}
-
 function handleUpdatePre(valueMs: number) {
     const segment = getSelectedSegment();
     if (segment) applySegmentPre(segment, valueMs);
@@ -946,8 +927,6 @@ function setVideoVolume(volume: number) {
               @update-shape="handleUpdateShape"
               @update-blur-size="handleUpdateBlurSize"
               @reset-blur-size="handleResetBlurSize"
-              @update-track-time-buffer="handleUpdateTrackTimeBuffer"
-              @reset-track-time-buffer="handleResetTrackTimeBuffer"
               @update-pre="handleUpdatePre"
               @update-post="handleUpdatePost"
               @reset-pre="handleResetPre"
@@ -1028,11 +1007,15 @@ function setVideoVolume(volume: number) {
                   @select-occurrence="selectOccurrenceAndSeek"
                 />
 
-                <div v-if="timelineExpanded" class="timeline-wrapper" data-testid="expanded-timeline">
-                    <div class="timeline-labels">
-                        <div class="timeline-toolbar-spacer"></div>
-                        <div class="timeline-overview-spacer"></div>
-                        <div class="timeline-header-spacer"></div>
+                <div
+                  v-if="timelineExpanded"
+                  class="timeline-wrapper"
+                  data-testid="expanded-timeline"
+                >
+                    <div class="timeline-labels" data-testid="timeline-labels">
+                        <div class="timeline-toolbar-spacer" data-testid="timeline-toolbar-spacer"></div>
+                        <div class="timeline-overview-spacer" data-testid="timeline-overview-spacer"></div>
+                        <div class="timeline-header-spacer" data-testid="timeline-header-spacer"></div>
                         <TimelineRowLabel
                           v-for="obj in timelineObjects"
                           :key="getTimelineKey(obj)"
@@ -1172,6 +1155,14 @@ function setVideoVolume(volume: number) {
 }
 
 .timeline-wrapper {
+    /* Shared expanded-timeline layout contract (see timelineLayout.ts). */
+    --timeline-toolbar-height: 36px;
+    --timeline-overview-height: 28px;
+    --timeline-overview-gap: 4px;
+    --timeline-ruler-height: 22px;
+    --timeline-ruler-gap: 6px;
+    --timeline-row-height: 28px;
+
     flex: 1 1 auto;
     min-height: 0;
     display: grid;
@@ -1181,9 +1172,11 @@ function setVideoVolume(volume: number) {
     border-top: 1px solid var(--mud-palette-lines-default);
 }
 
+/* No vertical padding here — must match occurrence column top inset exactly. */
 .timeline-labels {
-    padding: 8px 8px 8px 6px;
+    padding: 0 6px 0 6px;
     background: var(--mud-palette-surface);
+    box-sizing: border-box;
 }
 
 .timeline-content {
@@ -1191,27 +1184,37 @@ function setVideoVolume(volume: number) {
     background: var(--mud-palette-surface);
 }
 
+/* Spacers mirror Timeline toolbar / overview / ruler via shared CSS vars. */
 .timeline-toolbar-spacer {
     position: sticky;
     top: 0;
     z-index: 20;
     background: var(--mud-palette-surface);
-    height: 36px;
+    height: var(--timeline-toolbar-height, 36px);
+    min-height: var(--timeline-toolbar-height, 36px);
+    max-height: var(--timeline-toolbar-height, 36px);
+    box-sizing: border-box;
     isolation: isolate;
-}
-
-.timeline-header-spacer {
-    height: 22px;
-    margin-bottom: 6px;
 }
 
 .timeline-overview-spacer {
     position: sticky;
-    top: 36px;
+    top: var(--timeline-toolbar-height, 36px);
     z-index: 20;
     background: var(--mud-palette-surface);
-    height: 28px;
-    margin-bottom: 4px;
+    height: var(--timeline-overview-height, 28px);
+    min-height: var(--timeline-overview-height, 28px);
+    max-height: var(--timeline-overview-height, 28px);
+    margin-bottom: var(--timeline-overview-gap, 4px);
+    box-sizing: border-box;
     isolation: isolate;
+}
+
+.timeline-header-spacer {
+    height: var(--timeline-ruler-height, 22px);
+    min-height: var(--timeline-ruler-height, 22px);
+    max-height: var(--timeline-ruler-height, 22px);
+    margin-bottom: var(--timeline-ruler-gap, 6px);
+    box-sizing: border-box;
 }
 </style>

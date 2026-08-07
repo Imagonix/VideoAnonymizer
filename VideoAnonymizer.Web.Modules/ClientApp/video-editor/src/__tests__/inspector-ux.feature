@@ -16,7 +16,7 @@ Feature: Inspector gap checkboxes, width, and numeric steps
   Scenario: Time buffer inputs use 100 ms steps and accept non-step values
     Given the editor is open with a continuous track and outer buffer controls
     Then the segment Before and After inputs use step 100
-    And the track Time buffer input uses step 100
+    And the track Time buffer control is absent
     When the reviewer types segment Before as 250
     Then the stored Before override is 250 without rounding to a step
 

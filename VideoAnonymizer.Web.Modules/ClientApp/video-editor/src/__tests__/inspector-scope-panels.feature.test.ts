@@ -295,20 +295,6 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^applies a time buffer of (\d+) to the track$/,
-        handler: world => {
-            const vm = world.wrapper!.vm as any;
-            vm.handleUpdateTrackTimeBuffer(450);
-        },
-    },
-    {
-        pattern: /^resets the track time buffer$/,
-        handler: world => {
-            const vm = world.wrapper!.vm as any;
-            vm.handleResetTrackTimeBuffer();
-        },
-    },
-    {
         pattern: /^the inspector shows Current occurrence, Current segment, and Entire track panels in order$/,
         handler: world => {
             const panels = world.wrapper!.findAll('.scope-panel');
@@ -408,14 +394,22 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the Entire track panel contains shape, track blur, time buffer, and advanced controls$/,
+        pattern: /^the Entire track panel contains shape, track blur, and advanced controls$/,
         handler: world => {
             const trk = world.wrapper!.find('[data-testid="scope-panel-track"]');
             expect(trk.find('[data-testid="track-shape-input"]').exists()).toBe(true);
             expect(trk.find('[data-testid="track-blur-input"]').exists()).toBe(true);
-            expect(trk.find('[data-testid="track-time-buffer-input"]').exists()).toBe(true);
             expect(trk.find('[data-testid="advanced-menu"]').exists()).toBe(false);
             expect(trk.text()).toContain('Advanced');
+        },
+    },
+    {
+        pattern: /^the Entire track panel has no Time buffer control$/,
+        handler: world => {
+            const trk = world.wrapper!.find('[data-testid="scope-panel-track"]');
+            expect(trk.find('[data-testid="track-time-buffer-input"]').exists()).toBe(false);
+            expect(trk.find('[data-testid="badge-time-buffer"]').exists()).toBe(false);
+            expect(trk.text()).not.toMatch(/Time buffer/i);
         },
     },
     {
@@ -426,60 +420,62 @@ const steps: StepDefinition[] = [
         },
     },
     {
-        pattern: /^the occurrence blur badge reads (Global|Track|Custom)$/,
+        pattern: /^the occurrence blur badge reads "(.+)"$/,
         handler: (world, match) => {
             const badge = world.wrapper!.find('[data-testid="badge-occurrence-blur"]');
             expect(badge.text()).toBe(match[1]);
         },
     },
     {
-        pattern: /^the time buffer control reports that common value$/,
-        handler: world => {
-            const vm = world.wrapper!.vm as any;
-            expect(vm.selectedTrackSettings.trackTimeBufferIsMixed).toBe(false);
-            expect(vm.selectedTrackSettings.trackTimeBufferEffective).toBe(500);
-            expect(world.wrapper!.find('[data-testid="badge-time-buffer"]').text()).toBe('Custom');
+        pattern: /^the track blur badge reads "(.+)"$/,
+        handler: (world, match) => {
+            expect(world.wrapper!.find('[data-testid="badge-track-blur"]').text()).toBe(match[1]);
         },
     },
     {
-        pattern: /^the time buffer control reports Mixed$/,
-        handler: world => {
-            const vm = world.wrapper!.vm as any;
-            expect(vm.selectedTrackSettings.trackTimeBufferIsMixed).toBe(true);
-            expect(vm.selectedTrackSettings.trackTimeBufferEffective).toBeNull();
-            expect(world.wrapper!.find('[data-testid="badge-time-buffer"]').text()).toBe('Mixed');
+        pattern: /^the segment Before and After badges read "(.+)"$/,
+        handler: (world, match) => {
+            expect(world.wrapper!.find('[data-testid="badge-pre"]').text()).toBe(match[1]);
+            expect(world.wrapper!.find('[data-testid="badge-post"]').text()).toBe(match[1]);
         },
     },
     {
-        pattern: /^every current segment stores the new pre and post boundary values$/,
-        handler: world => {
-            expect(findObject(world, 'o1')!.preBufferMsOverride).toBe(450);
-            expect(findObject(world, 'o2')!.postBufferMsOverride).toBe(450);
-            expect(findObject(world, 'o4')!.preBufferMsOverride).toBe(450);
-            expect(findObject(world, 'o4')!.postBufferMsOverride).toBe(450);
+        pattern: /^the segment Before badge reads "(.+)"$/,
+        handler: (world, match) => {
+            expect(world.wrapper!.find('[data-testid="badge-pre"]').text()).toBe(match[1]);
         },
     },
     {
-        pattern: /^Vue sends one bulk update with cloned before-state$/,
-        handler: world => {
-            expect(world.onDetectedObjectsBulkUpdated).toHaveBeenCalledOnce();
-            const [videoId, dtos, operationType, beforeState] = world.onDetectedObjectsBulkUpdated!.mock.calls[0];
-            expect(videoId).toBe('v1');
-            expect(operationType).toBe('track-settings');
-            expect(dtos.map((d: DetectedObjectDto) => d.id).sort()).toEqual(['o1', 'o2', 'o4']);
-            expect(beforeState).toHaveLength(3);
-            beforeState.forEach((item: DetectedObjectDto, index: number) => {
-                expect(item).not.toBe(dtos[index]);
-            });
+        pattern: /^the segment After badge reads "(.+)"$/,
+        handler: (world, match) => {
+            expect(world.wrapper!.find('[data-testid="badge-post"]').text()).toBe(match[1]);
         },
     },
     {
-        pattern: /^every current segment boundary falls back to global and stores null$/,
+        pattern: /^the occurrence blur reset control is labeled Reset to inherited value$/,
         handler: world => {
-            expect(findObject(world, 'o1')!.preBufferMsOverride).toBeNull();
-            expect(findObject(world, 'o2')!.postBufferMsOverride).toBeNull();
-            expect(findObject(world, 'o4')!.preBufferMsOverride).toBeNull();
-            expect(findObject(world, 'o4')!.postBufferMsOverride).toBeNull();
+            const occ = world.wrapper!.find('[data-testid="scope-panel-occurrence"]');
+            const reset = occ.find('.details-reset');
+            expect(reset.attributes('aria-label')).toBe('Reset to inherited value');
+            expect(reset.attributes('title')).toBe('Reset to inherited value');
+        },
+    },
+    {
+        pattern: /^the track blur and segment buffer reset controls are labeled Reset to video value$/,
+        handler: world => {
+            const trackReset = world.wrapper!
+                .find('[data-testid="scope-panel-track"]')
+                .find('.details-reset');
+            expect(trackReset.attributes('aria-label')).toBe('Reset to video value');
+
+            const preReset = world.wrapper!
+                .find('[data-testid="segment-pre-controls"]')
+                .find('.details-reset');
+            const postReset = world.wrapper!
+                .find('[data-testid="segment-post-controls"]')
+                .find('.details-reset');
+            expect(preReset.attributes('aria-label')).toBe('Reset to video value');
+            expect(postReset.attributes('aria-label')).toBe('Reset to video value');
         },
     },
     {

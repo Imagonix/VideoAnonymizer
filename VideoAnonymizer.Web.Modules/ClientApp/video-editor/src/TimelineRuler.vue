@@ -44,8 +44,11 @@ function showTickLabel(index: number): boolean {
 <style scoped>
 .timeline-ruler {
   position: relative;
-  height: 22px;
-  margin-bottom: 6px;
+  height: var(--timeline-ruler-height, 22px);
+  min-height: var(--timeline-ruler-height, 22px);
+  max-height: var(--timeline-ruler-height, 22px);
+  margin-bottom: var(--timeline-ruler-gap, 6px);
+  box-sizing: border-box;
   border-bottom: 1px solid var(--mud-palette-lines-default);
   background: var(--mud-palette-surface);
 }
