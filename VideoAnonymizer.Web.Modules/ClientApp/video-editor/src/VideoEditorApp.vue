@@ -100,6 +100,8 @@ onMounted(() => {
 
 onUnmounted(() => {
     resizeObserver?.disconnect();
+    inspectorResizeObserver?.disconnect();
+    inspectorResizeObserver = null;
     window.removeEventListener('keydown', onKeyDown);
 });
 const frames = computed(() => props.state.frames ?? []);
@@ -350,10 +352,14 @@ const DEFAULT_GROUP_HEIGHT = 340;
  * Automatic left/right placement runs only until the first usable position is set.
  * Selection, playback, and panel content changes must not flip sides.
  * Manual drag overwrites this; hide/show keeps it; resize only re-clamps.
+ * Advanced expand/collapse remeasures post-render height then minimally re-clamps.
  */
 const retainedInspectorPosition = ref<{ top: number; left: number } | null>(null);
 const isInspectorDragging = ref(false);
 const inspectorPanelRef = ref<{ $el: HTMLElement } | null>(null);
+/** Actual painted group height (includes Advanced menu when open). */
+const measuredInspectorHeight = ref(DEFAULT_GROUP_HEIGHT);
+let inspectorResizeObserver: ResizeObserver | null = null;
 
 const effectiveInspectorWidth = computed(() => {
     const { width: stageWidth } = workspaceSize.value;
@@ -362,17 +368,37 @@ const effectiveInspectorWidth = computed(() => {
     return Math.min(INSPECTOR_WIDTH, available);
 });
 
-const inspectorGroupHeight = computed(() =>
-    inspectorPanelRef.value?.$el?.offsetHeight || DEFAULT_GROUP_HEIGHT
-);
+const inspectorGroupHeight = computed(() => measuredInspectorHeight.value);
 
-function clampInspectorPosition(top: number, left: number) {
+function getInspectorRootEl(): HTMLElement | null {
+    const comp = inspectorPanelRef.value as { $el?: unknown } | HTMLElement | null;
+    if (!comp) return null;
+    const el = (comp as { $el?: unknown }).$el ?? comp;
+    return el instanceof HTMLElement ? el : null;
+}
+
+/**
+ * Measure the full three-panel group after DOM paint (Advanced open/close, wrap, etc.).
+ * Never estimates from fixed menu heights.
+ */
+function measureInspectorGroupHeight(): number {
+    const el = getInspectorRootEl();
+    if (!el) return measuredInspectorHeight.value;
+    const h = Math.round(el.getBoundingClientRect().height || el.offsetHeight || 0);
+    if (h > 0) {
+        measuredInspectorHeight.value = h;
+    }
+    return measuredInspectorHeight.value;
+}
+
+function clampInspectorPosition(top: number, left: number, heightOverride?: number) {
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
-    const height = inspectorGroupHeight.value;
+    const height = heightOverride ?? inspectorGroupHeight.value;
     const width = effectiveInspectorWidth.value;
     if (stageWidth <= 0 || stageHeight <= 0) {
         return { top, left };
     }
+    // When taller than the stage, pin to the top margin; whole-group scroll handles reachability.
     const maxTop = Math.max(INSPECTOR_MARGIN, stageHeight - height - INSPECTOR_MARGIN);
     const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - width - INSPECTOR_MARGIN);
     return {
@@ -408,11 +434,15 @@ function ensureInitialInspectorPosition() {
     if (!obj) return;
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
     if (stageWidth <= 0 || stageHeight <= 0) return;
+    measureInspectorGroupHeight();
     const placement = computeInitialInspectorPlacement();
     retainedInspectorPosition.value = { top: placement.top, left: placement.left };
 }
 
-/** Re-clamp retained position only when bounds shrink; never flip sides. */
+/**
+ * Minimal bounds correction only: move just enough to keep the full group inside
+ * the stage. Never flips sides or recomputes opposite-of-box placement.
+ */
 function reclampRetainedInspectorPosition() {
     if (!retainedInspectorPosition.value) return;
     const clamped = clampInspectorPosition(
@@ -427,12 +457,45 @@ function reclampRetainedInspectorPosition() {
     }
 }
 
+/**
+ * After Advanced (or other content) changes height: wait for paint, measure the
+ * full group, then minimally reclamp. Closing Advanced keeps the corrected top.
+ */
+async function onInspectorLayoutChanged() {
+    await nextTick();
+    await new Promise<void>(resolve => {
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+    measureInspectorGroupHeight();
+    reclampRetainedInspectorPosition();
+}
+
+function bindInspectorResizeObserver() {
+    inspectorResizeObserver?.disconnect();
+    inspectorResizeObserver = null;
+    const el = getInspectorRootEl();
+    if (!el || typeof ResizeObserver === 'undefined') {
+        measureInspectorGroupHeight();
+        return;
+    }
+    inspectorResizeObserver = new ResizeObserver(() => {
+        const previous = measuredInspectorHeight.value;
+        measureInspectorGroupHeight();
+        if (measuredInspectorHeight.value !== previous) {
+            reclampRetainedInspectorPosition();
+        }
+    });
+    inspectorResizeObserver.observe(el);
+    measureInspectorGroupHeight();
+}
+
 const inspectorPlacement = computed(() => {
     const obj = selectedOccurrence.value;
     if (!obj) return null;
     const width = effectiveInspectorWidth.value;
     if (retainedInspectorPosition.value) {
-        // Display with clamp for safety; retained source is updated only by drag or resize.
+        // Display with clamp for safety; retained source is updated only by drag,
+        // resize, or post-layout remeasure — never opposite-side recompute.
         const clamped = clampInspectorPosition(
             retainedInspectorPosition.value.top,
             retainedInspectorPosition.value.left
@@ -446,8 +509,9 @@ const inspectorScrollStyle = computed(() => {
     const { height: stageHeight } = workspaceSize.value;
     if (stageHeight <= 0) return null;
     const maxHeight = stageHeight - INSPECTOR_MARGIN * 2;
+    // Whole-group scroll when expanded content exceeds the stage (not an Advanced-only scrollbar).
     if (inspectorGroupHeight.value > maxHeight) {
-        return { maxHeight: maxHeight + 'px', overflowY: 'auto' };
+        return { maxHeight: maxHeight + 'px', overflowY: 'auto' as const };
     }
     return null;
 });
@@ -476,7 +540,7 @@ function onInspectorDragEnd() {
 
 // First usable selection + stage establishes position; later selection changes keep it.
 watch(
-    [selectedOccurrence, workspaceSize, videoRect, inspectorGroupHeight, effectiveInspectorWidth],
+    [selectedOccurrence, workspaceSize, videoRect, measuredInspectorHeight, effectiveInspectorWidth],
     () => {
         if (!selectedOccurrence.value) {
             isInspectorDragging.value = false;
@@ -489,6 +553,19 @@ watch(
         }
     },
     { deep: true }
+);
+
+// Bind ResizeObserver when the inspector mounts / remounts.
+watch(
+    () => inspectorPanelRef.value,
+    () => {
+        nextTick(() => {
+            bindInspectorResizeObserver();
+            if (selectedOccurrence.value && retainedInspectorPosition.value) {
+                reclampRetainedInspectorPosition();
+            }
+        });
+    }
 );
 
 const inspectorStyle = computed(() => {
@@ -943,6 +1020,7 @@ function setVideoVolume(volume: number) {
               @drag-start="onInspectorDragStart"
               @drag-by="onInspectorDragBy"
               @drag-end="onInspectorDragEnd"
+              @layout-changed="onInspectorLayoutChanged"
             />
 
             <EditorToolbar

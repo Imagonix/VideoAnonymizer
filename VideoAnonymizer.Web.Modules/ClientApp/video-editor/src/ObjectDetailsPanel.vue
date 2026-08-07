@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
 import TrackThumbnail from './TrackThumbnail.vue';
 
@@ -56,12 +56,17 @@ const emit = defineEmits<{
     (e: 'drag-start'): void;
     (e: 'drag-by', delta: { dx: number; dy: number }): void;
     (e: 'drag-end'): void;
+    /** Fired after Advanced open/close has painted so the host can remeasure height. */
+    (e: 'layout-changed'): void;
 }>();
 
 const advancedOpen = ref(false);
 
-function toggleAdvanced() {
+async function toggleAdvanced() {
     advancedOpen.value = !advancedOpen.value;
+    // Wait for the Advanced menu DOM to mount/unmount before parent measures height.
+    await nextTick();
+    emit('layout-changed');
 }
 
 const occurrenceBlurEffective = computed(() =>
