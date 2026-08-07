@@ -356,6 +356,16 @@ const INSPECTOR_WIDTH = 320;
 const INSPECTOR_MARGIN = 8;
 const DEFAULT_GROUP_HEIGHT = 340;
 
+/**
+ * One-time / retained inspector position for the mounted editor session.
+ * Automatic left/right placement runs only until the first usable position is set.
+ * Selection, playback, and panel content changes must not flip sides.
+ * Manual drag overwrites this; hide/show keeps it; resize only re-clamps.
+ */
+const retainedInspectorPosition = ref<{ top: number; left: number } | null>(null);
+const isInspectorDragging = ref(false);
+const inspectorPanelRef = ref<{ $el: HTMLElement } | null>(null);
+
 const effectiveInspectorWidth = computed(() => {
     const { width: stageWidth } = workspaceSize.value;
     if (stageWidth <= 0) return INSPECTOR_WIDTH;
@@ -363,17 +373,31 @@ const effectiveInspectorWidth = computed(() => {
     return Math.min(INSPECTOR_WIDTH, available);
 });
 
-const inspectorPlacement = computed(() => {
+const inspectorGroupHeight = computed(() =>
+    inspectorPanelRef.value?.$el?.offsetHeight || DEFAULT_GROUP_HEIGHT
+);
+
+function clampInspectorPosition(top: number, left: number) {
+    const { width: stageWidth, height: stageHeight } = workspaceSize.value;
+    const height = inspectorGroupHeight.value;
+    const width = effectiveInspectorWidth.value;
+    if (stageWidth <= 0 || stageHeight <= 0) {
+        return { top, left };
+    }
+    const maxTop = Math.max(INSPECTOR_MARGIN, stageHeight - height - INSPECTOR_MARGIN);
+    const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - width - INSPECTOR_MARGIN);
+    return {
+        top: Math.min(maxTop, Math.max(INSPECTOR_MARGIN, top)),
+        left: Math.min(maxLeft, Math.max(INSPECTOR_MARGIN, left))
+    };
+}
+
+function computeInitialInspectorPlacement() {
     const obj = selectedOccurrence.value;
-    if (!obj) return null;
     const width = effectiveInspectorWidth.value;
     const { width: stageWidth, height: stageHeight } = workspaceSize.value;
-    if (stageWidth <= 0 || stageHeight <= 0) {
-        return { top: 8, left: 8, width };
-    }
-    if (manualInspectorPosition.value) {
-        const clamped = clampInspectorPosition(manualInspectorPosition.value.top, manualInspectorPosition.value.left);
-        return { top: clamped.top, left: clamped.left, width };
+    if (!obj || stageWidth <= 0 || stageHeight <= 0) {
+        return { top: INSPECTOR_MARGIN, left: INSPECTOR_MARGIN, width };
     }
     return computeInspectorPlacement({
         stageWidth,
@@ -386,6 +410,47 @@ const inspectorPlacement = computed(() => {
         inspectorHeight: inspectorGroupHeight.value,
         margin: INSPECTOR_MARGIN
     });
+}
+
+/** Capture left/right auto placement exactly once when a usable stage exists. */
+function ensureInitialInspectorPosition() {
+    if (retainedInspectorPosition.value) return;
+    const obj = selectedOccurrence.value;
+    if (!obj) return;
+    const { width: stageWidth, height: stageHeight } = workspaceSize.value;
+    if (stageWidth <= 0 || stageHeight <= 0) return;
+    const placement = computeInitialInspectorPlacement();
+    retainedInspectorPosition.value = { top: placement.top, left: placement.left };
+}
+
+/** Re-clamp retained position only when bounds shrink; never flip sides. */
+function reclampRetainedInspectorPosition() {
+    if (!retainedInspectorPosition.value) return;
+    const clamped = clampInspectorPosition(
+        retainedInspectorPosition.value.top,
+        retainedInspectorPosition.value.left
+    );
+    if (
+        clamped.top !== retainedInspectorPosition.value.top
+        || clamped.left !== retainedInspectorPosition.value.left
+    ) {
+        retainedInspectorPosition.value = clamped;
+    }
+}
+
+const inspectorPlacement = computed(() => {
+    const obj = selectedOccurrence.value;
+    if (!obj) return null;
+    const width = effectiveInspectorWidth.value;
+    if (retainedInspectorPosition.value) {
+        // Display with clamp for safety; retained source is updated only by drag or resize.
+        const clamped = clampInspectorPosition(
+            retainedInspectorPosition.value.top,
+            retainedInspectorPosition.value.left
+        );
+        return { top: clamped.top, left: clamped.left, width };
+    }
+    return computeInitialInspectorPlacement();
 });
 
 const inspectorScrollStyle = computed(() => {
@@ -398,40 +463,21 @@ const inspectorScrollStyle = computed(() => {
     return null;
 });
 
-const manualInspectorPosition = ref<{ top: number; left: number } | null>(null);
-const isInspectorDragging = ref(false);
-const inspectorPanelRef = ref<{ $el: HTMLElement } | null>(null);
-
-const inspectorGroupHeight = computed(() =>
-    inspectorPanelRef.value?.$el?.offsetHeight || DEFAULT_GROUP_HEIGHT
-);
-
-function clampInspectorPosition(top: number, left: number) {
-    const { width: stageWidth, height: stageHeight } = workspaceSize.value;
-    const height = inspectorGroupHeight.value;
-    const width = effectiveInspectorWidth.value;
-    const maxTop = Math.max(INSPECTOR_MARGIN, stageHeight - height - INSPECTOR_MARGIN);
-    const maxLeft = Math.max(INSPECTOR_MARGIN, stageWidth - width - INSPECTOR_MARGIN);
-    return {
-        top: Math.min(maxTop, Math.max(INSPECTOR_MARGIN, top)),
-        left: Math.min(maxLeft, Math.max(INSPECTOR_MARGIN, left))
-    };
-}
-
 function onInspectorDragStart() {
     isInspectorDragging.value = true;
+    ensureInitialInspectorPosition();
     const placement = inspectorPlacement.value;
     if (!placement) return;
-    manualInspectorPosition.value = { top: placement.top, left: placement.left };
+    retainedInspectorPosition.value = { top: placement.top, left: placement.left };
 }
 
 function onInspectorDragBy(delta: { dx: number; dy: number }) {
     isInspectorDragging.value = true;
-    if (!manualInspectorPosition.value) onInspectorDragStart();
-    if (!manualInspectorPosition.value) return;
-    manualInspectorPosition.value = clampInspectorPosition(
-        manualInspectorPosition.value.top + delta.dy,
-        manualInspectorPosition.value.left + delta.dx
+    if (!retainedInspectorPosition.value) onInspectorDragStart();
+    if (!retainedInspectorPosition.value) return;
+    retainedInspectorPosition.value = clampInspectorPosition(
+        retainedInspectorPosition.value.top + delta.dy,
+        retainedInspectorPosition.value.left + delta.dx
     );
 }
 
@@ -439,12 +485,22 @@ function onInspectorDragEnd() {
     isInspectorDragging.value = false;
 }
 
-watch(selectedKey, (key) => {
-    if (!key) {
-        manualInspectorPosition.value = null;
-        isInspectorDragging.value = false;
-    }
-});
+// First usable selection + stage establishes position; later selection changes keep it.
+watch(
+    [selectedOccurrence, workspaceSize, videoRect, inspectorGroupHeight, effectiveInspectorWidth],
+    () => {
+        if (!selectedOccurrence.value) {
+            isInspectorDragging.value = false;
+            return;
+        }
+        if (!retainedInspectorPosition.value) {
+            ensureInitialInspectorPosition();
+        } else {
+            reclampRetainedInspectorPosition();
+        }
+    },
+    { deep: true }
+);
 
 const inspectorStyle = computed(() => {
     const placement = inspectorPlacement.value;

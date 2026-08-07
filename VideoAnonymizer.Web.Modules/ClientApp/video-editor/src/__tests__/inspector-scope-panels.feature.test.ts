@@ -207,7 +207,7 @@ const steps: StepDefinition[] = [
             await world.wrapper!.vm.$nextTick();
             await dragGroupHandle(world, { x: 400, y: 400 }, { x: 100, y: 300 }, 7);
             const vm = world.wrapper!.vm as any;
-            world.manualPosition = { ...vm.manualInspectorPosition };
+            world.manualPosition = { ...vm.retainedInspectorPosition };
         },
     },
     {
@@ -353,7 +353,7 @@ const steps: StepDefinition[] = [
         pattern: /^the group keeps the custom position$/,
         handler: world => {
             const vm = world.wrapper!.vm as any;
-            expect(vm.manualInspectorPosition).toEqual(world.manualPosition);
+            expect(vm.retainedInspectorPosition).toEqual(world.manualPosition);
             expect(vm.inspectorPlacement.left).toBe(world.manualPosition!.left);
         },
     },

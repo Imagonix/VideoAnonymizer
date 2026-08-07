@@ -126,6 +126,32 @@ public sealed class ReviewExportStepDefinitions
         });
     }
 
+    [When("the reviewer hovers the save state control")]
+    public void WhenTheReviewerHoversTheSaveStateControl()
+    {
+        var control = _cut.Find("[data-testid='save-state-control']");
+        control.TriggerEvent("onmouseenter", EventArgs.Empty);
+        _cut.Render();
+    }
+
+    [Then("the action history popover is shown")]
+    public void ThenTheActionHistoryPopoverIsShown()
+    {
+        _cut.WaitForAssertion(() =>
+            _cut.Find("[data-testid='action-history-popover']").Should().NotBeNull());
+    }
+
+    [Then("the action history popover has no max-height or overflow-y scroll")]
+    public void ThenTheActionHistoryPopoverHasNoMaxHeightOrOverflowYScroll()
+    {
+        var popover = _cut.Find("[data-testid='action-history-popover']");
+        var style = popover.GetAttribute("style") ?? string.Empty;
+        style.Should().NotContain("max-height");
+        style.Should().NotContain("overflow-y");
+        style.Should().NotContain("overflow: auto");
+        style.Should().NotContain("overflow:auto");
+    }
+
     [When("editor actions are pending")]
     public void WhenEditorActionsArePending()
     {

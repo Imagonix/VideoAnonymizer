@@ -24,10 +24,23 @@ Feature: Inspector placement and effective blur preview
     When the reviewer drags the inspector to a custom position and navigates to the next occurrence
     Then the inspector keeps the custom position
 
-  Scenario: Reopening the inspector restores automatic placement
+  Scenario: Reopening the inspector keeps the last retained position
     Given the editor is open with an open inspector on track 1
     When the reviewer drags the inspector to a custom position, deselects, and reselects the box
-    Then the inspector returns to its automatic placement
+    Then the inspector keeps the custom position after hide and show
+
+  Scenario: Automatic placement runs only once per mounted session
+    Given the editor is open with left and right boxes on a wide stage
+    When the reviewer selects the left box
+    Then the inspector is vertically centered on the right side of the stage
+    When the reviewer selects the right box without dragging
+    Then the inspector stays on the right side without jumping
+
+  Scenario: Workspace resize only re-clamps the retained position
+    Given the editor is open with an open inspector on track 1
+    When the reviewer drags the inspector to a custom position
+    And the workspace shrinks so the inspector would leave the stage
+    Then the inspector is re-clamped inside the stage without flipping sides
 
   Scenario: Dragging the inspector does not change the selection
     Given the editor is open with an open inspector

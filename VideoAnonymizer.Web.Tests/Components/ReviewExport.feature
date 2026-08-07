@@ -9,6 +9,12 @@ Feature: Review export progressive disclosure and compact recovery
     Then the save state label is "Saved"
     And the save state label is not "Saved" when errors are present
 
+  Scenario: The Saved action history hover popover does not use internal vertical scrolling
+    Given the review editor is open with mixed track inclusion
+    When the reviewer hovers the save state control
+    Then the action history popover is shown
+    And the action history popover has no max-height or overflow-y scroll
+
   Scenario: Export is disabled while editor actions are pending
     Given the review editor is open with mixed track inclusion
     When editor actions are pending

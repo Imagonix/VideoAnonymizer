@@ -182,6 +182,30 @@ public sealed class NavigationRailStepDefinitions
         }, TimeSpan.FromSeconds(5));
     }
 
+    [Then("the home container is fluid without an ExtraLarge max-width constraint")]
+    public void ThenTheHomeContainerIsFluidWithoutAnExtraLargeMaxWidthConstraint()
+    {
+        var container = _home.Find("[data-testid='home-container']");
+        var style = container.GetAttribute("style") ?? string.Empty;
+        style.Should().Contain("max-width: none");
+        style.Should().Contain("width: 100%");
+        // MudBlazor fluid mode: no ExtraLarge max-width class/constraint.
+        var className = container.GetAttribute("class") ?? string.Empty;
+        className.Should().NotContain("mud-container-maxwidth-extralarge");
+        className.ToLowerInvariant().Should().NotContain("extralarge");
+    }
+
+    [Then("the content area still shrinks beside the fixed navigation rail")]
+    public void ThenTheContentAreaStillShrinksBesideTheFixedNavigationRail()
+    {
+        var rail = _home.Find("[data-testid='nav-rail']");
+        rail.GetAttribute("style").Should().Contain("flex: 0 0 auto");
+
+        var content = _home.Find("[data-testid='content-area']");
+        content.GetAttribute("style").Should().Contain("flex: 1");
+        content.GetAttribute("style").Should().Contain("min-width: 0");
+    }
+
     private void RenderHome()
     {
         _home = _context.Render<Home>(parameters => parameters

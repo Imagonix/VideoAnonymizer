@@ -30,3 +30,8 @@ Feature: Global left navigation rail
     Then the runtime mode indicator is placed at the bottom of the navigation rail
     When the reviewer activates the Review and Export navigation action
     Then the runtime mode indicator remains visible at the bottom of the navigation rail
+
+  Scenario: The home container uses the full available browser width
+    Given the home page is open
+    Then the home container is fluid without an ExtraLarge max-width constraint
+    And the content area still shrinks beside the fixed navigation rail

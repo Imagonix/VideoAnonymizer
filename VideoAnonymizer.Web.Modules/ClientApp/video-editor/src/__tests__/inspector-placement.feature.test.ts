@@ -21,6 +21,8 @@ type Scenario = {
 type World = {
     wrapper?: ReturnType<typeof mount>['wrapper'];
     state?: VideoEditorProps;
+    customPosition?: { top: number; left: number };
+    positionBeforeSwitch?: { top: number; left: number };
 };
 
 function createFrame(
@@ -66,6 +68,15 @@ function twoOccurrenceTrackFrames() {
         ]),
         createFrame('f2', 1, [
             { id: 'o2', trackId: 1, x: 1400 },
+        ]),
+    ];
+}
+
+function leftAndRightTrackFrames() {
+    return [
+        createFrame('f1', 0, [
+            { id: 'o-left', trackId: 1, x: 100 },
+            { id: 'o-right', trackId: 2, x: 1400 },
         ]),
     ];
 }
@@ -202,8 +213,14 @@ const steps: StepDefinition[] = [
     },
     {
         pattern: /^the reviewer selects that box$/,
-        handler: world => {
+        handler: async world => {
             selectBox(world);
+            await world.wrapper!.vm.$nextTick();
+            const vm = world.wrapper!.vm as any;
+            if (!vm.retainedInspectorPosition && typeof vm.ensureInitialInspectorPosition === 'function') {
+                vm.ensureInitialInspectorPosition();
+            }
+            await world.wrapper!.vm.$nextTick();
         },
     },
     {
@@ -262,7 +279,7 @@ const steps: StepDefinition[] = [
             const expectedTop = Math.round((600 - vm.inspectorGroupHeight) / 2) - 100;
             expect(vm.selectedKey).toBe('track-1');
             // Desktop width 320: initial right-edge left is 900-320-8=572; drag dx=-300 -> 272.
-            expect(vm.manualInspectorPosition).toEqual({ top: expectedTop, left: 272 });
+            expect(vm.retainedInspectorPosition).toEqual({ top: expectedTop, left: 272 });
             expect(vm.inspectorPlacement.left).toBe(272);
         },
     },
@@ -271,18 +288,108 @@ const steps: StepDefinition[] = [
         handler: async world => {
             await dragInspector(world, { x: 400, y: 400 }, { x: 100, y: 300 }, 3);
             const vm = world.wrapper!.vm as any;
+            world.customPosition = { ...vm.retainedInspectorPosition };
             vm.clearSelection();
             await world.wrapper!.vm.$nextTick();
+            expect(vm.inspectorPlacement).toBeNull();
             selectBox(world);
             await world.wrapper!.vm.$nextTick();
         },
     },
     {
-        pattern: /^the inspector returns to its automatic placement$/,
+        pattern: /^the inspector keeps the custom position after hide and show$/,
         handler: world => {
             const vm = world.wrapper!.vm as any;
-            expect(vm.manualInspectorPosition).toBeNull();
-            expect(vm.inspectorPlacement.left).toBe(900 - 320 - 8);
+            expect(vm.retainedInspectorPosition).toEqual(world.customPosition);
+            expect(vm.inspectorPlacement.left).toBe(world.customPosition!.left);
+            expect(vm.inspectorPlacement.top).toBe(world.customPosition!.top);
+            // Must not recompute automatic right-edge placement.
+            expect(vm.inspectorPlacement.left).not.toBe(900 - 320 - 8);
+        },
+    },
+    {
+        pattern: /^the editor is open with left and right boxes on a wide stage$/,
+        handler: world => {
+            openEditor(world, leftAndRightTrackFrames());
+            setupWideStage(world);
+        },
+    },
+    {
+        pattern: /^the reviewer selects the left box$/,
+        handler: async world => {
+            selectBox(world, 'o-left');
+            await world.wrapper!.vm.$nextTick();
+            const vm = world.wrapper!.vm as any;
+            if (!vm.retainedInspectorPosition && typeof vm.ensureInitialInspectorPosition === 'function') {
+                vm.ensureInitialInspectorPosition();
+            }
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^the reviewer selects the right box without dragging$/,
+        handler: async world => {
+            const vm = world.wrapper!.vm as any;
+            world.positionBeforeSwitch = {
+                left: vm.inspectorPlacement.left,
+                top: vm.inspectorPlacement.top,
+            };
+            selectBox(world, 'o-right');
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^the inspector stays on the right side without jumping$/,
+        handler: world => {
+            const vm = world.wrapper!.vm as any;
+            // Initial placement was right for left box; must not jump to left for right box.
+            expect(vm.inspectorPlacement.left).toBe(world.positionBeforeSwitch!.left);
+            expect(vm.inspectorPlacement.top).toBe(world.positionBeforeSwitch!.top);
+            expect(vm.inspectorPlacement.left).toBeGreaterThan(450);
+        },
+    },
+    {
+        pattern: /^the reviewer drags the inspector to a custom position$/,
+        handler: async world => {
+            await dragInspector(world, { x: 400, y: 400 }, { x: 100, y: 300 }, 5);
+            const vm = world.wrapper!.vm as any;
+            world.customPosition = { ...vm.retainedInspectorPosition };
+        },
+    },
+    {
+        pattern: /^the workspace shrinks so the inspector would leave the stage$/,
+        handler: async world => {
+            const vm = world.wrapper!.vm as any;
+            // Force retained position past the new right edge before shrinking.
+            vm.retainedInspectorPosition = { top: 100, left: 700 };
+            vm.workspaceSize = { width: 400, height: 300 };
+            vm.videoFrameSize = computeVideoFrameSize({
+                containerWidth: 400,
+                containerHeight: 300,
+                videoWidth: 1600,
+                videoHeight: 900,
+                margin: 16,
+            });
+            // Trigger reclamp watch.
+            await world.wrapper!.vm.$nextTick();
+            if (typeof vm.reclampRetainedInspectorPosition === 'function') {
+                vm.reclampRetainedInspectorPosition();
+            }
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^the inspector is re-clamped inside the stage without flipping sides$/,
+        handler: world => {
+            const vm = world.wrapper!.vm as any;
+            const placement = vm.inspectorPlacement;
+            const width = vm.effectiveInspectorWidth ?? 320;
+            expect(placement.left).toBeGreaterThanOrEqual(8);
+            expect(placement.left + width).toBeLessThanOrEqual(400);
+            expect(placement.top).toBeGreaterThanOrEqual(8);
+            // Still on the right half of the narrower stage (minimal clamp, no left-side flip).
+            expect(placement.left).toBeGreaterThan(50);
+            expect(vm.retainedInspectorPosition.left).toBe(placement.left);
         },
     },
     {
