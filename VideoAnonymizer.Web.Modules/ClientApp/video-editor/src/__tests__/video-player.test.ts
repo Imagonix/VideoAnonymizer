@@ -13,7 +13,18 @@ function videoEl(wrapper: ReturnType<typeof mountPlayer>) {
 }
 
 describe('VideoPlayer seek application', () => {
-    it('applies a seek to an adjacent occurrence beyond the epsilon', async () => {
+    it('applies a seek beyond the intentional 50 ms tolerance', async () => {
+        const wrapper = mountPlayer(0);
+        const video = videoEl(wrapper);
+        expect(video).toBeTruthy();
+        video.currentTime = 0;
+
+        await wrapper.setProps({ currentTime: 0.06 });
+
+        expect(video.currentTime).toBe(0.06);
+    });
+
+    it('does not seek within the intentional 50 ms tolerance', async () => {
         const wrapper = mountPlayer(0);
         const video = videoEl(wrapper);
         expect(video).toBeTruthy();
@@ -21,18 +32,7 @@ describe('VideoPlayer seek application', () => {
 
         await wrapper.setProps({ currentTime: 0.04 });
 
-        expect(video.currentTime).toBe(0.04);
-    });
-
-    it('does not fight playback over sub-millisecond drift', async () => {
-        const wrapper = mountPlayer(0.04);
-        const video = videoEl(wrapper);
-        expect(video).toBeTruthy();
-        video.currentTime = 0.04;
-
-        await wrapper.setProps({ currentTime: 0.0400002 });
-
-        expect(video.currentTime).toBe(0.04);
+        expect(video.currentTime).toBe(0);
     });
 
     it('still applies a far seek when far from the current position', async () => {
