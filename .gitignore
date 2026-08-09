@@ -19,3 +19,4 @@ bin
 /tmp
 /docker-data
 /**/artifacts
+*.feature.cs
