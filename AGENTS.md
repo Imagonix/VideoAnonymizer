@@ -7,6 +7,7 @@ Full-stack video anonymization app: upload a video, detect configured sensitive 
 ## Build Rules
 
 Do not modify compiled or generated files. Always modify source files and rebuild.
+Reqnroll `.feature.cs` code-behind files are generated during a normal build/test, are ignored by Git, and must not be created, edited, or staged manually. Edit the `.feature` source and step definitions instead.
 
 ## Naming Conventions
 
@@ -41,7 +42,7 @@ Key projects under `VideoAnonymizer.slnx`:
 | `VideoAnonymizer.Database.SQLite` | SQLite provider — migrations + `AddSqliteVideoAnonymizerDbContext[Factory]()` + design-time factory |
 | `VideoAnonymizer.Contracts` | RabbitMQ message types and constants |
 | `VideoAnonymizer.AppHost` | .NET Aspire orchestrator |
-| `VideoAnonymizer.Web.Tests` | bUnit + SpecFlow web component tests |
+| `VideoAnonymizer.Web.Tests` | bUnit + Reqnroll web component tests |
 | `VideoAnonymizer.ApiService.Tests` | Lightweight non-Docker API/service persistence tests |
 | `VideoAnonymizer.ApiService.IntegrationTests` | API integration tests |
 
@@ -58,12 +59,12 @@ Key projects under `VideoAnonymizer.slnx`:
 
 ### 2. Review & Configure
 - `ReviewExportTab.razor` renders `VideoEditor` (Blazor wrapper) -> Vue 3 editor
-- Vue app shows: video player, bounding box previews, object list with toggle checkboxes, timeline
-- User can adjust blur size (100-300%) and time buffer (0-1000ms)
-- User can deselect objects to skip them during anonymization
+- Vue app shows the video player with unblurred colored region outlines, collapsed/expanded timelines, a right-side editor toolbar, and a draggable three-panel inspector (`Current occurrence`, `Current segment`, `Entire track`)
+- Blur size is configured at video, materialized-track, or occurrence scope; time buffers are configured at video scope or on segment boundaries. There is no track-wide time-buffer control or track entity
+- The inspector inclusion checkbox changes only the selected occurrence; timeline track checkboxes bulk-change every occurrence in that track. Excluded occurrences remain reselectable as ghost outlines in the preview
 
 ### 3. Anonymize
-- User clicks "Anonymize selected objects" button in `ReviewExportTab`
+- User clicks `Export anonymized video` in `ReviewExportTab`
 - `ReviewExportTab.OnStartAnonymizationClicked()` calls `_videoEditor.GetFramesAsync()` (JS interop) to get frame/selection state
 - `Home.StartAnonymizationAsync()` -> `POST /anonymize/{videoId}` with frames + settings
 - API updates frame/object selections in DB, publishes `video.anonymize` RabbitMQ message
@@ -72,11 +73,12 @@ Key projects under `VideoAnonymizer.slnx`:
 ### 4. Download
 - On completion: `video.anonymized` RabbitMQ message -> SignalR `videoAnonymized` event
 - Blazor receives event -> triggers `DownloadAsync()` automatically
+- After a successful export, a compact Download button beside Export can retry/recover the download of the latest completed result; it is unavailable while a newer export is running
 - `DownloadService.DownloadFileAsync()` calls JS `triggerFileDownload(fileName, url)` which creates an anchor element and clicks it
 - API endpoint `GET /anonymized/{videoId}` streams the processed file
 
 ### 2b. Track Forward (Streaming)
-- User clicks "Track forward" on an object in the DetailedView (track mode) or via a function on the object list
+- User selects an occurrence and clicks `Track forward` in the Advanced section of `ObjectDetailsPanel`
 - Vue calls `trackForward(obj)` — immediately shows a pulsating dot at the next analyzed frame position in the timeline
 - `TrackForwardAction` is dispatched → `ReviewExportTab.ApplyTrackForwardAsync()` pre-populates `_pendingTrackForwardJobs`, then POSTs to `POST /analyzed/{videoId}/tracks/track-forward`
 - API saves a `TrackForwardJob` to DB, publishes `video.track-forward` RabbitMQ message
@@ -107,7 +109,7 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.Web/Pages/Home.razor.js` - `triggerFileDownload()` JS function
 
 ### Frontend - Components
-- `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Settings (blur size, time buffer), editor, anonymize button, sync status indicator (save icon / spinner tied to channel state), action handler (switch on `VideoEditorAction`), action history persistence
+- `VideoAnonymizer.Web/Components/ReviewExportTab.razor` - Video-level settings, editor, Export/Download controls, sync status indicator (save icon / spinner tied to channel state), action handler (switch on `VideoEditorAction`), action history persistence
 - `VideoAnonymizer.Web/Components/ReviewExport/ActionPersistenceData.cs` - Internal JSON serialization records per action type
 - `VideoAnonymizer.Web/Components/ReviewExport/VideoEditorUndoRedoState.cs` - Undo/redo stack with persisted ActionId, DeserializeActions() for page reload recovery
 - `VideoAnonymizer.Web/Components/UploadTab.razor` - File upload + detect button + existing videos list with click-to-open; newest-upload-first table sortable by Filename/Uploaded columns; delete requires an explicit "Delete working copy" confirmation dialog
@@ -120,21 +122,29 @@ Key projects under `VideoAnonymizer.slnx`:
 ### Vue Editor (within Web.Modules)
 - `VideoAnonymizer.Web.Modules/Actions/VideoEditorAction.cs` - Action class hierarchy (`ObjectAddedAction`, `ObjectUpdatedAction`, `ObjectsBulkUpdatedAction`, `UndoAction`, `RedoAction`); single `OnAction` callback dispatched via switch in `ReviewExportTab`; actions carry `OperationType` string (`"toggle"`, `"merge"`, `"split"`, `"reassign"`, `"move"`, `"resize"`) propagated from Vue
 - `VideoAnonymizer.Web.Modules/Components/VideoEditor.razor.cs` - Thin Blazor/Vue bridge; JS-invokable methods immediately forward `VideoEditorAction` records via `OnAction`
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue component: mode state, merge/split handlers, timeline/label wiring; uses composables; `applyChanges()` for receiving delta updates from Blazor; `trackForward()` for initiating tracking with immediate pulsating dot; `updateTrackingProgress()` for moving the dot per frame
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/EditorControls.vue` - Right-side button panel: Move, Resize, Add, Merge, Split
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/DetailedView.vue` - Fullscreen overlay for Move/Resize/Add operations with canvas frame preview, draggable/resizable boxes, and draw-new-box support
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoEditorApp.vue` - Main Vue composition root: selection/mode state, inspector placement, preview regions, toolbar and timeline wiring, Blazor delta application, and track-forward progress
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/EditorToolbar.vue` - Fixed right-side icon toolbar for Add, Confirm, Merge, Split, and Discard
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/ObjectDetailsPanel.vue` - Draggable grouped inspector with separate occurrence, consecutive-segment, and entire-track panels plus Advanced operations
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/CollapsedTimelineBar.vue` - Compact single-row playback/timeline presentation used while collapsed and as the aligned ruler/header band when expanded
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRow.vue` - Row of occurrence dots; supports split-mode dot clicking with Ctrl/Shift selection; renders a pulsating dot (in the track's color) at the frame being tracked during track forward progress
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRowLabel.vue` - Row label with checkbox; merge-mode click selection, double-click trackId editing
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/BoundingBoxOverlay.vue` - Blur preview boxes with hover-dim support (merge/split/object-list)
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/ObjectList.vue` - Object toggle list with hover-row emit for dimming other boxes
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TimelineRowLabel.vue` - Vertically aligned track label with inclusion checkbox, lazy representative thumbnail, and editable Track ID
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/BoundingBoxOverlay.vue` - Unblurred region/ghost overlay with sharp editing handles and Move/Resize/Add interaction support
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/Timeline.vue` - Timeline visualization
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/TrackThumbnail.vue` - Lazy, unblurred representative occurrence crop for a track
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/VideoPlayer.vue` - Video playback bridge; intentionally suppresses programmatic seeks whose difference is at most 50 ms to avoid playback stutter
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/MudLikeCheckbox.vue` - Custom checkbox mimicking MudBlazor style
-- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/types.ts` - TypeScript types; `EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add'`
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/types.ts` - TypeScript DTOs and editor types; `EditorMode = 'select' | 'merge' | 'split' | 'adjust' | 'add'`
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/services/ColorManager.ts` - HSL color assignment per object/track
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/services/TrackThumbnailService.ts` - Shared detached-video thumbnail extraction queue/cache
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useBlurPreviewObjects.ts` - Resolves stored/interpolated/extrapolated current-frame preview regions and effective blur size
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useConsecutiveTrackSegment.ts` - Builds/normalizes consecutive same-track segments from the complete ordered analyzed-frame sequence
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useEditorModes.ts` - Mutually-exclusive mode state machine
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useMerge.ts` - Merge selection + execution with duplicate trackId prevention
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useOccurrenceSelection.ts` - Ctrl/Shift dot occurrence selection
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useSplit.ts` - Split execution assigning new trackIds
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/composables/useTrackSettings.ts` - Applies occurrence/segment/materialized-track settings and mirrored gap-boundary state
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/utils/motionPrediction.ts` - Raw current-frame interpolation/extrapolation matching processor state transitions
+- `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/utils/projectedRegion.ts` - Final frame-intersection and fully-outside checks without mutating raw motion geometry
 - `VideoAnonymizer.Web.Modules/ClientApp/video-editor/src/utils/keys.ts` - Timeline key derivation helpers (`buildObjectKey`, `getTimelineKey`, `getObjTimelineKey`)
 - `VideoAnonymizer.Web.Modules/wwwroot/js/videoEditorHost.js` - JS bridge for mounting Vue app; exports `updateTrackingProgress()` for per-frame dot positioning during track forward
 
@@ -147,8 +157,11 @@ Key projects under `VideoAnonymizer.slnx`:
 - `VideoAnonymizer.ApiService/DataServices/EditorActionDataService.cs` - Action persistence with auto-incrementing SequenceNumber
 - `VideoAnonymizer.ApiService/Notifications/LongRunningJobsHub.cs` - SignalR hub
 - `VideoAnonymizer.Database/EditorAction.cs` - Action entity: ActionType, Data (JSON), Undone flag, SequenceNumber
-- `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying the configured blur shape for each detected object
-- `VideoAnonymizer.VideoProcessor/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying the configured blur shape for each detected object
+- `VideoAnonymizer.VideoProcessor/Anonymization/VideoAnonymizer.cs` - Core blur engine (OpenCvSharp), applying resolved anonymization regions to exported frames
+- `VideoAnonymizer.VideoProcessor/Anonymization/RelevantDetectedObjectSelector.cs` - Resolves stored/interpolated/extrapolated regions for the export's current frame
+- `VideoAnonymizer.VideoProcessor/Anonymization/AnonymizationSettingsResolver.cs` - Resolves video/track/occurrence blur, segment buffers, and nullable gap modes
+- `VideoAnonymizer.VideoProcessor/Anonymization/ConsecutiveSegmentResolver.cs` - Builds consecutive same-track segments using analyzed-frame adjacency
+- `VideoAnonymizer.VideoProcessor/Anonymization/ProjectedRegionClipper.cs` - Clips a copy of the final projected region immediately before rasterization
 - `VideoAnonymizer.VideoProcessor/Analysis/Tracking/SingleObjectTracker.cs` - Track forward job consumer, publishes per-frame progress via SSE streaming
 - `VideoAnonymizer.VideoProcessor/Analysis/Tracking/ForwardTrackingService.cs` - Resolves seed frame, calls Python tracker, persists detections
 - `VideoAnonymizer.ApiService/Notifications/TrackForwardProgressNotificationHandler.cs` - Queries DB for new objects and pushes `trackForwardProgress` SignalR event
@@ -193,7 +206,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 - Publish messages from the API service
 
 ### Running tests
-- Web tests: `dotnet test VideoAnonymizer.Web.Tests/` (bUnit + SpecFlow)
+- Web tests: `dotnet test VideoAnonymizer.Web.Tests/` (bUnit + Reqnroll)
 - API service tests: `dotnet test VideoAnonymizer.ApiService.Tests/`
 - API integration tests: `dotnet test VideoAnonymizer.ApiService.IntegrationTests/`
 - Python detection tests: in `VideoAnonymizer.ObjectDetectionTests/`
@@ -204,7 +217,7 @@ Note: SQLite project must be built first (`dotnet build ../VideoAnonymizer.Datab
 - New .NET behavior and regression tests should be written as `.feature` scenarios with Reqnroll step definitions, so the tested behavior is readable in Gherkin. Avoid direct NUnit test classes unless the test is a very small technical helper test where Gherkin would make the intent less clear.
 - Prefer one `When` per scenario. Split scenarios when multiple user actions would otherwise require multiple `When` steps.
 - Reqnroll step definitions should store scenario state in `ScenarioContext`, following the pattern in `HomeStepDefinitions`, instead of keeping mutable instance fields.
-- Do not edit generated `.feature.cs` files directly. Edit `.feature` files and step definitions.
+- Reqnroll `.feature.cs` files are not versioned. A normal `dotnet build` or `dotnet test` generates them from `.feature` files; `--no-build` assumes the test assembly was already built. Never edit or stage generated code-behind files.
 - Vue `.feature` tests are executed by the Vitest feature runner, not by Reqnroll, so Visual Studio Reqnroll navigation does not apply to those files.
 - When fixing build or test failures, fix the root cause at the failing dependency, configuration, or behavior boundary first. Do not add defensive cleanup, null checks, retries, or other robustness changes merely to suppress follow-on failures unless the user explicitly asks for that hardening or the follow-on failure is itself the root defect being addressed.
 
@@ -283,15 +296,19 @@ Symlinked into `/app/` so existing code finds paths without changes. To reset, d
 - The solution has a **standalone mode**, a **distributed mode** (Aspire), and a **Docker mode** sharing the same app concepts
 - There is no standalone `Video Anonymizer` heading/header row on the Home page; navigation uses the fixed left icon rail, and the CPU/GPU mode indicator lives in the same rail's bottom slot (`LocalRuntimeFeedbackMode.Compact`).
 - `Home.razor.cs` manages all SignalR subscriptions in `OnInitializedAsync()` and implements `IAsyncDisposable` for cleanup
-- The `DownloadAsync()` method is called automatically from the `videoAnonymized` SignalR handler (no download button)
+- The `videoAnonymized` SignalR handler calls `DownloadAsync()` automatically. `ReviewExportTab` also exposes a compact Download recovery button beside Export after a successful result; it always targets the latest completed export and is blocked while a newer export is running.
 - `SelectedFileName` is preserved from the initial file selection (not nullified after analysis) to ensure correct download filename
 - Video files are stored on disk; the API serves them via `PhysicalFile()` with range processing support
 - The Vue editor communicates with Blazor via JS interop (`GetFramesAsync()` / property updates on the mounted Vue app)
 - The `trackForwardCompleted` SignalR message carries `List<DetectedObjectDto> CreatedObjects` (full DTOs of newly tracked objects, queried from DB by the API notification handler) for redo support
 - Track forward uses **SSE streaming** from the Python API (`POST /trackForward` returns `text/event-stream`). Per-frame `TrackForwardProgress` messages flow through RabbitMQ → SignalR → Blazor, driving real-time pulsating dots in the timeline and incremental object appearance. The `TrackForwardProgress` contract, consumer, and SignalR handler follow the same pattern as `TrackForwardCompleted`.
 - When initiating track forward, `_pendingTrackForwardJobs` is pre-populated **before** the HTTP call to avoid dropping early progress messages.
-- Settings (blur size, time buffer) are persisted on change via `PUT /video/{videoId}/settings` and go through the `VideoEditor` operation channel
-- **Anonymization scope hierarchy** (materialized-track model, no track entity): effective blur = `OccurrenceBlurSizePercentOverride ?? BlurSizePercentOverride ?? Video.BlurSizePercent`; segment pre/post = `first/last PreBufferMsOverride/PostBufferMsOverride ?? Video.TimeBufferMs`. `BlurSizePercentOverride` is materialized on every occurrence in a track; occurrence-level blur lives only on one stored occurrence. Track-wide edits bulk-update every occurrence through the action queue; server/streamed objects arrive normalized.
+- Video-level blur size and time buffer are persisted on change via `PUT /video/{videoId}/settings` and go through the `VideoEditor` operation channel.
+- **Anonymization scope hierarchy** (materialized-track model, no track entity): effective blur = `OccurrenceBlurSizePercentOverride ?? BlurSizePercentOverride ?? Video.BlurSizePercent`; segment pre/post = `first.PreBufferMsOverride/last.PostBufferMsOverride ?? Video.TimeBufferMs`. `BlurSizePercentOverride` and blur shape are materialized on every occurrence in a track; occurrence-level blur lives only on one stored occurrence. Track-wide edits bulk-update every occurrence through the action queue; server/streamed objects arrive normalized. There is intentionally no materialized or UI track-wide time-buffer value and no track-level `Mixed` time state.
+- **Consecutive segment semantics**: order the complete analyzed-frame sequence by `FrameIndex` (falling back to time only where the frontend DTO requires it). Same-track occurrences are consecutive when they appear in successive analyzed-frame entries. An intervening analyzed frame without that track breaks the segment; a numeric `FrameIndex` jump alone does not. Only the segment's first occurrence may own `PreBufferMsOverride`; only its last may own `PostBufferMsOverride` and following-gap state.
+- **Gap handling boundary**: `DetectedObject.NextGapHandlingMode` is nullable `GapHandlingMode` in the EF model and is persisted as its string name. The DTO/TypeScript boundary remains nullable `"Interpolate"`/`"UseBuffers"`; `null` resolves to Interpolate at a real same-track gap. The mode is canonical only on the last occurrence before that gap. `Interpolate gap after` on the preceding segment and `Interpolate gap before` on the following segment edit the same boundary. Buffer values are retained while interpolation makes them inactive.
+- **Current-frame region geometry**: interpolation/extrapolation keeps raw x/y/width/height unbounded. Crossing a frame edge must not clamp the center, shrink the raw box, snap it back, or feed clipped geometry into later motion. Preview overflow and export rasterization clip only the final visible intersection; the region disappears when fully outside or after its active buffer. The preview remains an unblurred colored outline, but its effective shape, blur-size enlargement, presence, and visible intersection must match the region selected for export.
+- **Timeline seek tolerance**: Previous/Next and occurrence dots request stored occurrence times, but `VideoPlayer.vue` intentionally ignores a programmatic time change when its absolute difference from the element's current time is at most `0.05` seconds. This tolerance prevents video stutter and is accepted even when two occurrences are closer together; do not lower or remove it without an explicit product decision.
 - VideoEditor operations use a command pattern: `VideoEditorAction` records dispatched through a single `OnAction` callback with a switch in `ReviewExportTab`
 - **Undo/Redo**: Blazor owns the authoritative undo/redo stack and the action queue in `ReviewExportTab`. Every action is recorded via `POST /video/{videoId}/actions` and persisted to the `EditorAction` DB table. On page reload, `VideoEditorUndoRedoState.DeserializeActions()` reconstructs the stack from the API. Object update actions carry `BeforeState` plus the updated object payload, while settings actions carry `BeforeState` and `AfterState`. Vue sends Ctrl+Z/Y as `onUndo`/`onRedo` signals (no payload). Blazor serializes pending saves before undo/redo, applies the inverse HTTP call, toggles the `Undone` flag via `PUT /video/{videoId}/actions/{actionId}/undone`, then pushes a `DetectedObjectChangeSet` delta to Vue via `applyDetectedObjectChanges` JS bridge. A Blazor overlay blocks editor input when undo/redo is requested while earlier actions are pending. New actions clear any redo history (actions after current index).
 - **Blazor → Vue state propagation**: Blazor pushes state to Vue via dedicated JS bridge functions (`updateVideoEditorSettings`, `applyDetectedObjectChanges`). These are defined in `videoEditorHost.js` and exposed as `AppHandle` methods in `main.ts`, updating the reactive `state` proxy.
