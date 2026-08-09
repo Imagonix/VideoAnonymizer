@@ -4,5 +4,6 @@ public enum LocalRuntimeFeedbackMode
 {
     Header,
     Banner,
-    Center
+    Center,
+    Compact
 }

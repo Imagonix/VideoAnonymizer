@@ -180,7 +180,8 @@ public sealed class ForwardTrackingService(
                                     AnalyzedFrameId = frame.Id,
                                     Confidence = detection.Confidence,
                                     ClassName = string.IsNullOrWhiteSpace(detection.ClassName) ? seed.Object.ClassName : detection.ClassName,
-                                    BlurShape = detection.BlurShape ?? seed.Object.BlurShape,
+                                    BlurShape = seed.Object.BlurShape,
+                                    BlurSizePercentOverride = seed.Object.BlurSizePercentOverride,
                                     Selected = true,
                                     TrackId = trackId,
                                     X = detection.X,
@@ -188,6 +189,34 @@ public sealed class ForwardTrackingService(
                                     Width = detection.Width,
                                     Height = detection.Height
                                 };
+
+                                // Boundary-storage invariant: a consecutive extension of the
+                                // track takes over PostBufferMsOverride and NextGapHandlingMode
+                                // when the previous occurrence lives on the immediately previous
+                                // analyzed-frame entry (adjacency is sequence order, not FrameIndex-1).
+                                // A gap (intervening analyzed frame without the track) starts a
+                                // new segment, leaving the new occurrence's boundary overrides null.
+                                var previousAnalyzedFrame = await db.AnalyzedFrames
+                                    .Where(f => f.VideoId == frame.VideoId
+                                        && f.FrameIndex < detection.FrameIndex)
+                                    .OrderByDescending(f => f.FrameIndex)
+                                    .FirstOrDefaultAsync(cancellationToken);
+
+                                var previous = previousAnalyzedFrame is null
+                                    ? null
+                                    : await db.DetectedObjects
+                                        .Include(o => o.AnalyzedFrame)
+                                        .Where(o => o.TrackId == trackId
+                                            && o.AnalyzedFrameId == previousAnalyzedFrame.Id)
+                                        .FirstOrDefaultAsync(cancellationToken);
+
+                                if (previous is not null)
+                                {
+                                    entity.PostBufferMsOverride = previous.PostBufferMsOverride;
+                                    entity.NextGapHandlingMode = previous.NextGapHandlingMode;
+                                    previous.PostBufferMsOverride = null;
+                                    previous.NextGapHandlingMode = null;
+                                }
 
                                 db.DetectedObjects.Add(entity);
                                 frame.DetectedObjects.Add(entity);

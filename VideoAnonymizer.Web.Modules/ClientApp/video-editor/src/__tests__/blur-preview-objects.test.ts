@@ -36,6 +36,41 @@ describe('useBlurPreviewObjects', () => {
         expect(result.value[0].activation).toBe('detected');
         expect(result.value[0].detectedObject.x).toBe(100);
     });
+
+    it('keeps excluded current-frame detections as selectable ghosts without blur interpolation', () => {
+        const frames = ref([
+            createFrame('f1', 0, [
+                createObject({ id: 'included', trackId: 1, x: 10, selected: true }),
+                createObject({ id: 'excluded', trackId: 2, x: 200, selected: false }),
+            ]),
+            createFrame('f2', 1, [
+                createObject({ id: 'included-next', trackId: 1, x: 100, selected: true }),
+            ]),
+        ]);
+        const currentFrame = computed(() => frames.value[0]);
+        const currentTime = ref(0);
+        const anonymizationSettings = computed(() => ({
+            blurSizePercent: 100,
+            timeBufferMs: 0,
+            interpolateTrackedObjects: true,
+        }));
+        const isAdjust = computed(() => false);
+
+        const result = useBlurPreviewObjects(
+            computed(() => frames.value),
+            currentFrame,
+            currentTime,
+            anonymizationSettings,
+            isAdjust
+        );
+
+        const ids = result.value.map(o => o.detectedObject.id).sort();
+        expect(ids).toContain('included');
+        expect(ids).toContain('excluded');
+        const ghost = result.value.find(o => o.detectedObject.id === 'excluded');
+        expect(ghost?.detectedObject.selected).toBe(false);
+        expect(ghost?.activation).toBe('detected');
+    });
 });
 
 function createFrame(

@@ -42,7 +42,10 @@ export function useBoxGeometry(
     }
 
     function getBlurPct(obj: DetectedObjectDto) {
-        const scale = anonymizationSettings.value.blurSizePercent / 100;
+        const effectiveBlurSize = obj.occurrenceBlurSizePercentOverride
+            ?? obj.blurSizePercentOverride
+            ?? anonymizationSettings.value.blurSizePercent;
+        const scale = effectiveBlurSize / 100;
         const cx = (obj.x + obj.width / 2) / videoWidth.value * 100;
         const cy = (obj.y + obj.height / 2) / videoHeight.value * 100;
         const ew = (obj.width * scale) / videoWidth.value * 100;
@@ -68,16 +71,41 @@ export function useBoxGeometry(
         };
     }
 
-    function getEdgeHandleStyle(obj: DetectedObjectDto, position: string) {
+    function getResizeHandleStyle(obj: DetectedObjectDto, position: string) {
         const px = (obj.x / videoWidth.value) * 100;
         const py = (obj.y / videoHeight.value) * 100;
         const pw = (obj.width / videoWidth.value) * 100;
         const ph = (obj.height / videoHeight.value) * 100;
-        if (position === 'n') return { left: `${px}%`, top: `calc(${py}% - 3px)`, width: `${pw}%`, height: '6px' };
-        if (position === 's') return { left: `${px}%`, top: `calc(${py + ph}% - 3px)`, width: `${pw}%`, height: '6px' };
-        if (position === 'w') return { left: `calc(${px}% - 3px)`, top: `${py}%`, width: '6px', height: `${ph}%` };
-        if (position === 'e') return { left: `calc(${px + pw}% - 3px)`, top: `${py}%`, width: '6px', height: `${ph}%` };
-        return {};
+        const size = 10;
+        const corner = (left: string, top: string, cursor: string) => ({
+            left,
+            top,
+            width: `${size}px`,
+            height: `${size}px`,
+            transform: 'translate(-50%, -50%)',
+            cursor,
+        });
+
+        switch (position) {
+            case 'n':
+                return { left: `${px}%`, top: `${py}%`, width: `${pw}%`, height: `${size}px`, transform: 'translateY(-50%)', cursor: 'ns-resize' };
+            case 's':
+                return { left: `${px}%`, top: `${py + ph}%`, width: `${pw}%`, height: `${size}px`, transform: 'translateY(-50%)', cursor: 'ns-resize' };
+            case 'w':
+                return { left: `${px}%`, top: `${py}%`, width: `${size}px`, height: `${ph}%`, transform: 'translateX(-50%)', cursor: 'ew-resize' };
+            case 'e':
+                return { left: `${px + pw}%`, top: `${py}%`, width: `${size}px`, height: `${ph}%`, transform: 'translateX(-50%)', cursor: 'ew-resize' };
+            case 'ne':
+                return corner(`${px + pw}%`, `${py}%`, 'nesw-resize');
+            case 'nw':
+                return corner(`${px}%`, `${py}%`, 'nwse-resize');
+            case 'se':
+                return corner(`${px + pw}%`, `${py + ph}%`, 'nwse-resize');
+            case 'sw':
+                return corner(`${px}%`, `${py + ph}%`, 'nesw-resize');
+            default:
+                return {};
+        }
     }
 
     return {
@@ -87,6 +115,6 @@ export function useBoxGeometry(
         applyClampedBox,
         getBlurPct,
         getBoxPct,
-        getEdgeHandleStyle,
+        getResizeHandleStyle,
     };
 }

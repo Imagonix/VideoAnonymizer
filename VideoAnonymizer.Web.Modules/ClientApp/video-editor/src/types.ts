@@ -3,6 +3,12 @@ export type DetectedObjectDto = {
   confidence: number;
   className: string | null;
   blurShape?: string | null;
+  blurSizePercentOverride?: number | null;
+  occurrenceBlurSizePercentOverride?: number | null;
+  preBufferMsOverride?: number | null;
+  postBufferMsOverride?: number | null;
+  /** "Interpolate" | "UseBuffers"; null at a valid gap boundary defaults to Interpolate. */
+  nextGapHandlingMode?: string | null;
   selected: boolean;
   trackId: number | null;
   x: number;
@@ -72,7 +78,7 @@ export type PreviewObject = {
   activation: 'detected' | 'interpolated' | 'pre' | 'post';
 };
 
-export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add' | 'track';
+export type EditorMode = 'select' | 'merge' | 'split' | 'adjust' | 'add';
 
 export type VideoDimensions = {
   videoWidth: number;

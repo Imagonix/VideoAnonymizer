@@ -1,78 +1,231 @@
 import type { AnalyzedFrameDto, DetectedObjectDto, PreviewObject } from '../types';
-import { buildObjectKey } from './keys';
+import { buildAllSegments, orderedAnalyzedFrames } from '../composables/useConsecutiveTrackSegment';
+import { isUseBuffersGap } from './gapHandling';
+import { isProjectedRegionFullyOutside } from './projectedRegion';
 
 type TimedDetectedObject = {
     timeSeconds: number;
     detectedObject: DetectedObjectDto;
 };
 
+type SegmentView = {
+    segment: ReturnType<typeof buildAllSegments>[number];
+    selected: TimedDetectedObject[];
+    trackId: number | null;
+};
+
+/**
+ * Predicts preview regions for the current video time using the same consecutive-segment
+ * state machine as export: pre-buffer extrapolation, in-segment interpolation, post-buffer
+ * extrapolation, and default Interpolate gap bridging. Projection keeps raw unbounded
+ * geometry; the overlay clips visually via overflow. Fully outside raw regions are omitted.
+ */
 export function getPredictedBlurPreviewObjects(
     frames: AnalyzedFrameDto[],
     currentTimeSeconds: number,
-    timeBufferSeconds: number
+    timeBufferSeconds: number,
+    videoWidth = 0,
+    videoHeight = 0
 ): PreviewObject[] {
     if (frames.length === 0) return [];
 
-    const sortedTimes = [...new Set(frames.map(frame => frame.timeSeconds))]
-        .sort((a, b) => a - b);
-
-    const samplesByKey = new Map<string, TimedDetectedObject[]>();
-
-    for (const frame of frames) {
-        for (const detectedObject of frame.detectedObjects) {
-            if (!detectedObject.selected) continue;
-
-            const key = buildObjectKey(detectedObject);
-            const samples = samplesByKey.get(key) ?? [];
-            samples.push({ timeSeconds: frame.timeSeconds, detectedObject });
-            samplesByKey.set(key, samples);
-        }
-    }
-
+    const timeByFrameId = new Map(
+        orderedAnalyzedFrames(frames).map(frame => [frame.id, frame.timeSeconds])
+    );
+    const globalBufferMs = Math.round(timeBufferSeconds * 1000);
+    const segments = buildAllSegments(frames);
     const result: PreviewObject[] = [];
 
-    for (const samples of samplesByKey.values()) {
-        const orderedSamples = [...samples].sort((a, b) => a.timeSeconds - b.timeSeconds);
-        const previous = findPreviousSample(orderedSamples, currentTimeSeconds);
-        if (!previous) {
-            const upcoming = orderedSamples.find(sample => sample.timeSeconds > currentTimeSeconds);
-            if (upcoming && isWithinPreBuffer(currentTimeSeconds, upcoming.timeSeconds, timeBufferSeconds)) {
-                result.push({
-                    detectedObject: projectPreBufferObject(orderedSamples, upcoming, currentTimeSeconds),
-                    activation: 'pre',
-                });
+    const views: SegmentView[] = segments.map(segment => ({
+        segment,
+        selected: segment.occurrences
+            .filter(obj => obj.selected)
+            .map(obj => toTimed(obj, timeByFrameId))
+            .sort((a, b) => a.timeSeconds - b.timeSeconds),
+        trackId: segment.first.trackId ?? null,
+    }));
+
+    const trackedGroups = new Map<number, SegmentView[]>();
+    for (const view of views) {
+        if (view.trackId == null) continue;
+        const list = trackedGroups.get(view.trackId) ?? [];
+        list.push(view);
+        trackedGroups.set(view.trackId, list);
+    }
+    for (const list of trackedGroups.values()) {
+        list.sort((a, b) => frameOrder(a.segment.first, timeByFrameId) - frameOrder(b.segment.first, timeByFrameId));
+    }
+
+    for (const view of views) {
+        if (view.selected.length === 0) continue;
+
+        const preBufferSeconds = Math.max(0, (view.segment.first.preBufferMsOverride ?? globalBufferMs) / 1000);
+        const postBufferSeconds = Math.max(0, (view.segment.last.postBufferMsOverride ?? globalBufferMs) / 1000);
+        const firstTime = view.selected[0].timeSeconds;
+        const lastTime = view.selected[view.selected.length - 1].timeSeconds;
+
+        let precedingGapInterpolates = false;
+        let followingGapInterpolates = false;
+        if (view.trackId != null) {
+            const trackSegments = trackedGroups.get(view.trackId) ?? [];
+            const index = trackSegments.indexOf(view);
+            if (index > 0) {
+                precedingGapInterpolates = !isUseBuffersGap(
+                    trackSegments[index - 1].segment.last.nextGapHandlingMode
+                );
+            }
+            if (index >= 0 && index < trackSegments.length - 1) {
+                followingGapInterpolates = !isUseBuffersGap(view.segment.last.nextGapHandlingMode);
+            }
+        }
+
+        const effectivePreSeconds = precedingGapInterpolates ? 0 : preBufferSeconds;
+        const effectivePostSeconds = followingGapInterpolates ? 0 : postBufferSeconds;
+
+        if (currentTimeSeconds < firstTime - effectivePreSeconds) {
+            continue;
+        }
+
+        let projected: DetectedObjectDto;
+        let activation: PreviewObject['activation'];
+
+        if (currentTimeSeconds < firstTime) {
+            if (effectivePreSeconds <= 0) continue;
+            projected = projectPreBufferObject(view.selected, currentTimeSeconds);
+            activation = 'pre';
+        } else if (currentTimeSeconds > lastTime) {
+            if (effectivePostSeconds <= 0 || currentTimeSeconds > lastTime + effectivePostSeconds) {
+                continue;
             }
 
+            projected = projectPostBufferObject(view.selected, currentTimeSeconds);
+            activation = isAtSampleTime(lastTime, currentTimeSeconds) ? 'detected' : 'post';
+        } else {
+            projected = interpolateInSegment(view.selected, currentTimeSeconds);
+            activation = view.selected.some(sample => isAtSampleTime(sample.timeSeconds, currentTimeSeconds))
+                ? 'detected'
+                : 'interpolated';
+        }
+
+        if (isProjectedRegionFullyOutside(projected, videoWidth, videoHeight)) {
             continue;
         }
 
-        const next = orderedSamples.find(sample => sample.timeSeconds > currentTimeSeconds);
-        if (next && previous.detectedObject.trackId != null) {
-            result.push({
-                detectedObject: projectObject(previous, next, currentTimeSeconds, true),
-                activation: isAtSampleTime(previous.timeSeconds, currentTimeSeconds)
-                    ? 'detected'
-                    : 'interpolated',
-            });
+        if (projected.width <= 0 || projected.height <= 0) {
             continue;
         }
 
-        const coverageEnd = getCoverageEnd(sortedTimes, previous.timeSeconds, timeBufferSeconds);
-        if (currentTimeSeconds >= previous.timeSeconds && currentTimeSeconds < coverageEnd) {
-            result.push({
-                detectedObject: projectPostBufferObject(
-                    orderedSamples,
-                    previous,
-                    currentTimeSeconds,
-                    timeBufferSeconds),
-                activation: isAtSampleTime(previous.timeSeconds, currentTimeSeconds)
-                    ? 'detected'
-                    : 'post',
-            });
+        result.push({ detectedObject: projected, activation });
+    }
+
+    // Default Interpolate bridges each real same-track gap with one current-time region.
+    for (const trackSegments of trackedGroups.values()) {
+        for (let index = 0; index < trackSegments.length - 1; index++) {
+            const previous = trackSegments[index];
+            const next = trackSegments[index + 1];
+            if (isUseBuffersGap(previous.segment.last.nextGapHandlingMode)) {
+                continue;
+            }
+
+            const previousBoundary = previous.segment.last;
+            const nextBoundary = next.segment.first;
+            if (!previousBoundary.selected || !nextBoundary.selected) {
+                continue;
+            }
+
+            const previousTime = timeByFrameId.get(previousBoundary.analyzedFrameId) ?? 0;
+            const nextTime = timeByFrameId.get(nextBoundary.analyzedFrameId) ?? 0;
+            if (currentTimeSeconds <= previousTime || currentTimeSeconds >= nextTime) {
+                continue;
+            }
+
+            const projected = projectObject(
+                { timeSeconds: previousTime, detectedObject: previousBoundary },
+                { timeSeconds: nextTime, detectedObject: nextBoundary },
+                currentTimeSeconds,
+                true
+            );
+
+            if (isProjectedRegionFullyOutside(projected, videoWidth, videoHeight)) {
+                continue;
+            }
+
+            if (projected.width <= 0 || projected.height <= 0) {
+                continue;
+            }
+
+            result.push({ detectedObject: projected, activation: 'interpolated' });
         }
     }
 
     return result;
+}
+
+function frameOrder(obj: DetectedObjectDto, timeByFrameId: Map<string, number>): number {
+    return timeByFrameId.get(obj.analyzedFrameId) ?? 0;
+}
+
+function toTimed(
+    detectedObject: DetectedObjectDto,
+    timeByFrameId: Map<string, number>
+): TimedDetectedObject {
+    return {
+        timeSeconds: timeByFrameId.get(detectedObject.analyzedFrameId) ?? 0,
+        detectedObject,
+    };
+}
+
+function interpolateInSegment(
+    selected: TimedDetectedObject[],
+    currentTimeSeconds: number
+): DetectedObjectDto {
+    const previous = findPreviousSample(selected, currentTimeSeconds);
+    if (!previous) {
+        return { ...selected[0].detectedObject };
+    }
+
+    if (isAtSampleTime(previous.timeSeconds, currentTimeSeconds)) {
+        return { ...previous.detectedObject };
+    }
+
+    const next = selected.find(sample => sample.timeSeconds > currentTimeSeconds);
+    if (!next) {
+        return { ...previous.detectedObject };
+    }
+
+    if (previous.detectedObject.trackId == null) {
+        return { ...previous.detectedObject };
+    }
+
+    return projectObject(previous, next, currentTimeSeconds, true);
+}
+
+function projectPreBufferObject(
+    selected: TimedDetectedObject[],
+    currentTimeSeconds: number
+): DetectedObjectDto {
+    const first = selected[0];
+    if (first.detectedObject.trackId == null || selected.length === 1) {
+        return { ...first.detectedObject };
+    }
+
+    return projectObject(first, selected[1], currentTimeSeconds, false);
+}
+
+/**
+ * Continues segment-boundary motion for the full post-buffer. Never snaps back to the
+ * last stored box once extrapolation has started.
+ */
+function projectPostBufferObject(
+    selected: TimedDetectedObject[],
+    currentTimeSeconds: number
+): DetectedObjectDto {
+    const last = selected[selected.length - 1];
+    if (last.detectedObject.trackId == null || selected.length === 1) {
+        return { ...last.detectedObject };
+    }
+
+    return projectObject(selected[selected.length - 2], last, currentTimeSeconds, false);
 }
 
 function findPreviousSample(samples: TimedDetectedObject[], currentTimeSeconds: number) {
@@ -87,74 +240,6 @@ function findPreviousSample(samples: TimedDetectedObject[], currentTimeSeconds: 
     }
 
     return previous;
-}
-
-function getCoverageEnd(
-    sortedTimes: number[],
-    analyzedTimeSeconds: number,
-    timeBufferSeconds: number
-) {
-    const nextAnalyzedTime = sortedTimes.find(time => time > analyzedTimeSeconds);
-    return nextAnalyzedTime == null
-        ? Number.POSITIVE_INFINITY
-        : nextAnalyzedTime + timeBufferSeconds;
-}
-
-function isWithinPreBuffer(
-    currentTimeSeconds: number,
-    analyzedTimeSeconds: number,
-    timeBufferSeconds: number
-) {
-    return timeBufferSeconds > 0
-        && currentTimeSeconds >= analyzedTimeSeconds - timeBufferSeconds
-        && currentTimeSeconds < analyzedTimeSeconds;
-}
-
-function projectPreBufferObject(
-    orderedSamples: TimedDetectedObject[],
-    upcoming: TimedDetectedObject,
-    currentTimeSeconds: number
-) {
-    if (upcoming.detectedObject.trackId == null) {
-        return { ...upcoming.detectedObject };
-    }
-
-    const next = orderedSamples.find(sample => sample.timeSeconds > upcoming.timeSeconds);
-    return next
-        ? projectObject(upcoming, next, currentTimeSeconds, false)
-        : { ...upcoming.detectedObject };
-}
-
-function projectPostBufferObject(
-    orderedSamples: TimedDetectedObject[],
-    previous: TimedDetectedObject,
-    currentTimeSeconds: number,
-    timeBufferSeconds: number
-) {
-    if (previous.detectedObject.trackId == null
-        || timeBufferSeconds <= 0
-        || currentTimeSeconds > previous.timeSeconds + timeBufferSeconds) {
-        return { ...previous.detectedObject };
-    }
-
-    const prior = findPriorSample(orderedSamples, previous.timeSeconds);
-    return prior
-        ? projectObject(prior, previous, currentTimeSeconds, false)
-        : { ...previous.detectedObject };
-}
-
-function findPriorSample(samples: TimedDetectedObject[], timeSeconds: number) {
-    let prior: TimedDetectedObject | null = null;
-    for (const sample of samples) {
-        if (sample.timeSeconds < timeSeconds) {
-            prior = sample;
-            continue;
-        }
-
-        break;
-    }
-
-    return prior;
 }
 
 function projectObject(

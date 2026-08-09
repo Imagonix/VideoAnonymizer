@@ -27,9 +27,22 @@ namespace VideoAnonymizer.Web.Pages
 
         private int _activeTabIndex = 0;
 
+        private bool IsImportActive => _activeTabIndex == 0;
+        private bool IsReviewActive => _activeTabIndex == 1;
+
+        private void SetActiveTab(int index)
+        {
+            if (_activeTabIndex == index)
+                return;
+
+            _activeTabIndex = index;
+            StateHasChanged();
+        }
+
         public bool IsAnonymized { get; private set; }
 
         private bool IsBusy { get; set; }
+        private bool _isExportRunning;
         private string? StatusText { get; set; }
         private int? ProgressPercent { get; set; }
         private string? SelectedFileName { get; set; }
@@ -40,6 +53,11 @@ namespace VideoAnonymizer.Web.Pages
 
         private int _blurSizePercent = 120;
         private int _timeBufferMs = 300;
+
+        /// <summary>
+        /// True while anonymization/export is in progress. Disables export re-entry and stale downloads.
+        /// </summary>
+        private bool IsExportRunning => _isExportRunning;
 
         private int DetectionIntervalMs { get; set; } = 100;
 
@@ -91,6 +109,7 @@ namespace VideoAnonymizer.Web.Pages
 
                 _anonymizeVideoJobId = message.JobId;
                 IsAnonymized = true;
+                _isExportRunning = false;
                 ProgressPercent = 100;
                 IsBusy = false;
                 StatusText = "Video blurred successfully. Downloading...";
@@ -130,6 +149,7 @@ namespace VideoAnonymizer.Web.Pages
             SelectedFileName = file.Name;
 
             IsAnonymized = false;
+            _isExportRunning = false;
             _currentVideoId = null;
             _anonymizeVideoJobId = null;
             _showEditor = false;
@@ -205,6 +225,60 @@ namespace VideoAnonymizer.Web.Pages
             }
         }
 
+        private async Task DeleteWorkingCopyAsync(Guid videoId)
+        {
+            try
+            {
+                IsBusy = true;
+                StatusText = "Deleting working copy...";
+                await InvokeAsync(StateHasChanged);
+
+                using var httpClient = HttpClientFactory.CreateClient("ApiService");
+                var response = await httpClient.DeleteAsync($"/{SharedConstants.Paths.Video}/{videoId}");
+                response.EnsureSuccessStatusCode();
+
+                var result = await response.Content.ReadFromJsonAsync<ApiResponse<DeleteVideoResultDto>>();
+                var payload = result?.Payload;
+
+                if (_currentVideoId == videoId)
+                {
+                    _currentVideoId = null;
+                    _anonymizeVideoJobId = null;
+                    IsAnonymized = false;
+                    _isExportRunning = false;
+                    _showEditor = false;
+                    _videoSourceUrl = null;
+                    _analyzedFrames = [];
+                    _activeTabIndex = 0;
+                    _downloadFileName = null;
+                }
+
+                await LoadExistingVideosAsync();
+
+                if (payload?.Warnings is { Count: > 0 })
+                {
+                    Snackbar.Add(
+                        $"Working copy removed with warnings: {string.Join(" ", payload.Warnings)}",
+                        Severity.Warning);
+                }
+                else
+                {
+                    Snackbar.Add("Working copy deleted.", Severity.Success);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Could not delete working copy: {ex.Message}", Severity.Error);
+            }
+            finally
+            {
+                IsBusy = false;
+                StatusText = null;
+                ProgressPercent = null;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+
         private async Task OnExistingVideoSelected(Guid videoId)
         {
             await LoadExistingVideosAsync();
@@ -217,6 +291,7 @@ namespace VideoAnonymizer.Web.Pages
             _blurSizePercent = videoDto?.BlurSizePercent ?? 120;
             _timeBufferMs = videoDto?.TimeBufferMs ?? 300;
             IsAnonymized = false;
+            _isExportRunning = false;
             _anonymizeVideoJobId = null;
             _showEditor = false;
             _videoSourceUrl = null;
@@ -303,10 +378,11 @@ namespace VideoAnonymizer.Web.Pages
             try
             {
                 IsBusy = true;
+                _isExportRunning = true;
                 ProgressPercent = null;
                 StatusText = "Starting blurring...";
 
-                var frames = _reviewExportTab.CapturedFrames.ToList();
+                var frames = _reviewExportTab?.CapturedFrames.ToList() ?? [];
 
                 await InvokeAsync(StateHasChanged);
 
@@ -315,8 +391,8 @@ namespace VideoAnonymizer.Web.Pages
                     Frames = frames,
                     Settings = new()
                     {
-                        BlurSizePercent = _reviewExportTab.BlurSizePercent,
-                        TimeBufferMs = _reviewExportTab.TimeBufferMs,
+                        BlurSizePercent = _reviewExportTab?.BlurSizePercent ?? _blurSizePercent,
+                        TimeBufferMs = _reviewExportTab?.TimeBufferMs ?? _timeBufferMs,
                     }
 
                 };
@@ -344,6 +420,7 @@ namespace VideoAnonymizer.Web.Pages
             catch (Exception ex)
             {
                 IsBusy = false;
+                _isExportRunning = false;
                 ProgressPercent = null;
                 StatusText = "Blurring video failed.";
                 Snackbar.Add($"Blurring video failed: {ex.Message}", Severity.Error);
@@ -354,7 +431,7 @@ namespace VideoAnonymizer.Web.Pages
 
         private async Task DownloadAsync()
         {
-            if (_anonymizeVideoJobId.IsNullOrEmpty())
+            if (_currentVideoId.IsNullOrEmpty() || !IsAnonymized)
                 return;
 
             try

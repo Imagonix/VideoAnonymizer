@@ -1,14 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import PauseCircleOutlineIcon from './icons/PauseCircleOutlineIcon.vue';
-import PlayCircleOutlineIcon from './icons/PlayCircleOutlineIcon.vue';
 import VolumeUpIcon from './icons/VolumeUpIcon.vue';
 import { formatTimelineTime } from './timelineUtils';
 
 const props = defineProps<{
   currentTime: number;
   duration: number;
-  isPlaying: boolean;
   volume: number;
   zoomLevel: number;
   minZoom: number;
@@ -16,7 +13,6 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'toggle-playback'): void;
   (e: 'volume-change', volume: number): void;
   (e: 'zoom-in'): void;
   (e: 'zoom-out'): void;
@@ -38,18 +34,8 @@ function onVolumeInput(e: Event) {
 </script>
 
 <template>
-  <div class="timeline-toolbar">
+  <div class="timeline-toolbar" data-testid="timeline-toolbar">
     <div class="timeline-transport-controls">
-      <button
-        type="button"
-        class="playback-button mud-icon-button"
-        :aria-label="isPlaying ? 'Pause video' : 'Play video'"
-        :title="isPlaying ? 'Pause' : 'Play'"
-        @click="emit('toggle-playback')"
-      >
-        <PauseCircleOutlineIcon v-if="isPlaying" />
-        <PlayCircleOutlineIcon v-else />
-      </button>
       <div class="volume-control">
         <VolumeUpIcon />
         <input
@@ -63,11 +49,11 @@ function onVolumeInput(e: Event) {
           @input="onVolumeInput"
         />
       </div>
-      <div class="timeline-time-readout" aria-live="polite">
+      <div class="timeline-time-readout" data-testid="timeline-time-readout" aria-live="polite">
         {{ formattedCurrentTime }} / {{ formattedDuration }}
       </div>
     </div>
-    <div class="timeline-zoom-controls" aria-label="Timeline zoom">
+    <div class="timeline-zoom-controls" data-testid="timeline-zoom-controls" aria-label="Timeline zoom" @click.stop>
       <button
         type="button"
         class="timeline-icon-button mud-icon-button"
@@ -118,8 +104,12 @@ function onVolumeInput(e: Event) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  min-height: 48px;
+  gap: 12px;
+  /* Fixed height must match --timeline-toolbar-height / label spacers. */
+  height: var(--timeline-toolbar-height, 36px);
+  min-height: var(--timeline-toolbar-height, 36px);
+  max-height: var(--timeline-toolbar-height, 36px);
+  box-sizing: border-box;
   background: var(--mud-palette-surface);
   color: var(--mud-palette-text-primary);
   font-family: var(--mud-typography-default-family);
@@ -147,30 +137,6 @@ function onVolumeInput(e: Event) {
   min-width: 0;
 }
 
-.playback-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  padding: 12px;
-  border: 0;
-  border-radius: 50%;
-  color: var(--mud-palette-primary);
-  background: transparent;
-  cursor: pointer;
-  overflow: visible;
-  font-size: 1.5rem;
-  text-align: center;
-  transition: background-color 0.15s ease, color 0.15s ease;
-}
-
-.playback-button:hover {
-  background: var(--mud-palette-primary-hover);
-}
-
-.playback-button:focus-visible,
 .timeline-icon-button:focus-visible {
   outline: none;
   background: var(--mud-palette-action-default-hover);
@@ -179,11 +145,6 @@ function onVolumeInput(e: Event) {
 .timeline-fit-button:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
   outline-offset: 2px;
-}
-
-.playback-button :deep(svg) {
-  width: 24px;
-  height: 24px;
 }
 
 .volume-control {
@@ -204,7 +165,7 @@ function onVolumeInput(e: Event) {
 
 .timeline-icon-button,
 .timeline-fit-button {
-  height: 36px;
+  height: 32px;
   border-radius: var(--mud-default-borderradius);
   background: color-mix(in srgb, var(--mud-palette-surface) 88%, var(--mud-palette-primary) 12%);
   color: var(--mud-palette-text-primary);
@@ -220,20 +181,21 @@ function onVolumeInput(e: Event) {
   background: color-mix(in srgb, var(--mud-palette-primary) 14%, var(--mud-palette-surface));
 }
 
+/* Sized to fit the shared 36px toolbar height so labels and rows stay aligned. */
 .timeline-icon-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 48px;
-  height: 48px;
-  padding: 12px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
   border: 0;
   border-radius: 50%;
   background: transparent;
   color: var(--mud-palette-primary);
   overflow: visible;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   line-height: 1;
   text-align: center;
 }

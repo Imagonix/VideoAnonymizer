@@ -11,10 +11,12 @@ using NUnit.Framework;
 using Reqnroll;
 using VideoAnonymizer.ApiService.Controllers;
 using VideoAnonymizer.ApiService.DataServices;
+using VideoAnonymizer.ApiService.DTO;
 using VideoAnonymizer.Contracts;
 using VideoAnonymizer.Contracts.Messaging;
 using VideoAnonymizer.Contracts.RabbitMQ;
 using VideoAnonymizer.Database;
+using VideoAnonymizer.VideoProcessor.Anonymization;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.Tests.Steps;
@@ -114,6 +116,72 @@ public sealed class LocalVideoPersistenceStepDefinitions
         set => _scenarioContext.Set(value, nameof(ForeignObjectId));
     }
 
+    private Guid FirstOccurrenceId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(FirstOccurrenceId));
+        set => _scenarioContext.Set(value, nameof(FirstOccurrenceId));
+    }
+
+    private Guid SecondOccurrenceId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(SecondOccurrenceId));
+        set => _scenarioContext.Set(value, nameof(SecondOccurrenceId));
+    }
+
+    private Guid FourthOccurrenceId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(FourthOccurrenceId));
+        set => _scenarioContext.Set(value, nameof(FourthOccurrenceId));
+    }
+
+    private Guid UntrackedOccurrenceId
+    {
+        get => _scenarioContext.Get<Guid>(nameof(UntrackedOccurrenceId));
+        set => _scenarioContext.Set(value, nameof(UntrackedOccurrenceId));
+    }
+
+    private Dictionary<Guid, ConsecutiveSegment> ResolvedSegments
+    {
+        get => _scenarioContext.Get<Dictionary<Guid, ConsecutiveSegment>>(nameof(ResolvedSegments));
+        set => _scenarioContext.Set(value, nameof(ResolvedSegments));
+    }
+
+    private List<DetectedObject> NormalizationOccurrences
+    {
+        get => _scenarioContext.Get<List<DetectedObject>>(nameof(NormalizationOccurrences));
+        set => _scenarioContext.Set(value, nameof(NormalizationOccurrences));
+    }
+
+    private DetectedObject OverridingFace
+    {
+        get => _scenarioContext.Get<DetectedObject>(nameof(OverridingFace));
+        set => _scenarioContext.Set(value, nameof(OverridingFace));
+    }
+
+    private DetectedObject PlainFace
+    {
+        get => _scenarioContext.Get<DetectedObject>(nameof(PlainFace));
+        set => _scenarioContext.Set(value, nameof(PlainFace));
+    }
+
+    private int GlobalBlurSize
+    {
+        get => _scenarioContext.Get<int>(nameof(GlobalBlurSize));
+        set => _scenarioContext.Set(value, nameof(GlobalBlurSize));
+    }
+
+    private (int Overriding, int Plain) ResolvedBlurSizes
+    {
+        get => _scenarioContext.Get<(int, int)>(nameof(ResolvedBlurSizes));
+        set => _scenarioContext.Set(value, nameof(ResolvedBlurSizes));
+    }
+
+    private (int PreBufferMs, int PostBufferMs) ResolvedBuffers
+    {
+        get => _scenarioContext.Get<(int, int)>(nameof(ResolvedBuffers));
+        set => _scenarioContext.Set(value, nameof(ResolvedBuffers));
+    }
+
     private string UploadedFileName
     {
         get => _scenarioContext.Get<string>(nameof(UploadedFileName));
@@ -166,6 +234,18 @@ public sealed class LocalVideoPersistenceStepDefinitions
     {
         get => _scenarioContext.Get<List<AnalyzedFrameDto>>(nameof(ListedFrames));
         set => _scenarioContext.Set(value, nameof(ListedFrames));
+    }
+
+    private DeleteVideoResultDto DeleteResult
+    {
+        get => _scenarioContext.Get<DeleteVideoResultDto>(nameof(DeleteResult));
+        set => _scenarioContext.Set(value, nameof(DeleteResult));
+    }
+
+    private string HostedStorageRoot
+    {
+        get => _scenarioContext.Get<string>(nameof(HostedStorageRoot));
+        set => _scenarioContext.Set(value, nameof(HostedStorageRoot));
     }
 
     public LocalVideoPersistenceStepDefinitions(ScenarioContext scenarioContext)
@@ -364,6 +444,421 @@ public sealed class LocalVideoPersistenceStepDefinitions
         await SeedVideoAsync(OtherVideoId, [CreateFrame(ForeignFrameId, OtherVideoId, [CreateObject(ForeignObjectId, ForeignFrameId, trackId: 9)])]);
     }
 
+    [Given("a reviewed video has two detected faces")]
+    public async Task GivenAReviewedVideoHasTwoDetectedFaces()
+    {
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+        SecondObjectId = Guid.NewGuid();
+
+        await SeedVideoAsync(VideoId,
+        [
+            CreateFrame(FrameId, VideoId,
+            [
+                CreateObject(ExistingObjectId, FrameId, trackId: 1),
+                CreateObject(SecondObjectId, FrameId, trackId: 2)
+            ])
+        ]);
+    }
+
+    [When("the reviewer saves the first face with custom track settings")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithCustomTrackSettings()
+    {
+        var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
+        dto.BlurShape = "rectangle";
+        dto.BlurSizePercentOverride = 140;
+        dto.PreBufferMsOverride = 220;
+        dto.PostBufferMsOverride = 480;
+
+        LastResult = await CreateDetectedObjectsController()
+            .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
+    }
+
+    [Then("the first face keeps its custom track settings when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsItsCustomTrackSettingsWhenReopeningTheVideo()
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
+        first.BlurShape.Should().Be("rectangle");
+        first.BlurSizePercentOverride.Should().Be(140);
+        first.PreBufferMsOverride.Should().Be(220);
+        first.PostBufferMsOverride.Should().Be(480);
+    }
+
+    [Then("the second face still has no track overrides")]
+    public async Task ThenTheSecondFaceStillHasNoTrackOverrides()
+    {
+        var second = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == SecondObjectId);
+        second.BlurShape.Should().BeNull();
+        second.BlurSizePercentOverride.Should().BeNull();
+        second.PreBufferMsOverride.Should().BeNull();
+        second.PostBufferMsOverride.Should().BeNull();
+    }
+
+    [Given("a reviewed video has a track with occurrences in the first, second, and fourth frames and an untracked occurrence in the fifth frame")]
+    public async Task GivenATrackWithOccurrencesInFirstSecondAndFourthFrames()
+    {
+        VideoId = Guid.NewGuid();
+        FirstOccurrenceId = Guid.NewGuid();
+        SecondOccurrenceId = Guid.NewGuid();
+        FourthOccurrenceId = Guid.NewGuid();
+        UntrackedOccurrenceId = Guid.NewGuid();
+        var frame0 = Guid.NewGuid();
+        var frame1 = Guid.NewGuid();
+        var frame2 = Guid.NewGuid();
+        var frame3 = Guid.NewGuid();
+        var frame4 = Guid.NewGuid();
+
+        await SeedVideoAsync(VideoId,
+        [
+            CreateFrame(frame0, VideoId, [CreateObject(FirstOccurrenceId, frame0, trackId: 7)], frameIndex: 0),
+            CreateFrame(frame1, VideoId, [CreateObject(SecondOccurrenceId, frame1, trackId: 7)], frameIndex: 1),
+            CreateFrame(frame2, VideoId, [], frameIndex: 2),
+            CreateFrame(frame3, VideoId, [CreateObject(FourthOccurrenceId, frame3, trackId: 7)], frameIndex: 3),
+            CreateFrame(frame4, VideoId, [CreateObject(UntrackedOccurrenceId, frame4, trackId: null)], frameIndex: 4)
+        ]);
+    }
+
+    [When("the reviewer resolves the segment of each occurrence")]
+    public async Task WhenTheReviewerResolvesTheSegmentOfEachOccurrence()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var frames = await db.AnalyzedFrames
+            .Include(frame => frame.DetectedObjects)
+            .Where(frame => frame.VideoId == VideoId)
+            .ToListAsync();
+
+        ResolvedSegments = new Dictionary<Guid, ConsecutiveSegment>
+        {
+            [FirstOccurrenceId] = ConsecutiveSegmentResolver.Find(frames, db.DetectedObjects.Single(o => o.Id == FirstOccurrenceId)),
+            [SecondOccurrenceId] = ConsecutiveSegmentResolver.Find(frames, db.DetectedObjects.Single(o => o.Id == SecondOccurrenceId)),
+            [FourthOccurrenceId] = ConsecutiveSegmentResolver.Find(frames, db.DetectedObjects.Single(o => o.Id == FourthOccurrenceId)),
+            [UntrackedOccurrenceId] = ConsecutiveSegmentResolver.Find(frames, db.DetectedObjects.Single(o => o.Id == UntrackedOccurrenceId))
+        };
+    }
+
+    [Then("the segment of the first occurrence spans the second occurrence")]
+    public void ThenTheSegmentOfTheFirstOccurrenceSpansTheSecondOccurrence()
+    {
+        var segment = ResolvedSegments[FirstOccurrenceId];
+        segment.First.Id.Should().Be(FirstOccurrenceId);
+        segment.Last.Id.Should().Be(SecondOccurrenceId);
+        segment.Occurrences.Select(o => o.Id).Should().Equal(FirstOccurrenceId, SecondOccurrenceId);
+    }
+
+    [Then("the segment of the second occurrence is unchanged by the missing third frame")]
+    public void ThenTheSegmentOfTheSecondOccurrenceIsUnchangedByTheMissingThirdFrame()
+    {
+        var segment = ResolvedSegments[SecondOccurrenceId];
+        segment.First.Id.Should().Be(FirstOccurrenceId);
+        segment.Last.Id.Should().Be(SecondOccurrenceId);
+        segment.Occurrences.Select(o => o.Id).Should().Equal(FirstOccurrenceId, SecondOccurrenceId);
+    }
+
+    [Then("the fourth occurrence forms a single-occurrence segment after the gap")]
+    public void ThenTheFourthOccurrenceFormsASingleOccurrenceSegmentAfterTheGap()
+    {
+        var segment = ResolvedSegments[FourthOccurrenceId];
+        segment.First.Id.Should().Be(FourthOccurrenceId);
+        segment.Last.Id.Should().Be(FourthOccurrenceId);
+        segment.Occurrences.Select(o => o.Id).Should().Equal(FourthOccurrenceId);
+    }
+
+    [Then("the untracked occurrence forms a single-occurrence segment")]
+    public void ThenTheUntrackedOccurrenceFormsASingleOccurrenceSegment()
+    {
+        var segment = ResolvedSegments[UntrackedOccurrenceId];
+        segment.First.Id.Should().Be(UntrackedOccurrenceId);
+        segment.Last.Id.Should().Be(UntrackedOccurrenceId);
+        segment.Occurrences.Select(o => o.Id).Should().Equal(UntrackedOccurrenceId);
+    }
+
+    [Given("a segment now spans previously separate runs")]
+    public void GivenASegmentNowSpansPreviouslySeparateRuns()
+    {
+        NormalizationOccurrences =
+        [
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 7, PreBufferMsOverride = 100, PostBufferMsOverride = 200 },
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 7, PreBufferMsOverride = 300, PostBufferMsOverride = 400 },
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 7, PreBufferMsOverride = 500, PostBufferMsOverride = 600 }
+        ];
+    }
+
+    [When("the reviewer normalizes the segment boundaries")]
+    public void WhenTheReviewerNormalizesTheSegmentBoundaries()
+    {
+        SegmentBoundaryNormalizer.Normalize(NormalizationOccurrences);
+    }
+
+    [Then("only the first occurrence stores a pre-buffer override")]
+    public void ThenOnlyTheFirstOccurrenceStoresAPreBufferOverride()
+    {
+        NormalizationOccurrences[0].PreBufferMsOverride.Should().Be(100);
+        NormalizationOccurrences[0].PostBufferMsOverride.Should().BeNull();
+        NormalizationOccurrences.Skip(1).Should().OnlyContain(obj => obj.PreBufferMsOverride == null);
+    }
+
+    [Then("only the last occurrence stores a post-buffer override")]
+    public void ThenOnlyTheLastOccurrenceStoresAPostBufferOverride()
+    {
+        NormalizationOccurrences[^1].PostBufferMsOverride.Should().Be(600);
+        NormalizationOccurrences[^1].PreBufferMsOverride.Should().BeNull();
+        NormalizationOccurrences.Take(NormalizationOccurrences.Count - 1)
+            .Should().OnlyContain(obj => obj.PostBufferMsOverride == null);
+    }
+
+    [When("the reviewer saves the first face with an occurrence blur override")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithOccurrenceBlurOverride()
+    {
+        var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
+        dto.OccurrenceBlurSizePercentOverride = 200;
+
+        LastResult = await CreateDetectedObjectsController()
+            .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
+    }
+
+    [Then("the first face keeps the occurrence blur override when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsTheOccurrenceBlurOverrideWhenReopeningTheVideo()
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
+        first.OccurrenceBlurSizePercentOverride.Should().Be(200);
+    }
+
+    [Then("the second face still has no occurrence override")]
+    public async Task ThenTheSecondFaceStillHasNoOccurrenceOverride()
+    {
+        var second = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == SecondObjectId);
+        second.OccurrenceBlurSizePercentOverride.Should().BeNull();
+    }
+
+    [Given("one occurrence overrides its blur while its track carries a different override")]
+    public void GivenOneOccurrenceOverridesItsBlurWhileItsTrackCarriesADifferentOverride()
+    {
+        OverridingFace = new DetectedObject { Id = Guid.NewGuid(), OccurrenceBlurSizePercentOverride = 180, BlurSizePercentOverride = 150 };
+        PlainFace = new DetectedObject { Id = Guid.NewGuid(), OccurrenceBlurSizePercentOverride = null, BlurSizePercentOverride = 150 };
+    }
+
+    [Then("the occurrence override wins and the track override is the fallback")]
+    public void ThenTheOccurrenceOverrideWinsAndTheTrackOverrideIsTheFallback()
+    {
+        ResolvedBlurSizes.Should().Be((180, 150));
+    }
+
+    [Given("a track with a consecutive segment without boundary overrides")]
+    public void GivenATrackWithAConsecutiveSegmentWithoutBoundaryOverrides()
+    {
+        NormalizationOccurrences =
+        [
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 5 },
+            new DetectedObject { Id = Guid.NewGuid(), TrackId = 5 }
+        ];
+    }
+
+    [When("the segment buffers are resolved for the track")]
+    public void WhenTheSegmentBuffersAreResolvedForTheTrack()
+    {
+        ResolvedBuffers = AnonymizationSettingsResolver.ResolveBuffers(
+            new ConsecutiveSegment(NormalizationOccurrences),
+            300);
+    }
+
+    [Then("the segment pre and post values are the global time buffer {int} ms")]
+    public void ThenTheSegmentPreAndPostValuesAreTheGlobalTimeBuffer(int globalTimeBufferMs)
+    {
+        ResolvedBuffers.Should().Be((globalTimeBufferMs, globalTimeBufferMs));
+    }
+
+    [When(@"the reviewer saves the first face with next gap handling mode ""(.*)""")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithNextGapHandlingMode(string mode)
+    {
+        var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
+        dto.NextGapHandlingMode = mode;
+
+        LastResult = await CreateDetectedObjectsController()
+            .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
+    }
+
+    [When("the reviewer saves the first face with a null next gap handling mode")]
+    public async Task WhenTheReviewerSavesTheFirstFaceWithANullNextGapHandlingMode()
+    {
+        var dto = CreateObjectDto(ExistingObjectId, FrameId, trackId: 1);
+        dto.NextGapHandlingMode = null;
+
+        LastResult = await CreateDetectedObjectsController()
+            .UpdateDetectedObject(VideoId, FrameId, ExistingObjectId, dto);
+    }
+
+    [Then(@"the first face keeps next gap handling mode ""(.*)"" when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsNextGapHandlingModeWhenReopeningTheVideo(string mode)
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
+        first.NextGapHandlingMode.Should().Be(mode);
+
+        await AssertDetectedObjectAsync(ExistingObjectId, entity =>
+        {
+            entity.NextGapHandlingMode.Should().Be(Mapper.FromWireGapHandlingMode(mode));
+        });
+    }
+
+    [Then("the first face keeps a null next gap handling mode when reopening the video")]
+    public async Task ThenTheFirstFaceKeepsANullNextGapHandlingModeWhenReopeningTheVideo()
+    {
+        LastResult.Should().BeOfType<OkObjectResult>();
+        ListedFrames = GetOkPayload<List<AnalyzedFrameDto>>(await CreateVideosController().GetAnalyzedVideo(VideoId));
+        var first = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == ExistingObjectId);
+        first.NextGapHandlingMode.Should().BeNull();
+
+        await AssertDetectedObjectAsync(ExistingObjectId, entity =>
+        {
+            entity.NextGapHandlingMode.Should().BeNull();
+        });
+    }
+
+    [Then("the second face still has no next gap handling mode")]
+    public void ThenTheSecondFaceStillHasNoNextGapHandlingMode()
+    {
+        var second = ListedFrames.Single().DetectedObjects.Single(obj => obj.Id == SecondObjectId);
+        second.NextGapHandlingMode.Should().BeNull();
+    }
+
+    [Then(@"the SQLite-style stored text for that gap mode is ""(.*)""")]
+    public async Task ThenTheSqliteStyleStoredTextForThatGapModeIs(string expectedText)
+    {
+        // Provider-neutral text column: EF stores enum names (not ordinals).
+        // Scan rows because SQLite Guid storage formats vary; match by string equality.
+        await using var command = Connection.CreateCommand();
+        command.CommandText = "SELECT Id, NextGapHandlingMode FROM DetectedObjects";
+        await using var reader = await command.ExecuteReaderAsync();
+
+        string? raw = null;
+        var expectedId = ExistingObjectId.ToString();
+        while (await reader.ReadAsync())
+        {
+            var idValue = reader.GetValue(0);
+            var idText = idValue switch
+            {
+                Guid g => g.ToString(),
+                byte[] bytes when bytes.Length == 16 => new Guid(bytes).ToString(),
+                _ => idValue?.ToString()
+            };
+
+            if (!string.Equals(idText, expectedId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            raw = reader.IsDBNull(1) ? null : reader.GetString(1);
+            break;
+        }
+
+        raw.Should().Be(expectedText);
+        // Prove the value is the enum name, not a numeric ordinal.
+        raw.Should().NotBe("0").And.NotBe("1");
+    }
+
+    [Then("a null next gap handling mode resolves to Interpolate")]
+    public void ThenANullNextGapHandlingModeResolvesToInterpolate()
+    {
+        AnonymizationSettingsResolver.ResolveGapHandlingMode(null)
+            .Should().Be(GapHandlingMode.Interpolate);
+    }
+
+    private GapHandlingMode? MappedGapHandlingMode
+    {
+        get => _scenarioContext.ContainsKey(nameof(MappedGapHandlingMode))
+            ? _scenarioContext.Get<GapHandlingMode?>(nameof(MappedGapHandlingMode))
+            : null;
+        set => _scenarioContext.Set(value, nameof(MappedGapHandlingMode));
+    }
+
+    private Exception? MappingException
+    {
+        get => _scenarioContext.ContainsKey(nameof(MappingException))
+            ? _scenarioContext.Get<Exception?>(nameof(MappingException))
+            : null;
+        set => _scenarioContext.Set(value, nameof(MappingException));
+    }
+
+    [When(@"the API maps an unsupported next gap handling mode ""(.*)""")]
+    public void WhenTheApiMapsAnUnsupportedNextGapHandlingMode(string mode)
+    {
+        try
+        {
+            MappedGapHandlingMode = Mapper.FromWireGapHandlingMode(mode);
+            MappingException = null;
+        }
+        catch (Exception ex)
+        {
+            MappingException = ex;
+            MappedGapHandlingMode = null;
+        }
+    }
+
+    [When(@"the API maps next gap handling mode ""(.*)""")]
+    public void WhenTheApiMapsNextGapHandlingMode(string mode)
+    {
+        MappingException = null;
+        MappedGapHandlingMode = Mapper.FromWireGapHandlingMode(mode);
+    }
+
+    [Then("mapping the gap handling mode fails")]
+    public void ThenMappingTheGapHandlingModeFails()
+    {
+        MappingException.Should().BeOfType<ArgumentException>();
+        MappingException!.Message.Should().Contain("Unsupported gap handling mode");
+    }
+
+    [Then("the mapped entity gap handling mode is UseBuffers")]
+    public void ThenTheMappedEntityGapHandlingModeIsUseBuffers()
+    {
+        MappingException.Should().BeNull();
+        MappedGapHandlingMode.Should().Be(GapHandlingMode.UseBuffers);
+    }
+
+    [Then("the mapped entity gap handling mode is Interpolate")]
+    public void ThenTheMappedEntityGapHandlingModeIsInterpolate()
+    {
+        MappingException.Should().BeNull();
+        MappedGapHandlingMode.Should().Be(GapHandlingMode.Interpolate);
+    }
+
+    [Then(@"mapping that entity back yields wire name ""(.*)""")]
+    public void ThenMappingThatEntityBackYieldsWireName(string expectedWire)
+    {
+        Mapper.ToWireGapHandlingMode(MappedGapHandlingMode).Should().Be(expectedWire);
+    }
+
+    [Given("a reviewer's video has a global blur size of {int} percent")]
+    public void GivenAGlobalBlurSize(int blurSizePercent)
+    {
+        GlobalBlurSize = blurSizePercent;
+    }
+
+    [Given("one face overrides its blur size while another face has no override")]
+    public void GivenOneFaceOverridesItsBlurSizeWhileAnotherFaceHasNoOverride()
+    {
+        OverridingFace = new DetectedObject { Id = Guid.NewGuid(), BlurSizePercentOverride = 150 };
+        PlainFace = new DetectedObject { Id = Guid.NewGuid(), BlurSizePercentOverride = null };
+    }
+
+    [When("the effective blur sizes are resolved")]
+    public void WhenTheEffectiveBlurSizesAreResolved()
+    {
+        ResolvedBlurSizes = (
+            AnonymizationSettingsResolver.ResolveBlurSize(OverridingFace, GlobalBlurSize),
+            AnonymizationSettingsResolver.ResolveBlurSize(PlainFace, GlobalBlurSize));
+    }
+
+    [Then("the overriding face resolves to {int} percent and the other face resolves to {int} percent")]
+    public void ThenTheResolvedBlurSizes(int overriding, int plain)
+    {
+        ResolvedBlurSizes.Should().Be((overriding, plain));
+    }
+
     [When("a bulk edit includes a face from the other video")]
     public async Task WhenABulkEditIncludesAFaceFromTheOtherVideo()
     {
@@ -518,6 +1013,209 @@ public sealed class LocalVideoPersistenceStepDefinitions
             && frame.DetectedObjects.Single().TrackId == 12);
     }
 
+    [Given("videos exist in imported analyzed and exported states")]
+    public async Task GivenVideosExistInImportedAnalyzedAndExportedStates()
+    {
+        var importedId = Guid.NewGuid();
+        var analyzedId = Guid.NewGuid();
+        var exportedId = Guid.NewGuid();
+        var frameId = Guid.NewGuid();
+        var objectId = Guid.NewGuid();
+
+        await SeedVideoAsync(importedId, originalFileName: "status-imported.mp4");
+        await SeedVideoAsync(
+            analyzedId,
+            frames: [CreateFrame(frameId, analyzedId, [CreateObject(objectId, frameId, trackId: 1)])],
+            originalFileName: "status-analyzed.mp4");
+
+        var exportedFrameId = Guid.NewGuid();
+        var exportedObjectId = Guid.NewGuid();
+        var sourcePath = WriteManagedVideoFile(ContentRoot, exportedId, anonymized: false);
+        var anonymizedPath = WriteManagedVideoFile(ContentRoot, exportedId, anonymized: true);
+        await SeedVideoAsync(
+            exportedId,
+            frames: [CreateFrame(exportedFrameId, exportedId, [CreateObject(exportedObjectId, exportedFrameId, trackId: 2)])],
+            sourcePath: sourcePath,
+            anonymizedPath: anonymizedPath,
+            originalFileName: "status-exported.mp4");
+
+        VideoId = analyzedId;
+    }
+
+    [Then("the listed videos show statuses {string}, {string}, and {string}")]
+    public void ThenTheListedVideosShowStatuses(string imported, string ready, string exported)
+    {
+        ListedVideos.Should().Contain(v =>
+            v.OriginalFileName == "status-imported.mp4"
+            && v.Status == imported
+            && !v.HasAnalysis
+            && !v.HasAnonymizedOutput);
+
+        ListedVideos.Should().Contain(v =>
+            v.OriginalFileName == "status-analyzed.mp4"
+            && v.Status == ready
+            && v.HasAnalysis
+            && !v.HasAnonymizedOutput);
+
+        ListedVideos.Should().Contain(v =>
+            v.OriginalFileName == "status-exported.mp4"
+            && v.Status == exported
+            && v.HasAnalysis
+            && v.HasAnonymizedOutput);
+    }
+
+    [Then("the listed video carries a server UTC upload time close to now")]
+    public void ThenTheListedVideoCarriesAServerUtcUploadTimeCloseToNow()
+    {
+        var video = ListedVideos.Single(v => v.Id == VideoId);
+        video.UploadedAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
+    }
+
+    [Given("imported videos exist with known upload times")]
+    public async Task GivenImportedVideosExistWithKnownUploadTimes()
+    {
+        var now = DateTime.UtcNow;
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "b-newest.mp4", uploadedAtUtc: now);
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "a-tie.mp4", uploadedAtUtc: now.AddMinutes(-10));
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "c-tie.mp4", uploadedAtUtc: now.AddMinutes(-10));
+        await SeedVideoAsync(Guid.NewGuid(), originalFileName: "z-oldest.mp4", uploadedAtUtc: now.AddMinutes(-30));
+    }
+
+    [Then("the listed videos are ordered newest upload first")]
+    public void ThenTheListedVideosAreOrderedNewestUploadFirst()
+    {
+        ListedVideos.Select(v => v.OriginalFileName)
+            .Should()
+            .Equal("b-newest.mp4", "a-tie.mp4", "c-tie.mp4", "z-oldest.mp4");
+    }
+
+    [Then("upload time ties are broken by file name deterministically")]
+    public void ThenUploadTimeTiesAreBrokenByFileNameDeterministically()
+    {
+        // a-tie.mp4 and c-tie.mp4 share one upload time; the stable order keeps a before c.
+        var aIndex = ListedVideos.FindIndex(v => v.OriginalFileName == "a-tie.mp4");
+        var cIndex = ListedVideos.FindIndex(v => v.OriginalFileName == "c-tie.mp4");
+        aIndex.Should().BeGreaterThanOrEqualTo(0);
+        cIndex.Should().BeGreaterThan(aIndex);
+    }
+
+    [Given("a saved video has original and anonymized file paths under standalone storage")]
+    public async Task GivenASavedVideoHasOriginalAndAnonymizedFilePathsUnderStandaloneStorage()
+    {
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+        OriginalPath = WriteManagedVideoFile(ContentRoot, VideoId, anonymized: false);
+        AnonymizedPath = WriteManagedVideoFile(ContentRoot, VideoId, anonymized: true);
+        await SeedVideoAsync(
+            VideoId,
+            frames: [CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 1)])],
+            sourcePath: OriginalPath,
+            anonymizedPath: AnonymizedPath,
+            originalFileName: "standalone-copy.mp4");
+    }
+
+    [Given("a saved video has original and anonymized file paths under hosted storage")]
+    public async Task GivenASavedVideoHasOriginalAndAnonymizedFilePathsUnderHostedStorage()
+    {
+        VideoId = Guid.NewGuid();
+        FrameId = Guid.NewGuid();
+        ExistingObjectId = Guid.NewGuid();
+        HostedStorageRoot = Path.Combine(ContentRoot, "hosted-volume");
+        Directory.CreateDirectory(HostedStorageRoot);
+        OriginalPath = WriteManagedVideoFile(HostedStorageRoot, VideoId, anonymized: false);
+        AnonymizedPath = WriteManagedVideoFile(HostedStorageRoot, VideoId, anonymized: true);
+        await SeedVideoAsync(
+            VideoId,
+            frames: [CreateFrame(FrameId, VideoId, [CreateObject(ExistingObjectId, FrameId, trackId: 3)])],
+            sourcePath: OriginalPath,
+            anonymizedPath: AnonymizedPath,
+            originalFileName: "hosted-copy.mp4");
+    }
+
+    [Given("the video has editor action history")]
+    public async Task GivenTheVideoHasEditorActionHistory()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.EditorActions.Add(new EditorAction
+        {
+            Id = Guid.NewGuid(),
+            VideoId = VideoId,
+            ActionType = "object-updated",
+            SequenceNumber = 1,
+            CreatedAt = DateTime.UtcNow,
+            Undone = false,
+            Data = "{}"
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Given("a saved video points its source path outside managed storage")]
+    public async Task GivenASavedVideoPointsItsSourcePathOutsideManagedStorage()
+    {
+        VideoId = Guid.NewGuid();
+        var unsafeDir = Path.Combine(ContentRoot, "outside-storage");
+        Directory.CreateDirectory(unsafeDir);
+        OriginalPath = Path.Combine(unsafeDir, $"{VideoId}.mp4");
+        File.WriteAllBytes(OriginalPath, [1, 2, 3, 4]);
+        await SeedVideoAsync(
+            VideoId,
+            sourcePath: OriginalPath,
+            anonymizedPath: null,
+            originalFileName: "unsafe-path.mp4");
+    }
+
+    [When("the reviewer deletes the working copy")]
+    public async Task WhenTheReviewerDeletesTheWorkingCopy()
+    {
+        LastResult = await CreateVideosController().DeleteWorkingCopy(VideoId);
+        DeleteResult = GetOkPayload<DeleteVideoResultDto>(LastResult);
+    }
+
+    [Then("the video is removed from the database")]
+    public async Task ThenTheVideoIsRemovedFromTheDatabase()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        (await db.Videos.AnyAsync(v => v.Id == VideoId)).Should().BeFalse();
+        (await db.AnalyzedFrames.AnyAsync(f => f.VideoId == VideoId)).Should().BeFalse();
+        (await db.EditorActions.AnyAsync(a => a.VideoId == VideoId)).Should().BeFalse();
+    }
+
+    [Then("the standalone source and anonymized files are deleted")]
+    public void ThenTheStandaloneSourceAndAnonymizedFilesAreDeleted()
+    {
+        File.Exists(OriginalPath).Should().BeFalse();
+        File.Exists(AnonymizedPath).Should().BeFalse();
+        DeleteResult.SourceFileDeleted.Should().BeTrue();
+        DeleteResult.AnonymizedFileDeleted.Should().BeTrue();
+        DeleteResult.DatabaseDeleted.Should().BeTrue();
+    }
+
+    [Then("the hosted source and anonymized files are deleted")]
+    public void ThenTheHostedSourceAndAnonymizedFilesAreDeleted()
+    {
+        File.Exists(OriginalPath).Should().BeFalse();
+        File.Exists(AnonymizedPath).Should().BeFalse();
+        DeleteResult.SourceFileDeleted.Should().BeTrue();
+        DeleteResult.AnonymizedFileDeleted.Should().BeTrue();
+        DeleteResult.DatabaseDeleted.Should().BeTrue();
+    }
+
+    [Then("the delete result reports no file warnings")]
+    public void ThenTheDeleteResultReportsNoFileWarnings()
+    {
+        DeleteResult.Warnings.Should().BeEmpty();
+    }
+
+    [Then("the delete result reports a skipped source file warning")]
+    public void ThenTheDeleteResultReportsASkippedSourceFileWarning()
+    {
+        DeleteResult.DatabaseDeleted.Should().BeTrue();
+        DeleteResult.SourceFileDeleted.Should().BeFalse();
+        DeleteResult.Warnings.Should().Contain(w => w.Contains("source", StringComparison.OrdinalIgnoreCase));
+        File.Exists(OriginalPath).Should().BeTrue();
+    }
+
     private VideosController CreateVideosController(RecordingMessagePublisher? publisher = null) =>
         new(
             publisher ?? new RecordingMessagePublisher(),
@@ -539,10 +1237,11 @@ public sealed class LocalVideoPersistenceStepDefinitions
     private async Task<Guid> SeedVideoAsync(
         string originalFileName = "sample.mp4",
         string? sourcePath = null,
-        string? anonymizedPath = null)
+        string? anonymizedPath = null,
+        DateTime? uploadedAtUtc = null)
     {
         var videoId = Guid.NewGuid();
-        await SeedVideoAsync(videoId, sourcePath: sourcePath, anonymizedPath: anonymizedPath, originalFileName: originalFileName);
+        await SeedVideoAsync(videoId, sourcePath: sourcePath, anonymizedPath: anonymizedPath, originalFileName: originalFileName, uploadedAtUtc: uploadedAtUtc);
         return videoId;
     }
 
@@ -551,10 +1250,11 @@ public sealed class LocalVideoPersistenceStepDefinitions
         IReadOnlyList<AnalyzedFrame>? frames = null,
         string? sourcePath = null,
         string? anonymizedPath = null,
-        string originalFileName = "sample.mp4")
+        string originalFileName = "sample.mp4",
+        DateTime? uploadedAtUtc = null)
     {
         await using var db = await DbFactory.CreateDbContextAsync();
-        db.Videos.Add(CreateVideo(videoId, originalFileName, frames, sourcePath, anonymizedPath));
+        db.Videos.Add(CreateVideo(videoId, originalFileName, frames, sourcePath, anonymizedPath, uploadedAtUtc: uploadedAtUtc));
         await db.SaveChangesAsync();
     }
 
@@ -565,7 +1265,8 @@ public sealed class LocalVideoPersistenceStepDefinitions
         string? sourcePath = null,
         string? anonymizedPath = null,
         int blurSizePercent = 120,
-        int timeBufferMs = 300)
+        int timeBufferMs = 300,
+        DateTime? uploadedAtUtc = null)
     {
         return new Video
         {
@@ -573,22 +1274,29 @@ public sealed class LocalVideoPersistenceStepDefinitions
             SourcePath = sourcePath ?? WriteVideoFile($"{videoId}.mp4"),
             AnonomizedPath = anonymizedPath,
             OriginalFileName = originalFileName,
+            UploadedAtUtc = uploadedAtUtc ?? DateTime.UtcNow,
             BlurSizePercent = blurSizePercent,
             TimeBufferMs = timeBufferMs,
             AnalyzedFrames = frames?.ToList() ?? []
         };
     }
 
-    private static AnalyzedFrame CreateFrame(Guid frameId, Guid videoId, IReadOnlyList<DetectedObject> objects) =>
+    private static AnalyzedFrame CreateFrame(
+        Guid frameId,
+        Guid videoId,
+        IReadOnlyList<DetectedObject> objects,
+        int frameIndex = 0,
+        double timeSeconds = 1.25) =>
         new()
         {
             Id = frameId,
             VideoId = videoId,
-            TimeSeconds = 1.25,
+            FrameIndex = frameIndex,
+            TimeSeconds = timeSeconds,
             DetectedObjects = objects.ToList()
         };
 
-    private static DetectedObject CreateObject(Guid objectId, Guid frameId, int trackId, bool selected = true) =>
+    private static DetectedObject CreateObject(Guid objectId, Guid frameId, int? trackId = 1, bool selected = true) =>
         new()
         {
             Id = objectId,
@@ -655,6 +1363,16 @@ public sealed class LocalVideoPersistenceStepDefinitions
     private string WriteVideoFile(string fileName)
     {
         var path = Path.Combine(ContentRoot, fileName);
+        File.WriteAllBytes(path, [0, 1, 2, 3, 4, 5]);
+        return path;
+    }
+
+    private static string WriteManagedVideoFile(string storageRoot, Guid videoId, bool anonymized)
+    {
+        var uploadsRoot = Path.Combine(storageRoot, "App_Data", "Uploads");
+        Directory.CreateDirectory(uploadsRoot);
+        var fileName = anonymized ? $"{videoId}_anonymized.mp4" : $"{videoId}.mp4";
+        var path = Path.Combine(uploadsRoot, fileName);
         File.WriteAllBytes(path, [0, 1, 2, 3, 4, 5]);
         return path;
     }

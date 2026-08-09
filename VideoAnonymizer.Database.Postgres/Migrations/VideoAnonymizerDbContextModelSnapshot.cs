@@ -17,7 +17,7 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.9")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -56,6 +56,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.Property<string>("BlurShape")
                         .HasColumnType("text");
 
+                    b.Property<int?>("BlurSizePercentOverride")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ClassName")
                         .HasColumnType("text");
 
@@ -63,6 +66,18 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                         .HasColumnType("double precision");
 
                     b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NextGapHandlingMode")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("OccurrenceBlurSizePercentOverride")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PostBufferMsOverride")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreBufferMsOverride")
                         .HasColumnType("integer");
 
                     b.Property<bool>("Selected")
@@ -140,6 +155,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
 
                     b.Property<int>("TimeBufferMs")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 

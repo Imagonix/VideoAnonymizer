@@ -1,22 +1,29 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { TimelineObject, EditorMode } from './types';
+import type { TimelineObject, EditorMode, DetectedObjectDto } from './types';
 import { colorManager } from './services/ColorManager'
 import { getLabel } from './utils/utils'
 import MudLikeCheckbox from './MudLikeCheckbox.vue';
 import ColorDot from './ColorDot.vue';
+import TrackThumbnail from './TrackThumbnail.vue';
 
 const props = defineProps<{
     timelineObject: TimelineObject;
     mode: EditorMode;
     mergeSelectedKeys: Set<string>;
     hoveredTimelineKey: string | null;
+    isTrackSelected?: boolean;
+    thumbnailUrl?: string | null;
+    thumbnailFallbackLabel?: string;
+    thumbnailFallbackColor?: string;
 }>()
 const emit = defineEmits<{
     (e: 'toggle', timelineObject: TimelineObject, checked: boolean): void;
     (e: 'set-track-id', timelineObject: TimelineObject, trackId: number): void;
     (e: 'merge-toggle', key: string): void;
     (e: 'hover-row', key: string | null): void;
+    (e: 'select', obj: DetectedObjectDto): void;
+    (e: 'thumbnail-visibility', timelineObject: TimelineObject, visible: boolean): void;
 }>();
 
 const isEditing = ref(false);
@@ -97,22 +104,39 @@ function cancelEdit() {
 function onRowClick() {
     if (props.mode === 'merge') {
         emit('merge-toggle', timelineKey.value);
+    } else {
+        emit('select', sampleDetectedObject.value);
     }
 }
 </script>
 <template>
     <div
       class="label-container"
-      :class="{ 'label-container--merge-mode': mode === 'merge' }"
+      :class="{
+        'label-container--merge-mode': mode === 'merge',
+        'label-container--selected': isTrackSelected
+      }"
+      :data-timeline-key="timelineKey"
+      :data-selected="isTrackSelected ? 'true' : 'false'"
       :style="mergeHighlightStyle"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
       @mouseleave="emit('hover-row', null)"
     >
+        <TrackThumbnail
+          :object-url="thumbnailUrl"
+          :fallback-label="thumbnailFallbackLabel || getTimelineLabel(timelineObject).slice(0, 2).toUpperCase() || '?'"
+          :fallback-color="thumbnailFallbackColor || colorManager.getColor(sampleDetectedObject)"
+          :size="22"
+          :aria-label="`Representative image for ${getTimelineLabel(timelineObject)}`"
+          @visibility-change="(visible: boolean) => emit('thumbnail-visibility', timelineObject, visible)"
+          @click.stop
+        />
         <MudLikeCheckbox
           :checked="checked"
           :indeterminate="indeterminate"
           :disabled="mode === 'merge'"
+          @click.stop
           @change="(value: boolean) => emit('toggle', timelineObject, value)"
         >
           <span v-if="!isEditing" class="label-text" @dblclick.stop="startEdit">
@@ -139,14 +163,36 @@ function onRowClick() {
 .label-container {
     display: flex;
     align-items: center;
-    height: 34px;
-    padding: 0 4px 1px 4px;
+    justify-content: flex-start;
+    gap: 4px;
+    height: var(--timeline-row-height, 28px);
+    min-height: var(--timeline-row-height, 28px);
+    max-height: var(--timeline-row-height, 28px);
+    margin: 0;
+    /* Horizontal inset only — vertical padding would desync from occurrence rows. */
+    padding: 0 4px;
+    box-sizing: border-box;
     border-radius: 4px;
     transition: background 0.1s;
+    cursor: pointer;
+}
+
+/* Keep multi-root checkbox parts on one centered row with the thumbnail. */
+.label-container :deep(.mud-checkbox),
+.label-container :deep(.mud-checkbox__label) {
+    display: inline-flex;
+    align-items: center;
+    height: 100%;
 }
 
 .label-container--merge-mode {
     cursor: pointer;
+}
+
+.label-container--selected {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+    background: color-mix(in srgb, var(--mud-palette-primary) 12%, transparent);
 }
 
 

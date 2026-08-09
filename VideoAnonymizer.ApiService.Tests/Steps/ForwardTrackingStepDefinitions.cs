@@ -447,6 +447,93 @@ public sealed class ForwardTrackingStepDefinitions
         failure.CreatedObjectIds.Should().Equal(retainedId);
     }
 
+    [Given("a reviewed video has a trackable seed at the last boundary of its segment")]
+    public async Task GivenAReviewedVideoHasATrackableSeedAtTheLastBoundaryOfItsSegment()
+    {
+        VideoId = Guid.NewGuid();
+        var seedFrameId = Guid.NewGuid();
+        FirstFutureFrameId = Guid.NewGuid();
+        SecondFutureFrameId = Guid.NewGuid();
+        SeedObjectId = Guid.NewGuid();
+
+        await using var db = await DbFactory.CreateDbContextAsync();
+        db.Videos.Add(new Video
+        {
+            Id = VideoId,
+            SourcePath = WriteVideoFile($"{VideoId}.mp4"),
+            OriginalFileName = "track-forward-boundary.mp4",
+            BlurSizePercent = 120,
+            TimeBufferMs = 300,
+            AnalyzedFrames =
+            [
+                CreateFrame(seedFrameId, VideoId, frameIndex: 0, timeSeconds: 0.0,
+                [
+                    CreateObject(SeedObjectId, seedFrameId, trackId: 7, x: 10, y: 20, blurShape: "rectangle",
+                        blurSizePercentOverride: 140, postBufferMsOverride: 500)
+                ]),
+                CreateFrame(FirstFutureFrameId, VideoId, frameIndex: 1, timeSeconds: 0.1, []),
+                CreateFrame(SecondFutureFrameId, VideoId, frameIndex: 5, timeSeconds: 0.5, [])
+            ]
+        });
+        await db.SaveChangesAsync();
+    }
+
+    [Given("the Python forward tracker returns a box on the consecutive next analyzed frame")]
+    public void GivenThePythonForwardTrackerReturnsABoxOnTheConsecutiveNextAnalyzedFrame()
+    {
+        FakeClient.StreamEvents = CreateTrackingStreamEvents(
+        [
+            CreatePythonDetection(frameIndex: 1, x: 14)
+        ]);
+    }
+
+    [Given("the Python forward tracker returns a box on a frame after a missing analyzed frame")]
+    public void GivenThePythonForwardTrackerReturnsABoxOnAFrameAfterAMissingAnalyzedFrame()
+    {
+        FakeClient.StreamEvents = CreateTrackingStreamEvents(
+        [
+            CreatePythonDetection(frameIndex: 5, x: 18)
+        ]);
+    }
+
+    [Then("the generated face carries the seed's post override and track-wide settings")]
+    public async Task ThenTheGeneratedFaceCarriesTheSeedsPostOverrideAndTrackWideSettings()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var generated = await db.DetectedObjects.SingleAsync(obj =>
+            obj.AnalyzedFrameId == FirstFutureFrameId || obj.AnalyzedFrameId == SecondFutureFrameId);
+        generated.PostBufferMsOverride.Should().Be(500);
+        generated.PreBufferMsOverride.Should().BeNull();
+        generated.BlurShape.Should().Be("rectangle");
+        generated.BlurSizePercentOverride.Should().Be(140);
+    }
+
+    [Then("the seed face no longer stores the post override")]
+    public async Task ThenTheSeedFaceNoLongerStoresThePostOverride()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var seed = await db.DetectedObjects.SingleAsync(obj => obj.Id == SeedObjectId);
+        seed.PostBufferMsOverride.Should().BeNull();
+    }
+
+    [Then("the generated face keeps null boundary overrides")]
+    public async Task ThenTheGeneratedFaceKeepsNullBoundaryOverrides()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var generated = await db.DetectedObjects.SingleAsync(obj =>
+            obj.AnalyzedFrameId == FirstFutureFrameId || obj.AnalyzedFrameId == SecondFutureFrameId);
+        generated.PostBufferMsOverride.Should().BeNull();
+        generated.PreBufferMsOverride.Should().BeNull();
+    }
+
+    [Then("the seed face keeps its post override")]
+    public async Task ThenTheSeedFaceKeepsItsPostOverride()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var seed = await db.DetectedObjects.SingleAsync(obj => obj.Id == SeedObjectId);
+        seed.PostBufferMsOverride.Should().Be(500);
+    }
+
     private async Task TrackForwardDirectlyAsync(TrackForwardJob job)
     {
         try
@@ -521,14 +608,19 @@ public sealed class ForwardTrackingStepDefinitions
         Guid frameId,
         int trackId,
         int x,
-        int y) =>
+        int y,
+        string blurShape = "ellipse",
+        int? blurSizePercentOverride = null,
+        int? postBufferMsOverride = null) =>
         new()
         {
             Id = objectId,
             AnalyzedFrameId = frameId,
             Confidence = 0.95,
             ClassName = "face",
-            BlurShape = "ellipse",
+            BlurShape = blurShape,
+            BlurSizePercentOverride = blurSizePercentOverride,
+            PostBufferMsOverride = postBufferMsOverride,
             Selected = true,
             TrackId = trackId,
             X = x,

@@ -2,7 +2,6 @@ using System.Globalization;
 using FluentAssertions;
 using Reqnroll;
 using VideoAnonymizer.Database;
-using VideoAnonymizer.VideoProcessor;
 using VideoAnonymizer.VideoProcessor.Anonymization;
 
 namespace VideoAnonymizer.ApiService.Tests.Steps;
@@ -12,9 +11,9 @@ public sealed class FrameCoverageStepDefinitions
 {
     private readonly ScenarioContext _scenarioContext;
 
-    private Dictionary<double, List<DetectedObject>> AnalyzedFrames
+    private List<AnalyzedFrame> AnalyzedFrames
     {
-        get => _scenarioContext.Get<Dictionary<double, List<DetectedObject>>>(nameof(AnalyzedFrames));
+        get => _scenarioContext.Get<List<AnalyzedFrame>>(nameof(AnalyzedFrames));
         set => _scenarioContext.Set(value, nameof(AnalyzedFrames));
     }
 
@@ -32,7 +31,9 @@ public sealed class FrameCoverageStepDefinitions
     [Given("analyzed detections")]
     public void GivenAnalyzedDetections(Table table)
     {
-        AnalyzedFrames = [];
+        var framesByIndex = new Dictionary<int, AnalyzedFrame>();
+        var sequentialByTime = new Dictionary<double, int>();
+        var nextSequential = 0;
 
         foreach (var row in table.Rows)
         {
@@ -40,14 +41,32 @@ public sealed class FrameCoverageStepDefinitions
             var trackId = int.Parse(row["trackId"], CultureInfo.InvariantCulture);
             var x = int.Parse(row["x"], CultureInfo.InvariantCulture);
 
-            if (!AnalyzedFrames.TryGetValue(timeSeconds, out var objects))
+            if (!sequentialByTime.TryGetValue(timeSeconds, out _))
             {
-                objects = [];
-                AnalyzedFrames[timeSeconds] = objects;
+                sequentialByTime[timeSeconds] = nextSequential++;
             }
 
-            objects.Add(CreateObject(trackId, x));
+            var frameIndex = sequentialByTime[timeSeconds];
+
+            if (!framesByIndex.TryGetValue(frameIndex, out var frame))
+            {
+                frame = new AnalyzedFrame
+                {
+                    Id = Guid.NewGuid(),
+                    VideoId = Guid.NewGuid(),
+                    FrameIndex = frameIndex,
+                    TimeSeconds = timeSeconds,
+                    DetectedObjects = []
+                };
+                framesByIndex[frameIndex] = frame;
+            }
+
+            var obj = CreateObject(trackId, x);
+            obj.AnalyzedFrame = frame;
+            frame.DetectedObjects.Add(obj);
         }
+
+        AnalyzedFrames = framesByIndex.Values.OrderBy(frame => frame.FrameIndex).ToList();
     }
 
     [When("the processor asks for objects at {double} seconds with a {double} second buffer")]
@@ -56,11 +75,12 @@ public sealed class FrameCoverageStepDefinitions
         const double fps = 100;
         var frameIndex = (int)Math.Round(currentTimeSeconds * fps);
 
-        RelevantObjects = RelevantDetectedObjectSelector.GetObjectsFromRelevantAnalyzedFrames(
+        RelevantObjects = RelevantDetectedObjectSelector.GetObjectsForFrame(
             AnalyzedFrames,
             frameIndex,
             fps,
-            timeBufferSeconds);
+            (int)Math.Round(timeBufferSeconds * 1000),
+            interpolateTrackedObjects: false);
     }
 
     [Then("the relevant objects are")]

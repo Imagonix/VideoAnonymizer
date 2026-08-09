@@ -4,14 +4,33 @@
 {
     var cuda = AppState.CudaRuntime;
 
-    <div class="@Class" style="display: flex; justify-content: flex-end;">
-        <MudTooltip Text="@GetTooltip(cuda, AppState.IsDocker)">
-            <div style="@GetHeaderStyle(cuda)">
-                <span style="@GetDotStyle(cuda)"></span>
-                <span>@GetHeaderText(cuda)</span>
-            </div>
-        </MudTooltip>
-    </div>
+    if (Mode == LocalRuntimeFeedbackMode.Compact)
+    {
+        var color = GetColor(cuda);
+        var text = GetCompactText(cuda);
+
+        <div class="@Class" data-testid="runtime-mode-indicator"
+             title="@GetTooltip(cuda, AppState.IsDocker)"
+             style="display: flex; flex-direction: column; align-items: center; gap: 4px; color: @color;">
+            <MudTooltip Text="@GetTooltip(cuda, AppState.IsDocker)" Placement="Placement.Right">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: default;">
+                    <span style="@GetDotStyle(cuda)"></span>
+                    <span style="font-size: 0.62rem; line-height: 1; white-space: nowrap;">@text</span>
+                </div>
+            </MudTooltip>
+        </div>
+    }
+    else
+    {
+        <div class="@Class" style="display: flex; justify-content: flex-end;">
+            <MudTooltip Text="@GetTooltip(cuda, AppState.IsDocker)">
+                <div style="@GetHeaderStyle(cuda)">
+                    <span style="@GetDotStyle(cuda)"></span>
+                    <span>@GetHeaderText(cuda)</span>
+                </div>
+            </MudTooltip>
+        </div>
+    }
 }
 
 @code {
@@ -23,6 +42,20 @@
 
     [Parameter]
     public LocalRuntimeFeedbackMode Mode { get; set; } = LocalRuntimeFeedbackMode.Header;
+
+    private static string GetColor(CudaRuntimeStateDto cuda)
+    {
+        return cuda.CudaExecutionProviderActive
+            ? "var(--mud-palette-success)"
+            : "var(--mud-palette-warning)";
+    }
+
+    private static string GetCompactText(CudaRuntimeStateDto cuda)
+    {
+        return cuda.CudaExecutionProviderActive
+            ? "GPU"
+            : "CPU";
+    }
 
     private static string GetHeaderText(CudaRuntimeStateDto cuda)
     {

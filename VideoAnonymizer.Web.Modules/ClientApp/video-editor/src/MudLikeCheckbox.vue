@@ -10,6 +10,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'update:checked', value: boolean): void
   (e: 'change', value: boolean): void
+  (e: 'click', event: MouseEvent): void
 }>()
 
 const inputRef = ref<HTMLInputElement | null>(null)
@@ -22,12 +23,19 @@ const model = computed({
   }
 })
 
+function syncIndeterminate(value: boolean | undefined) {
+  if (inputRef.value) {
+    inputRef.value.indeterminate = !!value
+  }
+}
+
+// Apply after the native input exists; immediate-only can run before the ref is set.
 watch(
-  () => props.indeterminate,
-  (value) => {
-    if (inputRef.value) inputRef.value.indeterminate = !!value
+  [() => props.indeterminate, inputRef],
+  ([value]) => {
+    syncIndeterminate(value)
   },
-  { immediate: true }
+  { immediate: true, flush: 'post' }
 )
 </script>
 

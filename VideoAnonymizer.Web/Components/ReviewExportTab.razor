@@ -19,13 +19,40 @@
                 <ActionHistoryPopover IsProcessing="_actionCoordinator.HasPendingActions || _trackForwardCoordinator.ActiveCount > 0"
                                       HasErrors="_actionCoordinator.HasErrors || _trackForwardCoordinator.HasErrors"
                                       Items="_actionCoordinator.ActionHistory" />
-                <MudButton Variant="Variant.Filled"
-                           Color="Color.Secondary"
-                           Size="Size.Small"
-                           Disabled="!ShowEditor || _editorInputBlocked"
-                           OnClick="OnStartAnonymizationClicked">
-                    Export
-                </MudButton>
+
+                @if (!string.IsNullOrEmpty(ExportDisabledReason) && ShowEditor)
+                {
+                    <MudText Typo="Typo.caption"
+                             Class="mud-text-secondary"
+                             data-testid="export-disabled-reason">
+                        @ExportDisabledReason
+                    </MudText>
+                }
+
+                <MudTooltip Text="@(CanExport ? "Start export with the current editor state" : ExportDisabledReason)">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Secondary"
+                               Size="Size.Small"
+                               Disabled="!CanExport"
+                               data-testid="export-button"
+                               OnClick="OnStartAnonymizationClicked">
+                        Export anonymized video
+                    </MudButton>
+                </MudTooltip>
+
+                @if (ExportResultAvailable)
+                {
+                    <MudTooltip Text="@(CanDownload ? "Download the latest anonymized video" : DownloadDisabledReason)">
+                        <MudButton Variant="Variant.Outlined"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   Disabled="!CanDownload"
+                                   data-testid="download-button"
+                                   OnClick="OnDownloadClicked">
+                            Download
+                        </MudButton>
+                    </MudTooltip>
+                }
             </MudStack>
         </ReviewExportSettings>
 
@@ -84,7 +111,22 @@
     public EventCallback StartAnonymization { get; set; }
 
     [Parameter]
+    public EventCallback DownloadAnonymized { get; set; }
+
+    [Parameter]
     public EventCallback TrackingCompleted { get; set; }
+
+    /// <summary>
+    /// True when a successful anonymized result exists for the current video.
+    /// </summary>
+    [Parameter]
+    public bool ExportResultAvailable { get; set; }
+
+    /// <summary>
+    /// True while anonymization/export is running (blocks export and download of incomplete output).
+    /// </summary>
+    [Parameter]
+    public bool IsExportRunning { get; set; }
 
     [Parameter]
     public int BlurSizePercent { get; set; } = 120;
@@ -99,6 +141,51 @@
     public EventCallback<int> TimeBufferMsChanged { get; set; }
 
     public IReadOnlyList<AnalyzedFrameDto> CapturedFrames => _capturedFrames;
+
+    public bool CanExport =>
+        ShowEditor
+        && !_editorInputBlocked
+        && !_actionCoordinator.HasPendingActions
+        && !_actionCoordinator.HasErrors
+        && !_trackForwardCoordinator.HasErrors
+        && _trackForwardCoordinator.ActiveCount == 0
+        && !IsExportRunning;
+
+    public bool CanDownload =>
+        ExportResultAvailable
+        && !IsExportRunning;
+
+    public string? ExportDisabledReason
+    {
+        get
+        {
+            if (!ShowEditor)
+                return "Open a video with analysis to export.";
+            if (_actionCoordinator.HasErrors || _trackForwardCoordinator.HasErrors)
+                return "Fix save errors before export.";
+            if (_actionCoordinator.HasPendingActions)
+                return "Wait for editor changes to finish saving.";
+            if (_editorInputBlocked)
+                return "Wait for undo/redo to finish.";
+            if (_trackForwardCoordinator.ActiveCount > 0)
+                return "Wait for track-forward to finish.";
+            if (IsExportRunning)
+                return "Export is already running.";
+            return null;
+        }
+    }
+
+    public string? DownloadDisabledReason
+    {
+        get
+        {
+            if (!ExportResultAvailable)
+                return "Export a video first.";
+            if (IsExportRunning)
+                return "Wait for the current export to finish.";
+            return null;
+        }
+    }
 
     protected override void OnInitialized()
     {
@@ -184,11 +271,29 @@
 
     private async Task OnStartAnonymizationClicked()
     {
-        if (_videoEditor is null)
+        if (!CanExport)
             return;
 
-        _capturedFrames = (await _videoEditor.GetFramesAsync()).ToList();
+        if (_videoEditor is not null)
+        {
+            var fromEditor = (await _videoEditor.GetFramesAsync()).ToList();
+            // Fall back when the Vue host is not mounted yet (e.g. tests / load failure).
+            _capturedFrames = fromEditor.Count > 0 ? fromEditor : Frames.ToList();
+        }
+        else
+        {
+            _capturedFrames = Frames.ToList();
+        }
+
         await StartAnonymization.InvokeAsync();
+    }
+
+    private async Task OnDownloadClicked()
+    {
+        if (!CanDownload)
+            return;
+
+        await DownloadAnonymized.InvokeAsync();
     }
 
     private async Task OnBlurSizeChanged(int value)

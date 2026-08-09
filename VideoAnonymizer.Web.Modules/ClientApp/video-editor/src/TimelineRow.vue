@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { TimelineObject, EditorMode } from './types';
+import type { TimelineObject, EditorMode, DetectedObjectDto } from './types';
 import { colorManager } from './services/ColorManager'
 
 const props = defineProps<{
@@ -11,12 +11,14 @@ const props = defineProps<{
     selectedOccurrences: Map<string, Set<number>>;
     hoveredTimelineKey: string | null;
     activeGapRange: { startMs: number; endMs: number } | null;
+    isTrackSelected?: boolean;
 }>();
 
 const emit = defineEmits<{
     (e: 'toggle-occurrence', rowKey: string, time: number, event: MouseEvent): void;
     (e: 'hover-row', key: string | null): void;
     (e: 'merge-toggle', key: string): void;
+    (e: 'select-occurrence', obj: DetectedObjectDto, time: number): void;
 }>();
 
 function toPercent(time: number) {
@@ -89,28 +91,43 @@ const gapDotStyle = computed(() => {
 function onRowClick() {
     if (props.mode === 'merge') {
         emit('merge-toggle', timelineKey.value);
+    } else if (props.mode === 'select') {
+        emit('select-occurrence', sampleObj.value, props.timelineObject.type === 'single'
+            ? props.timelineObject.timeSeconds
+            : props.timelineObject.occurences[0]?.[0] ?? 0);
     }
 }
 
-function onDotClick(time: number, event: MouseEvent) {
+function onDotClick(obj: DetectedObjectDto, time: number, event: MouseEvent) {
     if (allowsDotSelection.value) {
         emit('toggle-occurrence', timelineKey.value, time, event);
+        return;
+    }
+    if (props.mode === 'select' || props.mode === 'merge') {
+        emit('select-occurrence', obj, time);
     }
 }
 </script>
 <template>
     <div
       class="timeline-row-wrapper"
+      :class="{ 'timeline-row-wrapper--selected': isTrackSelected }"
+      :data-timeline-key="timelineKey"
+      :data-selected="isTrackSelected ? 'true' : 'false'"
       @click="onRowClick"
       @mouseenter="emit('hover-row', timelineKey)"
       @mouseleave="emit('hover-row', null)"
     >
         <div class="timeline-row" :style="mergeHighlightStyle">
             <template v-if="props.timelineObject.type === 'single'">
-                <div class="dot" :style="{
+                <div
+                  class="dot dot--clickable"
+                  :style="{
                     left: toPercent(props.timelineObject.timeSeconds),
                     background: colorManager.getColor(props.timelineObject.detectedObj)
-                }" />
+                  }"
+                  @click.stop="onDotClick(props.timelineObject.detectedObj, props.timelineObject.timeSeconds, $event)"
+                />
             </template>
             <template v-else>
                 <div
@@ -118,6 +135,7 @@ function onDotClick(time: number, event: MouseEvent) {
                   :key="time"
                   class="dot"
                   :class="{
+                      'dot--clickable': mode === 'select' || allowsDotSelection,
                       'dot--selectable': allowsDotSelection,
                       'dot--selected': allowsDotSelection && selectedTimesForThisRow.has(time),
                       'dot--dimmed': allowsDotSelection && otherRowsHaveSelection && !selectedTimesForThisRow.has(time)
@@ -127,7 +145,7 @@ function onDotClick(time: number, event: MouseEvent) {
                       background: colorManager.getColor(obj),
                       opacity: obj.selected ? (otherRowsHaveSelection && !selectedTimesForThisRow.has(time) ? 0.2 : 1) : 0.3
                   }"
-                  @click.stop="onDotClick(time, $event)"
+                  @click.stop="onDotClick(obj, time, $event)"
                 />
             </template>
             <div v-if="gapDotStyle" class="dot dot--pulsing" :style="gapDotStyle" />
@@ -138,13 +156,27 @@ function onDotClick(time: number, event: MouseEvent) {
 <style scoped>
 .timeline-row-wrapper {
     position: relative;
+    height: var(--timeline-row-height, 28px);
+    min-height: var(--timeline-row-height, 28px);
+    max-height: var(--timeline-row-height, 28px);
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.timeline-row-wrapper--selected {
+    outline: 2px solid var(--mud-palette-primary);
+    outline-offset: -2px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--mud-palette-primary) 10%, transparent);
 }
 
 .timeline-row {
     position: relative;
-    height: 34px;
+    height: 100%;
+    box-sizing: border-box;
     border-bottom: 1px solid var(--mud-palette-lines-default);
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
 }
 
@@ -157,6 +189,15 @@ function onDotClick(time: number, event: MouseEvent) {
   border-radius: 50%;
   z-index: 10;
   transition: transform 0.1s, box-shadow 0.1s, opacity 0.15s;
+}
+
+.dot--clickable {
+  cursor: pointer;
+}
+
+.dot--clickable:hover {
+  transform: translate(-50%, -50%) scale(1.25);
+  z-index: 20;
 }
 
 .dot--selectable {

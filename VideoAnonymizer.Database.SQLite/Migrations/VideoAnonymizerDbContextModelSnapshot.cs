@@ -15,7 +15,7 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.9");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("VideoAnonymizer.Database.AnalyzedFrame", b =>
                 {
@@ -51,6 +51,9 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                     b.Property<string>("BlurShape")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("BlurSizePercentOverride")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ClassName")
                         .HasColumnType("TEXT");
 
@@ -58,6 +61,18 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                         .HasColumnType("REAL");
 
                     b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NextGapHandlingMode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OccurrenceBlurSizePercentOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PostBufferMsOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PreBufferMsOverride")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("Selected")
@@ -135,6 +150,9 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
 
                     b.Property<int>("TimeBufferMs")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

@@ -381,6 +381,92 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
         await _cut.InvokeAsync(() => settings.BlurSizePercentChanged.InvokeAsync(blurSizePercent));
     }
 
+    [When("the reviewer changes the time buffer to {int} ms")]
+    public async Task WhenTheReviewerChangesTheTimeBufferToMs(int timeBufferMs)
+    {
+        var settings = _cut.FindComponent<ReviewExportSettings>().Instance;
+        await _cut.InvokeAsync(() => settings.TimeBufferMsChanged.InvokeAsync(timeBufferMs));
+    }
+
+    [Then("the global blur size field uses step {int}")]
+    public void ThenTheGlobalBlurSizeFieldUsesStep(int step)
+    {
+        var numericFields = _cut.FindComponents<MudBlazor.MudNumericField<int>>();
+        // Blur size is the first numeric field in ReviewExportSettings.
+        numericFields.Should().NotBeEmpty();
+        numericFields[0].Instance.Step.Should().Be(step);
+    }
+
+    [Then("the global time buffer field uses step {int}")]
+    public void ThenTheGlobalTimeBufferFieldUsesStep(int step)
+    {
+        var numericFields = _cut.FindComponents<MudBlazor.MudNumericField<int>>();
+        numericFields.Should().HaveCountGreaterThanOrEqualTo(2);
+        numericFields[1].Instance.Step.Should().Be(step);
+    }
+
+    [Then("the settings are saved with a single symmetric time buffer of {int} ms")]
+    public void ThenTheSettingsAreSavedWithASingleSymmetricTimeBuffer(int timeBufferMs)
+    {
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Where(r => r.Method == HttpMethod.Put && r.Path == SettingsRoute).ElementAt(_settingsSaveAssertionIndex);
+            GetJsonInt(request.Body, "timeBufferMs").Should().Be(timeBufferMs);
+            GetJsonInt(request.Body, "blurSizePercent").Should().Be(120);
+        });
+        _settingsSaveAssertionIndex++;
+    }
+
+    [Then("the saved settings payload contains no global pre-buffer or post-buffer")]
+    public void ThenTheSavedSettingsPayloadContainsNoGlobalPreBufferOrPostBuffer()
+    {
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Where(r => r.Method == HttpMethod.Put && r.Path == SettingsRoute).Last();
+            using var document = JsonDocument.Parse(request.Body);
+            var root = document.RootElement;
+            HasProperty(root, "preBufferMs").Should().BeFalse();
+            HasProperty(root, "postBufferMs").Should().BeFalse();
+        });
+    }
+
+    [Given("the review editor is reopened with a persisted settings action")]
+    public void GivenTheReviewEditorIsReopenedWithAPersistedSettingsAction()
+    {
+        _videoId = Guid.NewGuid();
+        _frameId = Guid.NewGuid();
+        _http.ActionHistory =
+        [
+            new EditorActionDto
+            {
+                Id = Guid.NewGuid(),
+                VideoId = _videoId,
+                ActionType = "settings",
+                SequenceNumber = 1,
+                CreatedAt = DateTime.UtcNow,
+                Data = JsonSerializer.Serialize(new
+                {
+                    Before = new AnonymizationSettingsDto { BlurSizePercent = 120, TimeBufferMs = 300 },
+                    After = new AnonymizationSettingsDto { BlurSizePercent = 180, TimeBufferMs = 650 }
+                })
+            }
+        ];
+
+        _cut = RenderReviewTab(_videoId, _frameId, blurSizePercent: 180, timeBufferMs: 650);
+    }
+
+    [Then("the settings are saved with the previous symmetric settings")]
+    public void ThenTheSettingsAreSavedWithThePreviousSymmetricSettings()
+    {
+        _cut.WaitForAssertion(() =>
+        {
+            var request = Requests.Where(r => r.Method == HttpMethod.Put && r.Path == SettingsRoute).ElementAt(_settingsSaveAssertionIndex);
+            GetJsonInt(request.Body, "blurSizePercent").Should().Be(120);
+            GetJsonInt(request.Body, "timeBufferMs").Should().Be(300);
+        });
+        _settingsSaveAssertionIndex++;
+    }
+
     [Then("the settings are saved with blur size {int} percent and time buffer {int} ms")]
     public void ThenTheSettingsAreSavedWithBlurSizeAndTimeBuffer(int blurSizePercent, int timeBufferMs)
     {
@@ -528,6 +614,12 @@ public sealed class ReviewExportTabPersistenceStepDefinitions(ScenarioContext sc
 
         var pascalName = char.ToUpperInvariant(propertyName[0]) + propertyName[1..];
         return root.GetProperty(pascalName).GetInt32();
+    }
+
+    private static bool HasProperty(JsonElement element, string propertyName)
+    {
+        var pascalName = char.ToUpperInvariant(propertyName[0]) + propertyName[1..];
+        return element.TryGetProperty(propertyName, out _) || element.TryGetProperty(pascalName, out _);
     }
 
     private static Guid GetJsonGuid(string body, string propertyName)

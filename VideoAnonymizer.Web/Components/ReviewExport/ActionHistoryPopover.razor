@@ -1,4 +1,5 @@
-<div style="position: relative; display: inline-flex; align-items: center;"
+<div style="position: relative; display: inline-flex; align-items: center; gap: 6px;"
+     data-testid="save-state-control"
      @onmouseenter="() => _showActionHistory = true"
      @onmouseleave="() => _showActionHistory = false">
 
@@ -7,29 +8,50 @@
         <MudProgressCircular Indeterminate="true"
                              Size="Size.Small"
                              Color="Color.Secondary"
-                             Style="align-self: start; margin-top: 4px;" />
+                             Style="align-self: center;" />
+        <MudText Typo="Typo.caption"
+                 Color="Color.Secondary"
+                 data-testid="save-state-label">Saving...</MudText>
     }
     else if (HasErrors)
     {
-        <MudIcon Icon="@Icons.Material.Filled.Save"
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline"
                  Size="Size.Small"
                  Color="Color.Error"
-                 Style="align-self: start; margin-top: 4px;" />
+                 Style="align-self: center;" />
+        <MudText Typo="Typo.caption"
+                 Color="Color.Error"
+                 data-testid="save-state-label">Save failed - Retry</MudText>
     }
     else
     {
-        <MudIcon Icon="@Icons.Material.Filled.Save"
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircle"
                  Size="Size.Small"
-                 Color="Color.Primary"
-                 Style="align-self: start; margin-top: 4px;" />
+                 Color="Color.Success"
+                 Style="align-self: center;" />
+        <MudText Typo="Typo.caption"
+                 Color="Color.Success"
+                 data-testid="save-state-label">Saved</MudText>
     }
 
     @if (_showActionHistory)
     {
         <MudPaper Class="pa-2"
-                  Style="position: absolute; top: 100%; right: 0; z-index: 1000; min-width: 300px; max-height: 400px; overflow-y: auto; margin-top: 4px;">
+                  Style="position: absolute; top: 100%; right: 0; z-index: 1000; min-width: 300px; margin-top: 4px;"
+                  data-testid="action-history-popover">
             <MudText Typo="Typo.caption" Class="mb-2 mud-text-secondary">
-                @(IsProcessing ? "Saving..." : "Saved")
+                @if (IsProcessing)
+                {
+                    @:Saving...
+                }
+                else if (HasErrors)
+                {
+                    @:Save failed - Retry
+                }
+                else
+                {
+                    @:Recent actions
+                }
             </MudText>
             @if (Items.Count == 0)
             {

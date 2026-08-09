@@ -4,255 +4,279 @@ namespace VideoAnonymizer.VideoProcessor.Anonymization;
 
 public static class RelevantDetectedObjectSelector
 {
-    internal static Dictionary<double, List<DetectedObject>> GroupObjectsByAnalyzedFrame(
-        List<DetectedObject> detectedObjects)
-    {
-        var analyzedFrames = new Dictionary<double, List<DetectedObject>>();
-
-        foreach (var obj in detectedObjects)
-        {
-            var timeSeconds = obj.AnalyzedFrame.TimeSeconds;
-
-            if (!analyzedFrames.TryGetValue(timeSeconds, out var objects))
-            {
-                objects = [];
-                analyzedFrames[timeSeconds] = objects;
-            }
-
-            objects.Add(obj);
-        }
-
-        foreach (var timeSeconds in analyzedFrames.Keys.ToList())
-        {
-            analyzedFrames[timeSeconds] = analyzedFrames[timeSeconds]
-                .GroupBy(o => o.Id)
-                .Select(g => g.Last())
-                .ToList();
-        }
-
-        return analyzedFrames;
-    }
-
-    internal static List<DetectedObject> GetObjectsForFrame(
-        Dictionary<double, List<DetectedObject>> analyzedFrames,
+    public static List<DetectedObject> GetObjectsForFrame(
+        IReadOnlyList<AnalyzedFrame> analyzedFrames,
         int currentFrameIndex,
-        int frameWidth,
-        int frameHeight,
         double fps,
-        double timeBufferSeconds,
-        bool interpolateTrackedObjects)
+        int globalTimeBufferMs,
+        bool interpolateTrackedObjects,
+        int videoWidth = 0,
+        int videoHeight = 0)
     {
+        var currentTime = currentFrameIndex / fps;
+        var segments = ConsecutiveSegmentResolver.BuildAll(analyzedFrames);
+
         var sourceObjects = interpolateTrackedObjects
-            ? GetPredictedObjectsFromRelevantAnalyzedFrames(
-                analyzedFrames,
-                currentFrameIndex,
-                fps,
-                timeBufferSeconds)
-            : GetObjectsFromRelevantAnalyzedFrames(
-                analyzedFrames,
-                currentFrameIndex,
-                fps,
-                timeBufferSeconds);
+            ? GetPredictedObjects(segments, currentTime, globalTimeBufferMs)
+            : GetHeldObjects(analyzedFrames, segments, currentTime, globalTimeBufferMs);
 
         return sourceObjects
-            .Where(obj => obj.Width > 0 && obj.Height > 0)
+            .Where(obj => obj.Selected && obj.Width > 0 && obj.Height > 0)
             .Select(CopyObject)
+            // Keep raw unbounded geometry for export; BlurRegion intersects at rasterization.
+            // Drop only boxes whose raw region is fully outside when frame size is known.
+            .Where(obj => !ProjectedRegionClipper.IsFullyOutside(obj, videoWidth, videoHeight))
             .ToList();
     }
 
-    internal static List<DetectedObject> GetPredictedObjectsFromRelevantAnalyzedFrames(
-        Dictionary<double, List<DetectedObject>> analyzedFrames,
-        int currentFrameIndex,
-        double fps,
-        double timeBufferSeconds)
+    private static List<DetectedObject> GetPredictedObjects(
+        IReadOnlyList<ConsecutiveSegment> segments,
+        double currentTime,
+        int globalTimeBufferMs)
     {
-        if (analyzedFrames.Count == 0)
-            return [];
-
-        var currentTime = currentFrameIndex / fps;
-        var sortedTimes = analyzedFrames.Keys.OrderBy(t => t).ToList();
-        var samplesByKey = analyzedFrames
-            .SelectMany(frame => frame.Value
-                .Where(obj => obj.Selected)
-                .Select(obj => new TimedDetectedObject(frame.Key, obj)))
-            .GroupBy(sample => GetObjectKey(sample.DetectedObject));
-
         var result = new List<DetectedObject>();
+        var trackedGroups = segments
+            .Where(segment => segment.First.TrackId is not null)
+            .GroupBy(segment => segment.First.TrackId!.Value)
+            .ToDictionary(
+                group => group.Key,
+                group => group.OrderBy(segment => segment.First.AnalyzedFrame.FrameIndex).ToList());
 
-        foreach (var samples in samplesByKey)
+        foreach (var segment in segments)
         {
-            var orderedSamples = samples
-                .OrderBy(sample => sample.TimeSeconds)
-                .ToList();
+            var selectedOccurrences = segment.Occurrences.Where(obj => obj.Selected).ToList();
+            if (selectedOccurrences.Count == 0)
+                continue;
 
-            var previous = orderedSamples.LastOrDefault(sample => sample.TimeSeconds <= currentTime);
-            if (previous is null)
+            var (preBufferMs, postBufferMs) = AnonymizationSettingsResolver.ResolveBuffers(segment, globalTimeBufferMs);
+            var preBufferSeconds = Math.Max(0, preBufferMs) / 1000.0;
+            var postBufferSeconds = Math.Max(0, postBufferMs) / 1000.0;
+
+            var first = selectedOccurrences[0];
+            var last = selectedOccurrences[^1];
+            var firstTime = first.AnalyzedFrame.TimeSeconds;
+            var lastTime = last.AnalyzedFrame.TimeSeconds;
+
+            var precedingGapInterpolates = false;
+            var followingGapInterpolates = false;
+            if (segment.First.TrackId is int trackId
+                && trackedGroups.TryGetValue(trackId, out var trackSegments))
             {
-                var upcoming = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > currentTime);
-                if (upcoming is not null && IsWithinPreBuffer(currentTime, upcoming.TimeSeconds, timeBufferSeconds))
+                var index = trackSegments.FindIndex(candidate => ReferenceEquals(candidate, segment)
+                    || candidate.Occurrences.Any(obj => obj.Id == segment.First.Id));
+                if (index > 0)
                 {
-                    result.Add(ProjectPreBufferObject(orderedSamples, upcoming, currentTime));
+                    precedingGapInterpolates =
+                        AnonymizationSettingsResolver.ResolveGapHandlingMode(
+                            trackSegments[index - 1].Last.NextGapHandlingMode)
+                        == GapHandlingMode.Interpolate;
                 }
 
+                if (index >= 0 && index < trackSegments.Count - 1)
+                {
+                    followingGapInterpolates =
+                        AnonymizationSettingsResolver.ResolveGapHandlingMode(
+                            segment.Last.NextGapHandlingMode)
+                        == GapHandlingMode.Interpolate;
+                }
+            }
+
+            // Internal Interpolate gaps ignore the bordering After/Before buffers.
+            var effectivePreSeconds = precedingGapInterpolates ? 0 : preBufferSeconds;
+            var effectivePostSeconds = followingGapInterpolates ? 0 : postBufferSeconds;
+
+            if (currentTime < firstTime - effectivePreSeconds)
+                continue;
+
+            if (currentTime < firstTime)
+            {
+                if (effectivePreSeconds <= 0)
+                    continue;
+
+                result.Add(ProjectPreBufferObject(selectedOccurrences, currentTime));
                 continue;
             }
 
-            var next = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > currentTime);
-            if (next is not null && previous.DetectedObject.TrackId is not null)
+            if (currentTime > lastTime)
             {
-                result.Add(ProjectObject(previous, next, currentTime, clampAlpha: true));
+                if (effectivePostSeconds <= 0 || currentTime > lastTime + effectivePostSeconds)
+                    continue;
+
+                // Keep projecting from the segment-boundary motion model for the full
+                // post-buffer. Never fall back to a historical stored position.
+                result.Add(ProjectPostBufferObject(selectedOccurrences, currentTime));
                 continue;
             }
 
-            var coverageEnd = GetCoverageEnd(sortedTimes, previous.TimeSeconds, timeBufferSeconds);
-            if (currentTime >= previous.TimeSeconds && currentTime < coverageEnd)
+            result.Add(InterpolateInSegment(selectedOccurrences, currentTime));
+        }
+
+        // Default Interpolate bridges each real same-track gap with one current-time region.
+        foreach (var trackSegments in trackedGroups.Values)
+        {
+            for (var index = 0; index < trackSegments.Count - 1; index++)
             {
-                result.Add(ProjectPostBufferObject(orderedSamples, previous, currentTime, timeBufferSeconds));
+                var previous = trackSegments[index];
+                var next = trackSegments[index + 1];
+                if (AnonymizationSettingsResolver.ResolveGapHandlingMode(
+                        previous.Last.NextGapHandlingMode)
+                    == GapHandlingMode.UseBuffers)
+                    continue;
+
+                var previousBoundary = previous.Last;
+                var nextBoundary = next.First;
+                if (!previousBoundary.Selected || !nextBoundary.Selected)
+                    continue;
+
+                var previousTime = previousBoundary.AnalyzedFrame.TimeSeconds;
+                var nextTime = nextBoundary.AnalyzedFrame.TimeSeconds;
+                if (currentTime <= previousTime || currentTime >= nextTime)
+                    continue;
+
+                result.Add(ProjectObject(previousBoundary, nextBoundary, currentTime, clampAlpha: true));
             }
         }
 
         return result;
     }
 
-    public static List<DetectedObject> GetObjectsFromRelevantAnalyzedFrames(
-        Dictionary<double, List<DetectedObject>> analyzedFrames,
-        int currentFrameIndex,
-        double fps,
-        double timeBufferSeconds)
+    private static List<DetectedObject> GetHeldObjects(
+        IReadOnlyList<AnalyzedFrame> analyzedFrames,
+        IReadOnlyList<ConsecutiveSegment> segments,
+        double currentTime,
+        int globalTimeBufferMs)
     {
-        if (analyzedFrames.Count == 0)
-            return [];
-
-        var currentTime = currentFrameIndex / fps;
-        var sortedTimes = analyzedFrames.Keys.OrderBy(t => t).ToList();
+        var frameTimes = analyzedFrames
+            .Select(frame => frame.TimeSeconds)
+            .Distinct()
+            .OrderBy(time => time)
+            .ToList();
 
         var result = new Dictionary<string, DetectedObject>();
 
-        for (int i = sortedTimes.Count - 1; i >= 0; i--)
+        var occurrences = segments
+            .SelectMany(segment => segment.Occurrences
+                .Where(obj => obj.Selected)
+                .Select(obj => (Object: obj, Segment: segment)))
+            .OrderByDescending(item => item.Object.AnalyzedFrame.FrameIndex)
+            .ToList();
+
+        foreach (var item in occurrences)
         {
-            var analyzedTime = sortedTimes[i];
-            var nextTime = (i + 1 < sortedTimes.Count) ? sortedTimes[i + 1] : double.MaxValue;
-            var coverageEnd = nextTime + timeBufferSeconds;
+            var key = item.Object.TrackId is null
+                ? $"object-{item.Object.Id}"
+                : $"track-{item.Object.TrackId.Value}";
+            if (result.ContainsKey(key))
+                continue;
+
+            var (_, postBufferMs) = AnonymizationSettingsResolver.ResolveBuffers(item.Segment, globalTimeBufferMs);
+            var postBufferSeconds = Math.Max(0, postBufferMs) / 1000.0;
+            var analyzedTime = item.Object.AnalyzedFrame.TimeSeconds;
+            var coverageEnd = NextFrameTime(frameTimes, analyzedTime) + postBufferSeconds;
 
             if (currentTime >= analyzedTime && currentTime < coverageEnd)
-            {
-                foreach (var obj in analyzedFrames[analyzedTime])
-                {
-                    var key = obj.TrackId?.ToString() ?? obj.Id.ToString();
-
-                    if (!result.ContainsKey(key))
-                    {
-                        result[key] = obj;
-                    }
-                }
-            }
+                result[key] = item.Object;
         }
 
         return result.Values.ToList();
     }
 
-    private static string GetObjectKey(DetectedObject obj)
+    private static double NextFrameTime(IReadOnlyList<double> sortedFrameTimes, double analyzedTime)
     {
-        return obj.TrackId is null ? $"object-{obj.Id}" : $"track-{obj.TrackId.Value}";
-    }
-
-    private static double GetCoverageEnd(
-        IReadOnlyList<double> sortedTimes,
-        double analyzedTime,
-        double timeBufferSeconds)
-    {
-        foreach (var time in sortedTimes)
+        foreach (var time in sortedFrameTimes)
         {
             if (time > analyzedTime)
-                return time + timeBufferSeconds;
+                return time;
         }
 
         return double.MaxValue;
     }
 
-    private static bool IsWithinPreBuffer(
-        double currentTime,
-        double analyzedTime,
-        double timeBufferSeconds)
+    private static DetectedObject InterpolateInSegment(
+        IReadOnlyList<DetectedObject> selectedOccurrences,
+        double currentTime)
     {
-        return timeBufferSeconds > 0
-            && currentTime >= analyzedTime - timeBufferSeconds
-            && currentTime < analyzedTime;
+        var previous = selectedOccurrences
+            .LastOrDefault(obj => obj.AnalyzedFrame.TimeSeconds <= currentTime);
+        if (previous is null)
+            return CopyObject(selectedOccurrences[0]);
+
+        if (previous.AnalyzedFrame.TimeSeconds == currentTime)
+            return CopyObject(previous);
+
+        var next = selectedOccurrences
+            .FirstOrDefault(obj => obj.AnalyzedFrame.TimeSeconds > currentTime);
+        return next is null
+            ? CopyObject(previous)
+            : ProjectObject(previous, next, currentTime, clampAlpha: true);
     }
 
     private static DetectedObject ProjectPreBufferObject(
-        IReadOnlyList<TimedDetectedObject> orderedSamples,
-        TimedDetectedObject upcoming,
+        IReadOnlyList<DetectedObject> selectedOccurrences,
         double currentTime)
     {
-        if (upcoming.DetectedObject.TrackId is null)
-            return CopyObject(upcoming.DetectedObject);
+        var first = selectedOccurrences[0];
+        if (selectedOccurrences.Count == 1)
+            return CopyObject(first);
 
-        var next = orderedSamples.FirstOrDefault(sample => sample.TimeSeconds > upcoming.TimeSeconds);
-        return next is null
-            ? CopyObject(upcoming.DetectedObject)
-            : ProjectObject(upcoming, next, currentTime, clampAlpha: false);
+        return ProjectObject(first, selectedOccurrences[1], currentTime, clampAlpha: false);
     }
 
     private static DetectedObject ProjectPostBufferObject(
-        IReadOnlyList<TimedDetectedObject> orderedSamples,
-        TimedDetectedObject previous,
-        double currentTime,
-        double timeBufferSeconds)
+        IReadOnlyList<DetectedObject> selectedOccurrences,
+        double currentTime)
     {
-        if (previous.DetectedObject.TrackId is null
-            || timeBufferSeconds <= 0
-            || currentTime > previous.TimeSeconds + timeBufferSeconds)
-        {
-            return CopyObject(previous.DetectedObject);
-        }
+        var last = selectedOccurrences[^1];
+        if (selectedOccurrences.Count == 1)
+            return CopyObject(last);
 
-        var prior = orderedSamples.LastOrDefault(sample => sample.TimeSeconds < previous.TimeSeconds);
-        return prior is null
-            ? CopyObject(previous.DetectedObject)
-            : ProjectObject(prior, previous, currentTime, clampAlpha: false);
+        return ProjectObject(selectedOccurrences[^2], last, currentTime, clampAlpha: false);
     }
 
     private static DetectedObject ProjectObject(
-        TimedDetectedObject previous,
-        TimedDetectedObject next,
+        DetectedObject previous,
+        DetectedObject next,
         double currentTime,
         bool clampAlpha)
     {
-        var duration = next.TimeSeconds - previous.TimeSeconds;
+        var previousTime = previous.AnalyzedFrame.TimeSeconds;
+        var nextTime = next.AnalyzedFrame.TimeSeconds;
+        var duration = nextTime - previousTime;
         if (duration <= 0)
-            return CopyObject(previous.DetectedObject);
+            return CopyObject(previous);
 
-        var alpha = (currentTime - previous.TimeSeconds) / duration;
+        var alpha = (currentTime - previousTime) / duration;
         if (clampAlpha)
         {
             alpha = Math.Clamp(alpha, 0, 1);
         }
 
-        var previousBox = previous.DetectedObject;
-        var nextBox = next.DetectedObject;
-
-        var centerX = Lerp(previousBox.X + previousBox.Width / 2.0, nextBox.X + nextBox.Width / 2.0, alpha);
-        var centerY = Lerp(previousBox.Y + previousBox.Height / 2.0, nextBox.Y + nextBox.Height / 2.0, alpha);
-        var width = Lerp(previousBox.Width, nextBox.Width, alpha);
-        var height = Lerp(previousBox.Height, nextBox.Height, alpha);
+        var centerX = Lerp(previous.X + previous.Width / 2.0, next.X + next.Width / 2.0, alpha);
+        var centerY = Lerp(previous.Y + previous.Height / 2.0, next.Y + next.Height / 2.0, alpha);
+        var width = Lerp(previous.Width, next.Width, alpha);
+        var height = Lerp(previous.Height, next.Height, alpha);
 
         var left = (int)Math.Floor(centerX - width / 2.0);
         var top = (int)Math.Floor(centerY - height / 2.0);
         var right = (int)Math.Ceiling(centerX + width / 2.0);
         var bottom = (int)Math.Ceiling(centerY + height / 2.0);
-        var metadataSource = alpha < 0.5 ? previousBox : nextBox;
+        var metadataSource = alpha < 0.5 ? previous : next;
 
         return new DetectedObject
         {
             Id = metadataSource.Id,
-            Confidence = Math.Clamp(Lerp(previousBox.Confidence, nextBox.Confidence, alpha), 0, 1),
+            Confidence = Math.Clamp(Lerp(previous.Confidence, next.Confidence, alpha), 0, 1),
             ClassName = metadataSource.ClassName,
             BlurShape = string.IsNullOrWhiteSpace(metadataSource.BlurShape)
-                ? previousBox.BlurShape ?? nextBox.BlurShape
+                ? previous.BlurShape ?? next.BlurShape
                 : metadataSource.BlurShape,
+            BlurSizePercentOverride = metadataSource.BlurSizePercentOverride,
+            OccurrenceBlurSizePercentOverride = metadataSource.OccurrenceBlurSizePercentOverride,
+            PreBufferMsOverride = metadataSource.PreBufferMsOverride,
+            PostBufferMsOverride = metadataSource.PostBufferMsOverride,
+            NextGapHandlingMode = metadataSource.NextGapHandlingMode,
             Selected = true,
-            TrackId = previousBox.TrackId,
+            TrackId = previous.TrackId,
             X = left,
             Y = top,
             Width = Math.Max(0, right - left),
@@ -269,6 +293,11 @@ public static class RelevantDetectedObjectSelector
             Confidence = source.Confidence,
             ClassName = source.ClassName,
             BlurShape = source.BlurShape,
+            BlurSizePercentOverride = source.BlurSizePercentOverride,
+            OccurrenceBlurSizePercentOverride = source.OccurrenceBlurSizePercentOverride,
+            PreBufferMsOverride = source.PreBufferMsOverride,
+            PostBufferMsOverride = source.PostBufferMsOverride,
+            NextGapHandlingMode = source.NextGapHandlingMode,
             Selected = source.Selected,
             TrackId = source.TrackId,
             X = source.X,
@@ -283,6 +312,4 @@ public static class RelevantDetectedObjectSelector
     {
         return start + (end - start) * alpha;
     }
-
-    private sealed record TimedDetectedObject(double TimeSeconds, DetectedObject DetectedObject);
 }
