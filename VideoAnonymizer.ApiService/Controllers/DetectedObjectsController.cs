@@ -6,6 +6,8 @@ using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.Controllers;
 
+public sealed record BulkDeleteRequest(List<Guid> ObjectIds);
+
 [ApiController]
 public sealed class DetectedObjectsController(DetectedObjectDataService detectedObjectDataService) : ControllerBase
 {
@@ -50,6 +52,20 @@ public sealed class DetectedObjectsController(DetectedObjectDataService detected
         try
         {
             await detectedObjectDataService.DeleteDetectedObject(videoId, analyzedFrameId, objectId);
+            return Ok(new ApiResponse<object> { IsSuccess = true });
+        }
+        catch (NotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
+    [HttpPost($"/{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.DetectedObjects}/delete")]
+    public async Task<IActionResult> BulkDeleteDetectedObjects([FromRoute] Guid videoId, [FromBody] BulkDeleteRequest request)
+    {
+        try
+        {
+            await detectedObjectDataService.BulkDeleteDetectedObjects(videoId, request.ObjectIds);
             return Ok(new ApiResponse<object> { IsSuccess = true });
         }
         catch (NotFoundException)

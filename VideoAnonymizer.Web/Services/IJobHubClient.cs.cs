@@ -9,5 +9,7 @@ public interface IJobHubClient
 
     IDisposable OnVideoAnalyzed(Func<LongRunningJobFinishedMessage, Task> handler);
     IDisposable OnVideoAnonymized(Func<LongRunningJobFinishedMessage, Task> handler);
+    IDisposable OnTrackForwardCompleted(Func<TrackForwardCompletedMessage, Task> handler);
+    IDisposable OnTrackForwardProgress(Func<TrackForwardProgressMessage, Task> handler);
     IDisposable OnJobProgress(Func<LongRunningJobProgressMessage, Task> handler);
 }

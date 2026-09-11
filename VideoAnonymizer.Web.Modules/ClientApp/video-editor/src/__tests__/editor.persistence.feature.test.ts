@@ -40,6 +40,10 @@ function createFrame(
             id: o.id ?? `obj-${id}-${i}`,
             confidence: o.confidence ?? 0.9,
             className: o.className ?? 'face',
+            blurShape: o.blurShape,
+            blurSizePercentOverride: o.blurSizePercentOverride,
+            preBufferMsOverride: o.preBufferMsOverride,
+            postBufferMsOverride: o.postBufferMsOverride,
             selected: o.selected ?? true,
             trackId: o.trackId ?? null,
             x: o.x ?? 0,
@@ -70,7 +74,7 @@ function createMockState(): VideoEditorProps {
     return {
         videoId: 'v1',
         videoSourceUrl: 'http://example.com/v.mp4',
-        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300 },
+        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300, interpolateTrackedObjects: true },
         frames,
     };
 }
@@ -282,6 +286,159 @@ const steps: StepDefinition[] = [
         pattern: /^face "([^"]+)" is present on track (\d+)$/,
         handler: (world, match) => {
             expect(findFace(world, match[1]).trackId).toBe(Number(match[2]));
+        },
+    },
+    {
+        pattern: /^Blazor adds tracked face "([^"]+)" twice and then removes it$/,
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            const trackedFace: DetectedObjectDto = {
+                id: match[1],
+                confidence: 1,
+                className: 'face',
+                selected: true,
+                trackId: 9,
+                x: 1,
+                y: 2,
+                width: 3,
+                height: 4,
+                analyzedFrameId: 'f2',
+            };
+
+            vm.applyChanges({ objectsToUpdate: [], objectsToRemove: [], objectsToAdd: [trackedFace] });
+            vm.applyChanges({ objectsToUpdate: [], objectsToRemove: [], objectsToAdd: [trackedFace] });
+            vm.applyChanges({ objectsToUpdate: [], objectsToRemove: [trackedFace.id], objectsToAdd: [] });
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^no timeline occurrence remains for face "([^"]+)"$/,
+        handler: (world, match) => {
+            const timelineOccurrences = (world.wrapper!.vm as any).timelineObjects
+                .flatMap((timelineObject: any) => timelineObject.type === 'tracked'
+                    ? timelineObject.occurences.map(([, object]: [number, DetectedObjectDto]) => object)
+                    : [timelineObject.detectedObj]);
+            expect(timelineOccurrences.some((object: DetectedObjectDto) => object.id === match[1])).toBe(false);
+        },
+    },
+    {
+        pattern: /^the editor is tracking tracks (\d+) and (\d+)$/,
+        handler: async (world, match) => {
+            openEditor(world);
+            const vm = world.wrapper!.vm as any;
+            vm.onVideoLoaded(10);
+            vm.timelineExpanded = true;
+
+            for (const trackId of [Number(match[1]), Number(match[2])]) {
+                const trackedObject = world.state!.frames
+                    .flatMap(frame => frame.detectedObjects)
+                    .find(obj => obj.trackId === trackId)!;
+                vm.trackForward(trackedObject);
+            }
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^Blazor reports track (\d+) at (\d+) ms and track (\d+) at (\d+) ms$/,
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            vm.updateTrackingProgress(Number(match[1]), Number(match[2]), Number(match[2]));
+            vm.updateTrackingProgress(Number(match[3]), Number(match[4]), Number(match[4]));
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^track (\d+) has its moving tracking dot at (\d+) percent$/,
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            vm.timelineExpanded = true;
+            await world.wrapper!.vm.$nextTick();
+
+            const trackId = Number(match[1]);
+            const row = world.wrapper!.findAllComponents({ name: 'TimelineRow' })
+                .find(candidate => candidate.props('timelineObject').occurences?.[0]?.[1].trackId === trackId);
+            expect(row).toBeDefined();
+
+            const movingDot = row!.find('.dot--pulsing');
+            expect(movingDot.exists()).toBe(true);
+            expect((movingDot.element as HTMLElement).style.left).toBe(`${match[2]}%`);
+        },
+    },
+    {
+        pattern: /^the moving dots are the only timeline tracking indicators$/,
+        handler: world => {
+            expect(world.wrapper!.findAll('.dot--pulsing')).toHaveLength(2);
+            expect(world.wrapper!.find('.timeline-row--tracking').exists()).toBe(false);
+            expect(world.wrapper!.find('.color-dot-wrapper--tracking').exists()).toBe(false);
+        },
+    },
+    {
+        pattern: /^Blazor pushes blur size, pre-buffer and post-buffer overrides to face "([^"]+)"$/,
+        handler: async (world, match) => {
+            const vm = world.wrapper!.vm as any;
+            const target = world.state!.frames
+                .flatMap(frame => frame.detectedObjects)
+                .find(obj => obj.id === match[1])!;
+            const updated = {
+                ...target,
+                blurSizePercentOverride: 140,
+                preBufferMsOverride: 220,
+                postBufferMsOverride: 480,
+            };
+            vm.applyChanges({ objectsToUpdate: [updated], objectsToRemove: [], objectsToAdd: [] });
+            await world.wrapper!.vm.$nextTick();
+        },
+    },
+    {
+        pattern: /^face "([^"]+)" keeps its blur size, pre-buffer and post-buffer overrides$/,
+        handler: (world, match) => {
+            const face = findFace(world, match[1]);
+            expect(face.blurSizePercentOverride).toBe(140);
+            expect(face.preBufferMsOverride).toBe(220);
+            expect(face.postBufferMsOverride).toBe(480);
+        },
+    },
+    {
+        pattern: /^a face without overrides keeps null override fields$/,
+        handler: world => {
+            const faces = (world.wrapper!.vm as any).getFrames()
+                .flatMap((frame: AnalyzedFrameDto) => frame.detectedObjects);
+            const noOverrideFace = faces.find((face: DetectedObjectDto) =>
+                face.blurSizePercentOverride == null
+                && face.preBufferMsOverride == null
+                && face.postBufferMsOverride == null);
+            expect(noOverrideFace).toBeDefined();
+        },
+    },
+    {
+        pattern: /^the editor is open with a frame that carries occurrence overrides$/,
+        handler: world => {
+            world.onDetectedObjectUpdated = vi.fn();
+            world.onDetectedObjectsBulkUpdated = vi.fn();
+            world.onDetectedObjectAdded = vi.fn();
+            world.onDetectedObjectDeleted = vi.fn();
+
+            const frames = [
+                createFrame('f1', 0, [
+                    { id: 'o1', trackId: 1, blurSizePercentOverride: 140, preBufferMsOverride: 220, postBufferMsOverride: 480 },
+                    { id: 'o2', trackId: 2 },
+                ]),
+            ];
+            const mounted = mountEditor({
+                frames,
+                onDetectedObjectUpdated: world.onDetectedObjectUpdated,
+                onDetectedObjectsBulkUpdated: world.onDetectedObjectsBulkUpdated,
+                onDetectedObjectAdded: world.onDetectedObjectAdded,
+                onDetectedObjectDeleted: world.onDetectedObjectDeleted,
+            });
+            world.wrapper = mounted.wrapper;
+            world.state = mounted.state;
+        },
+    },
+    {
+        pattern: /^the reviewer reads the current frames back$/,
+        handler: world => {
+            world.wrapper!.vm.$nextTick();
         },
     },
 ];

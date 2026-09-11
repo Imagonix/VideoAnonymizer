@@ -5,30 +5,33 @@ import sys
 from pathlib import Path
 
 import onnxruntime as ort
-from core.config import MODEL_PATH, MODEL_PROVIDERS
+from core.config import MODEL_PROVIDERS
+from services.detectors import DetectorRegistry
 
-SESSION_INITIALIZATION_ERROR: str | None = None
+registry = DetectorRegistry(MODEL_PROVIDERS)
 
-try:
-    session = ort.InferenceSession(MODEL_PATH, providers=MODEL_PROVIDERS)
-except Exception as ex:
-    SESSION_INITIALIZATION_ERROR = str(ex)
-    print("CUDA session initialization failed. Falling back to CPUExecutionProvider.")
-    print(SESSION_INITIALIZATION_ERROR)
-    session = ort.InferenceSession(MODEL_PATH, providers=["CPUExecutionProvider"])
-
-input_name = session.get_inputs()[0].name
 AVAILABLE_PROVIDERS = ort.get_available_providers()
-ACTIVE_PROVIDERS = session.get_providers()
 
 print("Available providers:", AVAILABLE_PROVIDERS)
-print("Active providers:", ACTIVE_PROVIDERS)
+print(
+    "Active providers:",
+    sorted(
+        {
+            provider
+            for detector in registry.detectors
+            for provider in detector.session.get_providers()
+        }
+    ),
+)
 
 def cuda_available() -> bool:
     return "CUDAExecutionProvider" in AVAILABLE_PROVIDERS
 
 def cuda_in_use() -> bool:
-    return "CUDAExecutionProvider" in ACTIVE_PROVIDERS
+    return any(
+        "CUDAExecutionProvider" in detector.session.get_providers()
+        for detector in registry.detectors
+    )
 
 def runtime_status() -> dict:
     nvidia_gpu_detected, gpu_infos, driver_version = _detect_nvidia_gpus()
@@ -38,11 +41,24 @@ def runtime_status() -> dict:
     missing_dependencies = _missing_cuda_dependencies()
     cuda_provider_available = cuda_available()
     cuda_execution_provider_active = cuda_in_use()
+    models = registry.status()
+    active_providers = sorted(
+        {
+            provider
+            for detector in registry.detectors
+            for provider in detector.session.get_providers()
+        }
+    )
+    initialization_errors = [
+        model["initialization_error"]
+        for model in models
+        if model.get("initialization_error")
+    ]
 
     if cuda_execution_provider_active:
         severity = "success"
         summary = "CUDA is active. Object detection is using the GPU execution provider."
-    elif SESSION_INITIALIZATION_ERROR:
+    elif initialization_errors:
         severity = "warning"
         summary = "CUDA initialization failed. Object detection is running on CPU."
     elif cuda_provider_available:
@@ -66,10 +82,11 @@ def runtime_status() -> dict:
         "nvidia_driver_version": driver_version,
         "onnxruntime_version": ort.__version__,
         "available_providers": AVAILABLE_PROVIDERS,
-        "active_providers": ACTIVE_PROVIDERS,
+        "active_providers": active_providers,
         "cuda_provider_available": cuda_provider_available,
         "cuda_execution_provider_active": cuda_execution_provider_active,
-        "initialization_error": SESSION_INITIALIZATION_ERROR,
+        "initialization_error": "\n".join(initialization_errors) if initialization_errors else None,
+        "models": models,
         "missing_dependencies": missing_dependencies,
     }
 

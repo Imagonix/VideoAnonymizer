@@ -1,4 +1,5 @@
-﻿@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
 @using VideoAnonymizer.Web.Shared.DTO
 
 <MudPaper Class="pa-6" Style="flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto;">
@@ -83,22 +84,98 @@
             <MudText Typo="Typo.h6">Imported Videos</MudText>
 
             <MudPaper Outlined="true" Class="pa-0">
-                <MudTable Items="@ExistingVideos" Hover="true" Dense="true" Elevation="0">
+                <MudTable Items="@SortedVideos" Hover="true" Dense="true" Elevation="0">
                     <HeaderContent>
-                        <MudTh><MudText Typo="Typo.body2">File Name</MudText></MudTh>
+                        <MudTh aria-sort="@GetAriaSort(VideoSortColumn.Filename)">
+                            <button type="button" class="sort-header" data-testid="sort-filename"
+                                    title="Sort by file name"
+                                    @onclick="() => ToggleSort(VideoSortColumn.Filename)">
+                                File Name
+                                @if (_sortColumn == VideoSortColumn.Filename)
+                                {
+                                    <MudIcon Icon="@(_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                             Size="Size.Small" />
+                                }
+                            </button>
+                        </MudTh>
+                        <MudTh><MudText Typo="Typo.body2">Status</MudText></MudTh>
+                        <MudTh aria-sort="@GetAriaSort(VideoSortColumn.Uploaded)">
+                            <button type="button" class="sort-header" data-testid="sort-uploaded"
+                                    title="Sort by upload time"
+                                    @onclick="() => ToggleSort(VideoSortColumn.Uploaded)">
+                                Uploaded
+                                @if (_sortColumn == VideoSortColumn.Uploaded)
+                                {
+                                    <MudIcon Icon="@(_sortAscending ? Icons.Material.Filled.ArrowUpward : Icons.Material.Filled.ArrowDownward)"
+                                             Size="Size.Small" />
+                                }
+                            </button>
+                        </MudTh>
+                        <MudTh Style="width: 56px;"></MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="File Name">
-                            <div @onclick="@(() => OnExistingVideoSelected.InvokeAsync(context.Id))"
-                                 @onclick:preventDefault="false"
-                                 Style="cursor: pointer; padding: 4px 0;"
-                                 class="@(IsBusy ? "disabled" : "")">
+                            <div data-testid="existing-video-row"
+                                 role="button"
+                                 tabindex="0"
+                                 aria-label="@($"Open {context.OriginalFileName}")"
+                                 @onclick="@(() => OnOpenExistingVideoAsync(context.Id))"
+                                 @onkeydown="@((e) => OnExistingVideoKeyDownAsync(e, context.Id))"
+                                 style="cursor: pointer; padding: 4px 0;">
                                 <MudText Typo="Typo.body1">@context.OriginalFileName</MudText>
                             </div>
+                        </MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudText Typo="Typo.body2"
+                                     data-testid="video-status"
+                                     Class="mud-text-secondary">
+                                @context.Status
+                            </MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Uploaded">
+                            <MudText Typo="Typo.body2"
+                                     data-testid="video-uploaded"
+                                     Class="mud-text-secondary">
+                                @context.UploadedAtUtc.ToLocalTime().ToString("g")
+                            </MudText>
+                        </MudTd>
+                        <MudTd DataLabel="Actions" Style="text-align: right;">
+                            <MudTooltip Text="Delete working copy">
+                                <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Color="Color.Error"
+                                               Size="Size.Small"
+                                               Disabled="@IsBusy"
+                                               data-testid="delete-working-copy"
+                                               aria-label="Delete working copy"
+                                               OnClick="@(() => OnDeleteRequested(context))" />
+                            </MudTooltip>
                         </MudTd>
                     </RowTemplate>
                 </MudTable>
             </MudPaper>
+
+            @if (_deleteCandidate is not null)
+            {
+                <div class="confirm-backdrop" data-testid="delete-confirm-dialog"
+                     style="position: fixed; inset: 0; z-index: 1500; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.5);">
+                    <MudPaper Class="pa-4 d-flex flex-column" Style="width: min(480px, calc(100vw - 32px)); gap: 12px;">
+                        <MudText Typo="Typo.h6">Delete working copy</MudText>
+                        <MudText Typo="Typo.body2">
+                            Delete "@_deleteCandidate.OriginalFileName"? The source video, generated export, analysis and editor state, and related records managed by this deployment will be deleted.
+                        </MudText>
+                        <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                            <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="OnDeleteCancelled">
+                                Cancel
+                            </MudButton>
+                            <MudButton Variant="Variant.Filled" Color="Color.Error"
+                                       data-testid="confirm-delete-working-copy"
+                                       OnClick="OnDeleteConfirmed">
+                                Delete working copy
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+                </div>
+            }
         }
     </MudStack>
 </MudPaper>
@@ -112,6 +189,9 @@
 
     [Parameter]
     public EventCallback<Guid> OnExistingVideoSelected { get; set; }
+
+    [Parameter]
+    public EventCallback<Guid> OnDeleteWorkingCopy { get; set; }
 
     [Parameter]
     public List<VideoDto>? ExistingVideos { get; set; }
@@ -129,6 +209,99 @@
     public bool IsBusy { get; set; }
 
     private MudFileUpload<IBrowserFile>? _fileUpload;
+
+    private enum VideoSortColumn
+    {
+        None,
+        Filename,
+        Uploaded
+    }
+
+    private VideoSortColumn _sortColumn = VideoSortColumn.None;
+    private bool _sortAscending = true;
+    private VideoDto? _deleteCandidate;
+
+    private List<VideoDto> SortedVideos
+    {
+        get
+        {
+            if (ExistingVideos is null)
+                return [];
+
+            return _sortColumn switch
+            {
+                VideoSortColumn.Filename when _sortAscending =>
+                    ExistingVideos
+                        .OrderBy(v => v.OriginalFileName, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(v => v.UploadedAtUtc)
+                        .ThenBy(v => v.Id)
+                        .ToList(),
+                VideoSortColumn.Filename =>
+                    ExistingVideos
+                        .OrderByDescending(v => v.OriginalFileName, StringComparer.OrdinalIgnoreCase)
+                        .ThenBy(v => v.UploadedAtUtc)
+                        .ThenBy(v => v.Id)
+                        .ToList(),
+                VideoSortColumn.Uploaded when _sortAscending =>
+                    ExistingVideos
+                        .OrderBy(v => v.UploadedAtUtc)
+                        .ThenBy(v => v.OriginalFileName)
+                        .ThenBy(v => v.Id)
+                        .ToList(),
+                VideoSortColumn.Uploaded =>
+                    ExistingVideos
+                        .OrderByDescending(v => v.UploadedAtUtc)
+                        .ThenBy(v => v.OriginalFileName)
+                        .ThenBy(v => v.Id)
+                        .ToList(),
+                _ => ExistingVideos
+                    .OrderByDescending(v => v.UploadedAtUtc)
+                    .ThenBy(v => v.OriginalFileName)
+                    .ThenBy(v => v.Id)
+                    .ToList()
+            };
+        }
+    }
+
+    private void ToggleSort(VideoSortColumn column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+    }
+
+    private string GetAriaSort(VideoSortColumn column) =>
+        _sortColumn == column
+            ? (_sortAscending ? "ascending" : "descending")
+            : "none";
+
+    private void OnDeleteRequested(VideoDto video)
+    {
+        if (IsBusy)
+            return;
+        _deleteCandidate = video;
+    }
+
+    private void OnDeleteCancelled()
+    {
+        _deleteCandidate = null;
+    }
+
+    private async Task OnDeleteConfirmed()
+    {
+        if (_deleteCandidate is null)
+            return;
+
+        var videoId = _deleteCandidate.Id;
+        _deleteCandidate = null;
+        await OnDeleteWorkingCopy.InvokeAsync(videoId);
+    }
 
     public async Task ClearFileInput()
     {
@@ -156,4 +329,45 @@
     {
         await DetectObjects.InvokeAsync();
     }
+
+    private async Task OnOpenExistingVideoAsync(Guid videoId)
+    {
+        if (IsBusy)
+            return;
+        await OnExistingVideoSelected.InvokeAsync(videoId);
+    }
+
+    private async Task OnExistingVideoKeyDownAsync(KeyboardEventArgs e, Guid videoId)
+    {
+        if (IsBusy)
+            return;
+
+        if (e.Key is "Enter" or " ")
+        {
+            await OnExistingVideoSelected.InvokeAsync(videoId);
+        }
+    }
 }
+
+<style>
+    .sort-header {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 0;
+        border: none;
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+    }
+
+    .sort-header:hover {
+        color: var(--mud-palette-primary);
+    }
+
+    .sort-header:focus-visible {
+        outline: 2px solid color-mix(in srgb, var(--mud-palette-primary) 70%, transparent);
+        outline-offset: 2px;
+    }
+</style>

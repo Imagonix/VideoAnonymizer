@@ -15,7 +15,7 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.7");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.10");
 
             modelBuilder.Entity("VideoAnonymizer.Database.AnalyzedFrame", b =>
                 {
@@ -48,6 +48,12 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                     b.Property<Guid>("AnalyzedFrameId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("BlurShape")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("BlurSizePercentOverride")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("ClassName")
                         .HasColumnType("TEXT");
 
@@ -55,6 +61,18 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                         .HasColumnType("REAL");
 
                     b.Property<int>("Height")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("NextGapHandlingMode")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("OccurrenceBlurSizePercentOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PostBufferMsOverride")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("PreBufferMsOverride")
                         .HasColumnType("INTEGER");
 
                     b.Property<bool>("Selected")
@@ -79,29 +97,35 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
                     b.ToTable("DetectedObjects");
                 });
 
-            modelBuilder.Entity("VideoAnonymizer.Database.SystemSetting", b =>
+            modelBuilder.Entity("VideoAnonymizer.Database.EditorAction", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Key")
+                    b.Property<string>("ActionType")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("UpdatedAtUtc")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("Value")
+                    b.Property<string>("Data")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Undone")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("VideoId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("SystemSettings");
+                    b.ToTable("EditorActions");
                 });
 
             modelBuilder.Entity("VideoAnonymizer.Database.Video", b =>
@@ -126,6 +150,9 @@ namespace VideoAnonymizer.Database.SQLite.Migrations
 
                     b.Property<int>("TimeBufferMs")
                         .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

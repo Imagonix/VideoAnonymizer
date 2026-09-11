@@ -48,7 +48,6 @@ COPY VideoAnonymizer.Web.Modules/ VideoAnonymizer.Web.Modules/
 COPY VideoAnonymizer.Web/ VideoAnonymizer.Web/
 COPY VideoAnonymizer.ApiService/ VideoAnonymizer.ApiService/
 COPY VideoAnonymizer.VideoProcessor/ VideoAnonymizer.VideoProcessor/
-COPY VideoAnonymizer.ModelDownloader/ VideoAnonymizer.ModelDownloader/
 COPY VideoAnonymizer.StandaloneHost/ VideoAnonymizer.StandaloneHost/
 
 COPY --from=vue-builder /wwwroot/vue/video-editor /src/VideoAnonymizer.Web.Modules/wwwroot/vue/video-editor

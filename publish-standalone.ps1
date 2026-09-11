@@ -277,17 +277,25 @@ else {
 $targetModelDir = Join-Path $publishDir "data\models"
 New-Item -ItemType Directory -Force -Path $targetModelDir | Out-Null
 
-$sourceModelCandidates = @(
-    (Join-Path $root "data\models\FaceDetector.onnx"),
-    (Join-Path $objectDetectionProject "models\FaceDetector.onnx")
-)
+$modelSourceDirs = @(
+    (Join-Path $objectDetectionProject "models"),
+    (Join-Path $root "data\models")
+) | Where-Object { Test-Path $_ }
 
-$sourceModel = $sourceModelCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if ($sourceModel) {
-    Copy-Item $sourceModel (Join-Path $targetModelDir "FaceDetector.onnx") -Force
+$copiedModelCount = 0
+foreach ($modelSourceDir in $modelSourceDirs) {
+    Get-ChildItem $modelSourceDir -File |
+        Where-Object { $_.Name -like "*.onnx" -or $_.Name -like "*.detector.json" } |
+        ForEach-Object {
+            Copy-Item $_.FullName (Join-Path $targetModelDir $_.Name) -Force
+            if ($_.Extension -eq ".onnx") {
+                $copiedModelCount++
+            }
+        }
 }
-else {
-    Write-Warning "FaceDetector.onnx was not found locally. The standalone app will download it on first start when network access is available."
+
+if ($copiedModelCount -eq 0) {
+    Write-Warning "No ONNX object detection models were found locally. The standalone AI service will not start until model files are present in data\models."
 }
 
 dotnet publish $launcherProject `

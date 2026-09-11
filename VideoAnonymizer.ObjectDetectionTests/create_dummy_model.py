@@ -2,6 +2,7 @@ import onnx
 from onnx import helper, numpy_helper
 import numpy as np
 import os
+import json
 
 os.makedirs("models", exist_ok=True)
 
@@ -30,6 +31,28 @@ model = helper.make_model(graph, producer_name="DummyFaceDetector")
 model = helper.make_model(graph, producer_name="DummyFaceDetector", opset_imports=[helper.make_opsetid("", 17)])
 
 onnx.save(model, "models/FaceDetector.onnx")
+
+with open("models/FaceDetector.detector.json", "w", encoding="utf-8") as config_file:
+    json.dump(
+        {
+            "name": "face",
+            "enabled": True,
+            "detectorType": "retinaface",
+            "blurShape": "ellipse",
+            "classes": {
+                "0": "face"
+            },
+            "inputSize": [640, 640],
+            "confidenceThreshold": 0.7,
+            "nmsThreshold": 0.4,
+            "preprocessing": {
+                "colorFormat": "rgb",
+                "scale": 1.0
+            }
+        },
+        config_file,
+        indent=2,
+    )
 
 print("Dummy FaceDetector.onnx created successfully (Opset 17)")
 print("Path: models/FaceDetector.onnx")

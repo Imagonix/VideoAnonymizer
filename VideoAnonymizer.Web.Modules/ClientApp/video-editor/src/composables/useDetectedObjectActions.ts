@@ -1,16 +1,25 @@
-import type { ComputedRef, Ref } from 'vue';
+import type { ComputedRef } from 'vue';
 import type { AnalyzedFrameDto, DetectedObjectDto, TimelineObject, VideoEditorProps } from '../types';
-import type { EditorMode } from './useEditorModes';
+import { applyBoundaryTransferOnAdd, getTrackOccurrences, normalizeSegmentBoundaries } from './useConsecutiveTrackSegment';
+import { cloneObjects, getChangedObjects } from '../utils/objectDiff';
 
-function cloneObjects(objects: DetectedObjectDto[]): DetectedObjectDto[] {
-    return JSON.parse(JSON.stringify(objects));
+function dispatchChanges(
+    state: VideoEditorProps,
+    changed: DetectedObjectDto[],
+    beforeState: DetectedObjectDto[],
+    operationType: string
+) {
+    if (changed.length === 1) {
+        state.onDetectedObjectUpdated?.(state.videoId, changed[0].analyzedFrameId, changed[0], operationType, beforeState);
+    } else if (changed.length > 1) {
+        state.onDetectedObjectsBulkUpdated?.(state.videoId, changed, operationType, beforeState);
+    }
 }
 
 export function useDetectedObjectActions(
     state: VideoEditorProps,
     frames: ComputedRef<AnalyzedFrameDto[]>,
-    currentFrame: ComputedRef<AnalyzedFrameDto | null>,
-    activeMode: Ref<EditorMode>
+    currentFrame: ComputedRef<AnalyzedFrameDto | null>
 ) {
     function toggleObject(id: string, checked: boolean) {
         const matched = frames.value.flatMap(x => x.detectedObjects.filter(y => y.id === id));
@@ -40,25 +49,62 @@ export function useDetectedObjectActions(
 
     function setTrackId(timelineObject: TimelineObject, trackId: number) {
         if (timelineObject.type === 'single') {
-            const before = cloneObjects([timelineObject.detectedObj]);
+            const affected: DetectedObjectDto[] = [];
+            for (const frame of state.frames) {
+                for (const obj of frame.detectedObjects) {
+                    if (obj.trackId === trackId) affected.push(obj);
+                }
+            }
+            if (!affected.includes(timelineObject.detectedObj)) {
+                affected.push(timelineObject.detectedObj);
+            }
+            const before = cloneObjects(affected);
             timelineObject.detectedObj.trackId = trackId;
-            state.onDetectedObjectUpdated?.(state.videoId, timelineObject.detectedObj.analyzedFrameId, timelineObject.detectedObj, 'reassign', before);
+            applyDestinationTrackDefaults(timelineObject.detectedObj, trackId);
+            normalizeSegmentBoundaries(frames.value);
+            const { changed, beforeState } = getChangedObjects(affected, before);
+            dispatchChanges(state, changed, beforeState, 'reassign');
             return;
         }
 
         const oldTrackId = timelineObject.occurences[0]?.[1].trackId;
         if (oldTrackId == null) return;
 
-        const changed: DetectedObjectDto[] = [];
+        const affected: DetectedObjectDto[] = [];
         for (const frame of state.frames) {
             for (const obj of frame.detectedObjects) {
-                if (obj.trackId === oldTrackId) { changed.push(obj); }
+                if (obj.trackId === oldTrackId || obj.trackId === trackId) {
+                    affected.push(obj);
+                }
             }
         }
 
-        const before = cloneObjects(changed);
-        changed.forEach(obj => { obj.trackId = trackId; });
-        state.onDetectedObjectsBulkUpdated?.(state.videoId, changed, 'reassign', before);
+        const before = cloneObjects(affected);
+        const moved = affected
+            .filter(obj => obj.trackId === oldTrackId);
+        moved.forEach(obj => { obj.trackId = trackId; });
+        moved.forEach(obj => applyDestinationTrackDefaults(obj, trackId));
+        normalizeSegmentBoundaries(frames.value);
+        const { changed, beforeState } = getChangedObjects(affected, before);
+        dispatchChanges(state, changed, beforeState, 'reassign');
+    }
+
+    /**
+     * Reassigning to an existing track adopts that track's materialized shape, blur size
+     * and time buffer; reassigning to a brand-new track keeps null track defaults.
+     */
+    function applyDestinationTrackDefaults(obj: DetectedObjectDto, trackId: number) {
+        const defaults = getTrackSettings(trackId);
+        obj.blurShape = defaults.shape;
+        obj.blurSizePercentOverride = defaults.blurSizePercentOverride;
+    }
+
+    function getTrackSettings(trackId: number): { shape: string | null; blurSizePercentOverride: number | null } {
+        const occurrences = getTrackOccurrences(frames.value, trackId);
+        return {
+            shape: occurrences.find(o => o.blurShape)?.blurShape ?? null,
+            blurSizePercentOverride: occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null
+        };
     }
 
     function deleteObject(obj: DetectedObjectDto) {
@@ -69,7 +115,22 @@ export function useDetectedObjectActions(
         if (idx < 0) return;
 
         frame.detectedObjects.splice(idx, 1);
+        normalizeSegmentBoundaries(frames.value);
         state.onDetectedObjectDeleted?.(state.videoId, obj.analyzedFrameId, obj);
+    }
+
+    function trackForward(obj: DetectedObjectDto) {
+        state.onTrackForward?.(state.videoId, obj.analyzedFrameId, obj);
+    }
+
+    function getBlurShapeForTrack(trackId: number): string | null {
+        const occurrences = getTrackOccurrences(frames.value, trackId);
+        return occurrences.find(o => o.blurShape)?.blurShape ?? null;
+    }
+
+    function getBlurSizeOverrideForTrack(trackId: number): number | null {
+        const occurrences = getTrackOccurrences(frames.value, trackId);
+        return occurrences.find(o => o.blurSizePercentOverride != null)?.blurSizePercentOverride ?? null;
     }
 
     function addBox(x: number, y: number, width: number, height: number, className: string, trackId: 'new' | number) {
@@ -78,13 +139,25 @@ export function useDetectedObjectActions(
         const frame = currentFrame.value;
         const nextTrackId = frames.value.flatMap(f => f.detectedObjects).reduce((max, o) => Math.max(max, o.trackId ?? 0), 0) + 1;
         const frameTrackIds = new Set(frame.detectedObjects.flatMap(o => o.trackId == null ? [] : [o.trackId]));
+        const selectedExistingTrackId = trackId !== 'new' && !frameTrackIds.has(trackId)
+            ? trackId
+            : null;
         const resolvedTrackId = trackId === 'new' || frameTrackIds.has(trackId)
             ? nextTrackId
             : trackId;
+        const blurShape = selectedExistingTrackId == null
+            ? null
+            : getBlurShapeForTrack(selectedExistingTrackId);
+        const blurSizePercentOverride = selectedExistingTrackId == null
+            ? null
+            : getBlurSizeOverrideForTrack(selectedExistingTrackId);
         const newObj: DetectedObjectDto = {
             id: crypto.randomUUID(),
             confidence: 1,
             className: className || null,
+            blurShape,
+            blurSizePercentOverride,
+            occurrenceBlurSizePercentOverride: null,
             selected: true,
             trackId: resolvedTrackId,
             x,
@@ -95,11 +168,11 @@ export function useDetectedObjectActions(
         };
 
         frame.detectedObjects.push(newObj);
+        const clearedNeighbors = applyBoundaryTransferOnAdd(frames.value, newObj);
         state.onDetectedObjectAdded?.(state.videoId, frame.id, newObj);
-    }
-
-    function onBoxUpdated(obj: DetectedObjectDto, beforeState: DetectedObjectDto[]) {
-        state.onDetectedObjectUpdated?.(state.videoId, obj.analyzedFrameId, obj, activeMode.value, beforeState);
+        for (const { obj: neighbor, before: neighborBefore } of clearedNeighbors) {
+            state.onDetectedObjectUpdated?.(state.videoId, neighbor.analyzedFrameId, neighbor, 'track-settings', [neighborBefore]);
+        }
     }
 
     return {
@@ -107,7 +180,7 @@ export function useDetectedObjectActions(
         toggleTrackedObject,
         setTrackId,
         deleteObject,
+        trackForward,
         addBox,
-        onBoxUpdated,
     };
 }

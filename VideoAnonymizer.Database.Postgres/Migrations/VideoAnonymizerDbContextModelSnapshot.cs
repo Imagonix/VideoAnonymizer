@@ -17,7 +17,7 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.7")
+                .HasAnnotation("ProductVersion", "10.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -53,6 +53,12 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.Property<Guid>("AnalyzedFrameId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("BlurShape")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("BlurSizePercentOverride")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ClassName")
                         .HasColumnType("text");
 
@@ -60,6 +66,18 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                         .HasColumnType("double precision");
 
                     b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("NextGapHandlingMode")
+                        .HasColumnType("text");
+
+                    b.Property<int?>("OccurrenceBlurSizePercentOverride")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PostBufferMsOverride")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PreBufferMsOverride")
                         .HasColumnType("integer");
 
                     b.Property<bool>("Selected")
@@ -84,29 +102,35 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
                     b.ToTable("DetectedObjects");
                 });
 
-            modelBuilder.Entity("VideoAnonymizer.Database.SystemSetting", b =>
+            modelBuilder.Entity("VideoAnonymizer.Database.EditorAction", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Key")
+                    b.Property<string>("ActionType")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime>("UpdatedAtUtc")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<string>("Value")
+                    b.Property<string>("Data")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("SequenceNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Undone")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("VideoId")
+                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Key")
-                        .IsUnique();
-
-                    b.ToTable("SystemSettings");
+                    b.ToTable("EditorActions");
                 });
 
             modelBuilder.Entity("VideoAnonymizer.Database.Video", b =>
@@ -131,6 +155,9 @@ namespace VideoAnonymizer.Database.Postgres.Migrations
 
                     b.Property<int>("TimeBufferMs")
                         .HasColumnType("integer");
+
+                    b.Property<DateTime>("UploadedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 

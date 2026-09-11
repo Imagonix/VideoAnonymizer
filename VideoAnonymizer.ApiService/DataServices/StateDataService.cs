@@ -1,32 +1,25 @@
-﻿using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using VideoAnonymizer.Database;
-using VideoAnonymizer.Database.Extensions;
 using VideoAnonymizer.Web.Shared.DTO;
 
 namespace VideoAnonymizer.ApiService.DataServices
 {
     public class StateDataService(
-        IDbContextFactory<VideoAnonymizerDbContext> dbFactory,
         IObjectDetectionApiReadyState pythonApiReadyState,
         IConfiguration configuration,
         IHttpClientFactory httpClientFactory)
     {
         public async Task<AppStateDto> LoadState(CancellationToken cancellationToken = default)
         {
-            await using var dbContext = await dbFactory.CreateDbContextAsync(cancellationToken);
-            var modelAvailable = dbContext.SystemSettings.FirstOrDefault(x => x.Key.Equals(SystemSettingConstants.ModelAvailable));
             var isStandalone = configuration.GetSection("Standalone").Exists();
-
             var isDocker = configuration.GetSection("Docker").Exists();
 
             var appState = new AppStateDto()
             {
                 IsStandalone = isStandalone,
                 IsDocker = isDocker,
-                ModelAvailable = modelAvailable is null ? false : modelAvailable.ReadBooleanValue(),
                 ObjectDetectionApiRunning = pythonApiReadyState.IsReady,
+                InterpolateTrackedObjects = configuration.GetValue("Anonymization:InterpolateTrackedObjects", true),
             };
 
             if (pythonApiReadyState.IsReady)

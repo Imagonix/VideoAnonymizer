@@ -4,5 +4,6 @@ public enum ActionStatus
 {
     Pending,
     Success,
+    Partial,
     Failed
 }

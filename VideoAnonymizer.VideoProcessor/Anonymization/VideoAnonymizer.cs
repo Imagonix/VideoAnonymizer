@@ -36,12 +36,19 @@ public class VideoAnonymizer(
         if (video is null)
             throw new InvalidOperationException($"Video '{job.VideoId}' not found");
 
-        var selectedObjects = await db.DetectedObjects
+        var analyzedFrames = await db.AnalyzedFrames
             .AsNoTracking()
-            .Where(o => o.Selected && o.AnalyzedFrame.VideoId == video.Id)
-            .Include(o => o.AnalyzedFrame)
-            .OrderBy(o => o.AnalyzedFrame.TimeSeconds)
+            .Where(f => f.VideoId == video.Id)
+            .Include(f => f.DetectedObjects)
+            .OrderBy(f => f.FrameIndex)
             .ToListAsync(stoppingToken);
+        foreach (var frame in analyzedFrames)
+        {
+            foreach (var obj in frame.DetectedObjects)
+            {
+                obj.AnalyzedFrame = frame;
+            }
+        }
         lastReportedProgress = await ReportProgressAsync(
             job.JobId,
             job.VideoId,
@@ -74,7 +81,6 @@ public class VideoAnonymizer(
         capture.Set(VideoCaptureProperties.PosFrames, 0);
 
         var blurSizePercent = video.BlurSizePercent > 0 ? video.BlurSizePercent : 120;
-        var timeBufferSeconds = Math.Max(0, video.TimeBufferMs) / 1000.0;
 
         lastReportedProgress = await ReportProgressAsync(
             job.JobId,
@@ -88,8 +94,6 @@ public class VideoAnonymizer(
         var writer = new VideoWriter(tempPath, GetSafeFourCc(capture), fps, new Size(frameWidth, frameHeight));
         try
         {
-            var analyzedFrames = RelevantDetectedObjectSelector.GroupObjectsByAnalyzedFrame(selectedObjects);
-
             using var frameMat = new Mat();
             var currentFrameIndex = 0;
 
@@ -101,14 +105,15 @@ public class VideoAnonymizer(
                 var objectsToBlur = RelevantDetectedObjectSelector.GetObjectsForFrame(
                     analyzedFrames,
                     currentFrameIndex,
-                    frameWidth,
-                    frameHeight,
                     fps,
-                    timeBufferSeconds);
+                    video.TimeBufferMs,
+                    job.InterpolateTrackedObjects,
+                    frameWidth,
+                    frameHeight);
 
                 foreach (var obj in objectsToBlur)
                 {
-                    BlurRegion(frameMat, obj, blurSizePercent);
+                    BlurRegion(frameMat, obj, AnonymizationSettingsResolver.ResolveBlurSize(obj, blurSizePercent));
                 }
 
                 writer.Write(frameMat);
@@ -303,20 +308,18 @@ public class VideoAnonymizer(
     {
         var scale = blurSizePercent / 100.0;
 
-        int originalCenterX = detectedObject.X + detectedObject.Width / 2;
-        int originalCenterY = detectedObject.Y + detectedObject.Height / 2;
+        var originalCenterX = detectedObject.X + detectedObject.Width / 2.0;
+        var originalCenterY = detectedObject.Y + detectedObject.Height / 2.0;
 
         int expandedWidth = (int)(detectedObject.Width * scale);
         int expandedHeight = (int)(detectedObject.Height * scale);
 
-        var rect = ClampRect(
-            new Rect(
-                originalCenterX - expandedWidth / 2,
-                originalCenterY - expandedHeight / 2,
-                expandedWidth,
-                expandedHeight),
-            frame.Width,
-            frame.Height);
+        var virtualRect = new Rect(
+            (int)Math.Floor(originalCenterX - expandedWidth / 2.0),
+            (int)Math.Floor(originalCenterY - expandedHeight / 2.0),
+            expandedWidth,
+            expandedHeight);
+        var rect = ClampRect(virtualRect, frame.Width, frame.Height);
 
         if (rect.Width <= 0 || rect.Height <= 0)
         {
@@ -336,10 +339,20 @@ public class VideoAnonymizer(
             new OpenCvSharp.Size(blurWidth, blurHeight),
             0);
 
+        if (UsesRectangleBlur(detectedObject))
+        {
+            blurred.CopyTo(roi);
+            return;
+        }
+
         using var mask = Mat.Zeros(rect.Height, rect.Width, MatType.CV_8UC1).ToMat();
 
-        var center = new Point(rect.Width / 2, rect.Height / 2);
-        var axes = new OpenCvSharp.Size(rect.Width / 2, rect.Height / 2);
+        var center = new Point(
+            (int)Math.Round(originalCenterX - rect.X),
+            (int)Math.Round(originalCenterY - rect.Y));
+        var axes = new OpenCvSharp.Size(
+            Math.Max(1, expandedWidth / 2),
+            Math.Max(1, expandedHeight / 2));
 
         Cv2.Ellipse(
             mask,
@@ -352,6 +365,11 @@ public class VideoAnonymizer(
             -1);
 
         blurred.CopyTo(roi, mask);
+    }
+
+    private static bool UsesRectangleBlur(DetectedObject detectedObject)
+    {
+        return string.Equals(detectedObject.BlurShape, "rectangle", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Rect ClampRect(Rect rect, int maxWidth, int maxHeight)

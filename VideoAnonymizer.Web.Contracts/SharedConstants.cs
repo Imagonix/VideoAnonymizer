@@ -17,9 +17,13 @@ namespace VideoAnonymizer.Web.Shared
             public const string DetectedObject = "detectedObject";
             public const string DetectedObjects = "detectedObjects";
             public const string Health = "health";
+            public const string TrackForward = "track-forward";
+            public const string Tracks = "tracks";
             public const string Video = "video";
             public const string Videos = "videos";
             public const string VideoSettings = "settings";
+            public const string Actions = "actions";
+            public const string Undone = "undone";
         }
 
         public static class SignalR
@@ -29,12 +33,15 @@ namespace VideoAnonymizer.Web.Shared
             {
                 public const string VideoAnalyzed = "videoAnalyzed";
                 public const string VideoAnonymized = "videoAnonymized";
+                public const string TrackForwardCompleted = "trackForwardCompleted";
+                public const string TrackForwardProgress = "trackForwardProgress";
                 public const string JobProgress = "jobProgress";
 
             }
             public static class Status
             {
                 public const string Completed = "completed";
+                public const string Failed = "failed";
             }
         }
     }

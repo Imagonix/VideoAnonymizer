@@ -1,12 +1,4 @@
-import os
-from pathlib import Path
-
-MODEL_PATH = Path(
-    os.getenv(
-        "FACE_DETECTOR_MODEL_PATH",
-        Path(__file__).resolve().parent.parent / "models" / "FaceDetector.onnx"
-    )
-)
+MODELS_PATH = "MODELS_PATH"
 
 INPUT_SIZE = (640, 640)
 CONF_THRESHOLD = 0.70

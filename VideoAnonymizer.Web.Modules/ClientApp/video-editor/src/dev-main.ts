@@ -17,7 +17,7 @@ createApp({
           videoId: '00000000-0000-0000-0000-000000000001',
           videoSourceUrl,
           frames: frames.value,
-          anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300 }
+          anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300, interpolateTrackedObjects: true }
         }
       })
   }

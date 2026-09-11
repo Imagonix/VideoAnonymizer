@@ -10,14 +10,12 @@
   </PropertyGroup>
 
   <Target Name="KeepStandaloneConfigurationLast" AfterTargets="Publish">
-    <Copy
-      SourceFiles="$(MSBuildProjectDirectory)\appsettings.json"
-      DestinationFiles="$(PublishDir)appsettings.json"
-      SkipUnchangedFiles="false" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\appsettings.json" DestinationFiles="$(PublishDir)appsettings.json" SkipUnchangedFiles="false" />
   </Target>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.7" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="10.0.10" />
+    <PackageReference Include="SQLitePCLRaw.lib.e_sqlite3" Version="3.53.3" />
   </ItemGroup>
 
   <ItemGroup>
@@ -25,9 +23,13 @@
     <ProjectReference Include="..\VideoAnonymizer.Contracts\VideoAnonymizer.Contracts.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.Database\VideoAnonymizer.Database.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.Database.SQLite\VideoAnonymizer.Database.SQLite.csproj" />
-    <ProjectReference Include="..\VideoAnonymizer.ModelDownloader\VideoAnonymizer.ModelDownloader.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.VideoProcessor\VideoAnonymizer.VideoProcessor.csproj" />
     <ProjectReference Include="..\VideoAnonymizer.Web\VideoAnonymizer.Web.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\VideoAnonymizer.ObjectDetection\models\*.onnx" Link="data\models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="..\VideoAnonymizer.ObjectDetection\models\*.detector.json" Link="data\models\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

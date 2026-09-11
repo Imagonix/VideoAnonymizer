@@ -1,0 +1,17 @@
+{
+  "name": "face",
+  "enabled": true,
+  "detectorType": "retinaface",
+  "blurShape": "ellipse",
+  "classes": {
+    "0": "face"
+  },
+  "inputSize": [640, 640],
+  "maxBatchSize": 1,
+  "confidenceThreshold": 0.7,
+  "nmsThreshold": 0.4,
+  "preprocessing": {
+    "colorFormat": "rgb",
+    "scale": 1.0
+  }
+}

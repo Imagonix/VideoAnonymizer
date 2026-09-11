@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { reactive } from 'vue';
 import VideoEditorApp from '../VideoEditorApp.vue';
@@ -17,6 +17,7 @@ function createFrame(
             id: o.id ?? `obj-${id}-${i}`,
             confidence: o.confidence ?? 0.9,
             className: o.className ?? 'face',
+            blurShape: o.blurShape,
             selected: o.selected ?? true,
             trackId: o.trackId ?? null,
             x: o.x ?? 0,
@@ -46,7 +47,7 @@ function createMockState(): VideoEditorProps {
     return {
         videoId: 'v1',
         videoSourceUrl: 'http://example.com/v.mp4',
-        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300 },
+        anonymizationSettings: { blurSizePercent: 200, timeBufferMs: 300, interpolateTrackedObjects: true },
         frames,
     };
 }
@@ -67,7 +68,7 @@ function mountEditor(overrides: Partial<VideoEditorProps> = {}) {
                 },
                 BoundingBoxOverlay: {
                     template: '<div class="mock-overlay" />',
-                    props: ['objects', 'anonymizationSettings', 'videoDimensions', 'highlightedRowKey', 'splitSourceKey', 'alwaysShowKeys'],
+                    props: ['objects', 'anonymizationSettings', 'videoDimensions', 'highlightedRowKey', 'splitSourceKey', 'alwaysShowKeys', 'selectedKey', 'mode', 'adjustObject'],
                 },
             },
         },
@@ -83,6 +84,16 @@ function getButton(wrapper: ReturnType<typeof mount>['wrapper'], text: string) {
 async function clickButton(wrapper: ReturnType<typeof mount>['wrapper'], text: string) {
     const btn = getButton(wrapper, text);
     if (!btn) throw new Error(`Button with text "${text}" not found`);
+    await btn.trigger('click');
+}
+
+function getToolButton(wrapper: ReturnType<typeof mount>['wrapper'], testid: string) {
+    return wrapper.find(`[data-testid="${testid}"]`);
+}
+
+async function clickTool(wrapper: ReturnType<typeof mount>['wrapper'], testid: string) {
+    const btn = getToolButton(wrapper, testid);
+    if (!btn.exists()) throw new Error(`Toolbar button "${testid}" not found`);
     await btn.trigger('click');
 }
 
@@ -113,6 +124,13 @@ function getObjTrackIds(wrapper: ReturnType<typeof mount>['wrapper'], ...objIds:
     return result;
 }
 
+async function selectTrackOne(wrapper: ReturnType<typeof mount>['wrapper']) {
+    const vm = wrapper.vm as any;
+    const frame = wrapper.vm.$props.state.frames[0];
+    vm.selectObject(frame.detectedObjects.find((o: DetectedObjectDto) => o.trackId === 1));
+    await wrapper.vm.$nextTick();
+}
+
 describe('VideoEditorApp integration', () => {
     let wrapper: ReturnType<typeof mount>['wrapper'];
     let state: ReturnType<typeof mount>['state'];
@@ -124,11 +142,11 @@ describe('VideoEditorApp integration', () => {
     });
 
     describe('merge', () => {
-        it('merges two tracked rows into the lowest trackId', async () => {
+        it('merges two tracked rows into the first selected track', async () => {
             expect(getTrackIds(wrapper)).toEqual([1, 2]);
-
-            await clickButton(wrapper, 'Merge');
-            expect(wrapper.text()).toContain('Exit Merge');
+            const vm = wrapper.vm as any;
+            vm.activate('merge');
+            await wrapper.vm.$nextTick();
 
             const labels = wrapper.findAll('.label-container');
             expect(labels.length).toBeGreaterThanOrEqual(2);
@@ -145,7 +163,9 @@ describe('VideoEditorApp integration', () => {
         });
 
         it('disables timeline row checkboxes in merge mode', async () => {
-            await clickButton(wrapper, 'Merge');
+            const vm = wrapper.vm as any;
+            vm.activate('merge');
+            await wrapper.vm.$nextTick();
             const labelCheckboxes = wrapper.findAll('.label-container input[type="checkbox"]');
             for (const cb of labelCheckboxes) {
                 expect((cb.element as HTMLInputElement).disabled).toBe(true);
@@ -155,7 +175,9 @@ describe('VideoEditorApp integration', () => {
         it('does not create duplicate trackIds on the same frame', async () => {
             expect(getTrackIds(wrapper)).toEqual([1, 2]);
 
-            await clickButton(wrapper, 'Merge');
+            const vm = wrapper.vm as any;
+            vm.activate('merge');
+            await wrapper.vm.$nextTick();
             const labels = wrapper.findAll('.label-container');
             await labels[0].trigger('click');
             await labels[1].trigger('click');
@@ -167,24 +189,29 @@ describe('VideoEditorApp integration', () => {
         });
 
         it('exits merge mode after merging', async () => {
-            await clickButton(wrapper, 'Merge');
+            const vm = wrapper.vm as any;
+            vm.activate('merge');
+            await wrapper.vm.$nextTick();
             const labels = wrapper.findAll('.label-container');
             await labels[0].trigger('click');
             await labels[1].trigger('click');
             await getButton(wrapper, 'Merge 2')!.trigger('click');
-            expect(wrapper.text()).not.toContain('Exit Merge');
+            expect(vm.activeMode).toBe('select');
+            expect(wrapper.text()).not.toContain('Merge 2');
         });
     });
 
     describe('split', () => {
         beforeEach(async () => {
-            await clickButton(wrapper, 'Split');
+            const vm = wrapper.vm as any;
+            vm.activate('split');
+            await wrapper.vm.$nextTick();
         });
 
-        it('exits split mode when toggled off', async () => {
-            expect(wrapper.text()).toContain('Exit Split');
-            await clickButton(wrapper, 'Exit Split');
-            expect(wrapper.text()).toContain('Split');
+        it('exits split mode when cancelled', async () => {
+            expect(wrapper.text()).toContain('Split out');
+            await clickTool(wrapper, 'toolbar-discard');
+            expect((wrapper.vm as any).activeMode).toBe('select');
         });
 
         it('splits selected occurrences into a new trackId', async () => {
@@ -209,7 +236,9 @@ describe('VideoEditorApp integration', () => {
 
     describe('dot selection', () => {
         beforeEach(async () => {
-            await clickButton(wrapper, 'Split');
+            const vm = wrapper.vm as any;
+            vm.activate('split');
+            await wrapper.vm.$nextTick();
         });
 
         it('selects a single dot on plain click', async () => {
@@ -248,50 +277,58 @@ describe('VideoEditorApp integration', () => {
 
     describe('split mode exits after split', () => {
         it('exits split mode after splitting out', async () => {
-            await clickButton(wrapper, 'Split');
+            const vm = wrapper.vm as any;
+            vm.activate('split');
+            await wrapper.vm.$nextTick();
             const rows = wrapper.findAll('.timeline-row');
             await rows[0].trigger('click');
             const dots = rows[0].findAll('.dot--selectable');
             await dots[0].trigger('click', { ctrlKey: false, shiftKey: false });
             await getButton(wrapper, 'Split out 1')!.trigger('click');
-            expect(wrapper.text()).not.toContain('Exit Split');
-            expect(wrapper.text()).toContain('Split');
+            expect(vm.activeMode).toBe('select');
         });
     });
 
     describe('add', () => {
-        it('opens DetailedView when Add is clicked', async () => {
-            await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).toContain('✕');
+        it('enters add mode from the Add Object control', async () => {
+            await clickTool(wrapper, 'toolbar-add-object');
+            expect((wrapper.vm as any).activeMode).toBe('add');
+            expect(getToolButton(wrapper, 'toolbar-discard').exists()).toBe(true);
         });
 
-        it('tooggles Add mode on and off', async () => {
-            await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).toContain('Exit Add');
-            await clickButton(wrapper, 'Exit Add');
-            expect(wrapper.text()).not.toContain('✕');
+        it('toggles add mode on and off', async () => {
+            await clickTool(wrapper, 'toolbar-add-object');
+            expect((wrapper.vm as any).activeMode).toBe('add');
+            await clickTool(wrapper, 'toolbar-discard');
+            expect((wrapper.vm as any).activeMode).toBe('select');
         });
 
-        it('closes overlay on close button', async () => {
-            await clickButton(wrapper, 'Add');
-            await clickButton(wrapper, '✕');
-            expect(wrapper.text()).not.toContain('✕');
+        it('mode exclusivity: merge controls hide Add Object until cancelled', async () => {
+            const vm = wrapper.vm as any;
+            vm.activate('merge');
+            await wrapper.vm.$nextTick();
+            const toolsText = wrapper.find('[data-testid="editor-toolbar"]').text();
+            expect(toolsText).toContain('Merge');
+            expect(getToolButton(wrapper, 'toolbar-add-object').exists()).toBe(false);
+
+            await clickTool(wrapper, 'toolbar-discard');
+            expect(vm.activeMode).toBe('select');
+            await clickTool(wrapper, 'toolbar-add-object');
+            expect(vm.activeMode).toBe('add');
         });
 
-        it('mode exclusivity: Add deactivates Merge', async () => {
-            await clickButton(wrapper, 'Merge');
-            expect(wrapper.text()).toContain('Exit Merge');
-            await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).not.toContain('Exit Merge');
-            expect(wrapper.text()).toContain('✕');
-        });
+        it('mode exclusivity: split controls hide Add Object until cancelled', async () => {
+            const vm = wrapper.vm as any;
+            vm.activate('split');
+            await wrapper.vm.$nextTick();
+            const toolsText = wrapper.find('[data-testid="editor-toolbar"]').text();
+            expect(toolsText).toContain('Split out');
+            expect(getToolButton(wrapper, 'toolbar-add-object').exists()).toBe(false);
 
-        it('mode exclusivity: Add deactivates Resize', async () => {
-            await clickButton(wrapper, 'Resize');
-            expect(wrapper.text()).toContain('Exit Resize');
-            await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).not.toContain('Exit Resize');
-            expect(wrapper.text()).toContain('✕');
+            await clickTool(wrapper, 'toolbar-discard');
+            expect(vm.activeMode).toBe('select');
+            await clickTool(wrapper, 'toolbar-add-object');
+            expect(vm.activeMode).toBe('add');
         });
 
         it('adds a new object via addBox with new trackId', async () => {
@@ -319,6 +356,25 @@ describe('VideoEditorApp integration', () => {
             expect(added.className).toBe('other');
         });
 
+        it('copies blur shape from the selected existing track', async () => {
+            const vm = wrapper.vm as any;
+            state.frames[1].detectedObjects.push({
+                ...state.frames[1].detectedObjects[0],
+                id: 'plate-track',
+                analyzedFrameId: 'f2',
+                trackId: 9,
+                blurShape: 'rectangle',
+            });
+
+            vm.addBox(100, 100, 50, 50, 'other', 9);
+            await wrapper.vm.$nextTick();
+
+            const added = state.frames[0].detectedObjects[state.frames[0].detectedObjects.length - 1];
+            expect(added.trackId).toBe(9);
+            expect(added.className).toBe('other');
+            expect(added.blurShape).toBe('rectangle');
+        });
+
         it('existingTrackIds lists all unique trackIds', async () => {
             const vm = wrapper.vm as any;
             expect(vm.getFrames()[0].detectedObjects[0].trackId).toBe(1);
@@ -330,79 +386,92 @@ describe('VideoEditorApp integration', () => {
             }
             expect([...trackIds].sort()).toEqual([1, 2]);
         });
-
-        it('switches modes inside DetailedView', async () => {
-            await clickButton(wrapper, 'Add');
-            expect(wrapper.text()).toContain('✕');
-
-            const modeBtns = wrapper.findAll('.mode-switch-btn');
-            expect(modeBtns.length).toBe(3);
-
-            await modeBtns[0].trigger('click');
-            expect(wrapper.text()).toContain('✕');
-
-            await modeBtns[1].trigger('click');
-            expect(wrapper.text()).toContain('✕');
-
-            await modeBtns[2].trigger('click');
-            expect(wrapper.text()).toContain('✕');
-        });
     });
 
-    describe('resize', () => {
-        it('opens DetailedView when Resize is clicked', async () => {
-            await clickButton(wrapper, 'Resize');
-            expect(wrapper.text()).toContain('✕');
+    describe('adjust', () => {
+        it('enters adjust mode from the inspector and pauses playback', async () => {
+            await selectTrackOne(wrapper);
+            await clickButton(wrapper, 'Adjust detection');
+            const vm = wrapper.vm as any;
+            expect(vm.activeMode).toBe('adjust');
         });
 
-        it('updates width and height after resize', async () => {
+        it('done dispatches one adjust update with before state and returns to select', async () => {
+            const onDetectedObjectUpdated = vi.fn();
+            const mounted = mountEditor({ onDetectedObjectUpdated });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await selectTrackOne(wrapper);
+            await clickButton(wrapper, 'Adjust detection');
+            const vm = wrapper.vm as any;
+            expect(vm.activeMode).toBe('adjust');
+
             const obj = state.frames[0].detectedObjects[0];
-            const origW = obj.width;
-            const origH = obj.height;
-            obj.width = 60;
-            obj.height = 80;
-            const vm = wrapper.vm as any;
-            const result = vm.getFrames();
-            expect(result[0].detectedObjects[0].width).toBe(60);
-            expect(result[0].detectedObjects[0].height).toBe(80);
+            obj.x += 50;
+            await wrapper.vm.$nextTick();
+
+            await clickTool(wrapper, 'toolbar-confirm');
+            expect(onDetectedObjectUpdated).toHaveBeenCalledTimes(1);
+            const [videoId, analyzedFrameId, dto, operationType, beforeState] = onDetectedObjectUpdated.mock.calls[0];
+            expect(videoId).toBe('v1');
+            expect(analyzedFrameId).toBe('f1');
+            expect(operationType).toBe('adjust');
+            expect(dto.id).toBe('o1');
+            expect(dto.x).toBe(50);
+            expect(beforeState).toHaveLength(1);
+            expect(beforeState[0].x).toBe(0);
+            expect(vm.activeMode).toBe('select');
         });
 
-        it('mode exclusivity: Resize deactivates Split', async () => {
-            await clickButton(wrapper, 'Split');
-            expect(wrapper.text()).toContain('Exit Split');
-            await clickButton(wrapper, 'Resize');
-            expect(wrapper.text()).not.toContain('Exit Split');
-            expect(wrapper.text()).toContain('✕');
+        it('discard restores the before state and exits adjust', async () => {
+            const onDetectedObjectUpdated = vi.fn();
+            const mounted = mountEditor({ onDetectedObjectUpdated });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await selectTrackOne(wrapper);
+            await clickButton(wrapper, 'Adjust detection');
+            const vm = wrapper.vm as any;
+
+            const obj = state.frames[0].detectedObjects[0];
+            obj.x += 50;
+            await wrapper.vm.$nextTick();
+
+            await clickTool(wrapper, 'toolbar-discard');
+            expect(obj.x).toBe(0);
+            expect(vm.activeMode).toBe('select');
+            expect(onDetectedObjectUpdated).not.toHaveBeenCalled();
         });
     });
 
-    describe('move', () => {
-        it('opens overlay when Move is clicked', async () => {
-            await clickButton(wrapper, 'Move');
-            expect(wrapper.text()).toContain('✕');
+    describe('track forward', () => {
+        it('tracks the selected occurrence from the Advanced menu', async () => {
+            const onTrackForward = vi.fn();
+            const mounted = mountEditor({ onTrackForward });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
+
+            await selectTrackOne(wrapper);
+            await clickButton(wrapper, 'Advanced');
+            await clickButton(wrapper, 'Track forward');
+
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
+            expect(onTrackForward).toHaveBeenCalledWith('v1', 'f1', state.frames[0].detectedObjects[0]);
         });
 
-        it('closes overlay on close button', async () => {
-            await clickButton(wrapper, 'Move');
-            await clickButton(wrapper, '✕');
-            expect(wrapper.text()).not.toContain('✕');
-        });
+        it('blocks duplicate tracking for the same object', async () => {
+            const onTrackForward = vi.fn();
+            const mounted = mountEditor({ onTrackForward });
+            wrapper = mounted.wrapper;
+            state = mounted.state;
 
-        it('returns updated coordinates via getFrames after moving in overlay', async () => {
-            await clickButton(wrapper, 'Move');
-            const frames = state.frames;
-            const obj = frames[0].detectedObjects[0];
-            const origX = obj.x;
-            const origY = obj.y;
+            await selectTrackOne(wrapper);
+            await clickButton(wrapper, 'Advanced');
+            await clickButton(wrapper, 'Track forward');
+            await clickButton(wrapper, 'Track forward');
 
-            obj.x = origX + 50;
-            obj.y = 200;
-
-            const vm = wrapper.vm as any;
-            const result = vm.getFrames();
-            const moved = result[0].detectedObjects[0];
-            expect(moved.x).toBe(origX + 50);
-            expect(moved.y).toBe(200);
+            expect(onTrackForward).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -418,13 +487,14 @@ describe('VideoEditorApp integration', () => {
         });
 
         it('returns mutated state after merge', async () => {
-            await clickButton(wrapper, 'Merge');
+            const vm = wrapper.vm as any;
+            vm.activate('merge');
+            await wrapper.vm.$nextTick();
             const labels = wrapper.findAll('.label-container');
             await labels[0].trigger('click');
             await labels[1].trigger('click');
             await getButton(wrapper, 'Merge 2')!.trigger('click');
 
-            const vm = wrapper.vm as any;
             const frames = vm.getFrames();
 
             const tracksOnF1 = frames[0].detectedObjects.map((o: any) => o.trackId).sort();

@@ -14,7 +14,9 @@ The `-v ./docker-data:/data` mount means everything lives in `./docker-data/` on
 | Path | Contents |
 |---|---|
 | `docker-data/App_Data/Uploads/` | Your analyzed videos + working copy |
-| `docker-data/models/` | AI model cache (downloaded once) |
+| `docker-data/models/` | Bundled model copy + additional local detector models |
+
+To add another detector, copy `<name>.onnx` and the matching `<name>.detector.json` into `docker-data/models/`, then restart the container.
 
 **To clean up:** stop the container and delete `./docker-data/`
 

@@ -87,6 +87,17 @@ public sealed class HomePersistenceAndJobFlowStepDefinitions
             .Respond("application/json", Json(new ApiResponse<List<AnalyzedFrameDto>> { IsSuccess = true, Payload = frames }));
     }
 
+    [Given("app state disables object interpolation")]
+    public void GivenAppStateDisablesObjectInterpolation()
+    {
+        _http.When(HttpMethod.Get, $"/{SharedConstants.Paths.AppState}")
+            .Respond("application/json", Json(new AppStateDto
+            {
+                ObjectDetectionApiRunning = true,
+                InterpolateTrackedObjects = false
+            }));
+    }
+
     [When("the reviewer opens the saved video from the library")]
     public void WhenTheReviewerOpensTheSavedVideoFromTheLibrary()
     {
@@ -120,6 +131,13 @@ public sealed class HomePersistenceAndJobFlowStepDefinitions
     public void ThenTheUploadFormDoesNotMarkTheSavedVideoAsFreshlySelected()
     {
         _cut.Markup.Should().NotContain($"Select Video: {_savedFileName}");
+    }
+
+    [Then("the review tab opens with interpolation disabled")]
+    public void ThenTheReviewTabOpensWithInterpolationDisabled()
+    {
+        _cut.WaitForAssertion(() =>
+            _cut.FindComponent<ReviewExportTab>().Instance.InterpolateTrackedObjects.Should().BeFalse());
     }
 
     [Given("the reviewer starts object detection for {string}")]

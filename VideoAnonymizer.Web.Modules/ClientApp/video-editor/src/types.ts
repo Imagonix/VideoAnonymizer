@@ -2,6 +2,13 @@ export type DetectedObjectDto = {
   id: string;
   confidence: number;
   className: string | null;
+  blurShape?: string | null;
+  blurSizePercentOverride?: number | null;
+  occurrenceBlurSizePercentOverride?: number | null;
+  preBufferMsOverride?: number | null;
+  postBufferMsOverride?: number | null;
+  /** "Interpolate" | "UseBuffers"; null at a valid gap boundary defaults to Interpolate. */
+  nextGapHandlingMode?: string | null;
   selected: boolean;
   trackId: number | null;
   x: number;
@@ -28,6 +35,7 @@ export type VideoEditorProps = {
   onDetectedObjectUpdated?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto, operationType: string, beforeState: DetectedObjectDto[]) => void;
   onDetectedObjectsBulkUpdated?: (videoId: string, dtos: DetectedObjectDto[], operationType: string, beforeState: DetectedObjectDto[]) => void;
   onDetectedObjectDeleted?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
+  onTrackForward?: (videoId: string, analyzedFrameId: string, dto: DetectedObjectDto) => void;
   onUndo?: () => void;
   onRedo?: () => void;
 };
@@ -41,6 +49,7 @@ export type DetectedObjectChangeSet = {
 export type AnonymizationSettings = {
   blurSizePercent: number;
   timeBufferMs: number;
+  interpolateTrackedObjects: boolean;
 }
 
 export type TimelineObjectBase = {
@@ -66,10 +75,10 @@ export type TimelineObjectCount = {
 
 export type PreviewObject = {
   detectedObject: DetectedObjectDto;
-  activation: 'detected' | 'pre' | 'post';
+  activation: 'detected' | 'interpolated' | 'pre' | 'post';
 };
 
-export type EditorMode = 'select' | 'merge' | 'split' | 'move' | 'resize' | 'add';
+export type EditorMode = 'select' | 'merge' | 'split' | 'adjust' | 'add';
 
 export type VideoDimensions = {
   videoWidth: number;

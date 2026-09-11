@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ public static class Extensions
 {
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
+    private const int DefaultHttpClientResilienceTimeoutSeconds = 60;
 
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
@@ -26,14 +28,23 @@ public static class Extensions
 
         builder.Services.AddServiceDiscovery();
 
+        var standardResilienceTimeout = TimeSpan.FromSeconds(Math.Max(
+            1,
+            builder.Configuration.GetValue(
+                "HttpClient:StandardResilienceTimeoutSeconds",
+                DefaultHttpClientResilienceTimeoutSeconds)));
+        var circuitBreakerSamplingDuration = TimeSpan.FromTicks(Math.Max(
+            TimeSpan.FromMinutes(2).Ticks,
+            standardResilienceTimeout.Ticks * 2));
+
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
             // Turn on resilience by default
             http.AddStandardResilienceHandler(options =>
             {
-                options.AttemptTimeout.Timeout = TimeSpan.FromMinutes(1);
-                options.TotalRequestTimeout.Timeout = TimeSpan.FromMinutes(1);
-                options.CircuitBreaker.SamplingDuration = TimeSpan.FromMinutes(2);
+                options.AttemptTimeout.Timeout = standardResilienceTimeout;
+                options.TotalRequestTimeout.Timeout = standardResilienceTimeout;
+                options.CircuitBreaker.SamplingDuration = circuitBreakerSamplingDuration;
             });
 
             // Turn on service discovery by default

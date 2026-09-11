@@ -15,7 +15,8 @@ namespace VideoAnonymizer.ApiService.Controllers;
 public sealed class VideosController(
     IMessagePublisher messagePublisher,
     IWebHostEnvironment environment,
-    VideoDataService videoDataService) : ControllerBase
+    VideoDataService videoDataService,
+    IConfiguration configuration) : ControllerBase
 {
     private static readonly string[] AllowedVideoExtensions = [".mp4", ".mov", ".avi", ".mkv", ".webm"];
 
@@ -84,6 +85,30 @@ public sealed class VideosController(
         return Ok(new ApiResponse<List<VideoDto>> { IsSuccess = true, Payload = videos });
     }
 
+    /// <summary>
+    /// Deletes the working copy for a video: database graph plus managed source/anonymized files.
+    /// </summary>
+    [HttpDelete($"{SharedConstants.Paths.Video}/{{videoId:guid}}")]
+    public async Task<IActionResult> DeleteWorkingCopy([FromRoute] Guid videoId)
+    {
+        try
+        {
+            var result = await videoDataService.DeleteWorkingCopyAsync(videoId, environment.ContentRootPath);
+            return Ok(new ApiResponse<DeleteVideoResultDto>
+            {
+                IsSuccess = true,
+                Payload = result,
+                Message = result.Warnings.Count == 0
+                    ? "Working copy deleted."
+                    : "Working copy deleted with warnings."
+            });
+        }
+        catch (NotFoundException)
+        {
+            return NotFound();
+        }
+    }
+
     [HttpPut($"{SharedConstants.Paths.Video}/{{videoId:guid}}/{SharedConstants.Paths.VideoSettings}")]
     public async Task<IActionResult> UpdateVideoSettings([FromRoute] Guid videoId, [FromBody] AnonymizationSettingsDto settings)
     {
@@ -126,10 +151,12 @@ public sealed class VideosController(
 
         try
         {
-            var video = await videoDataService.UpdateFramesAndObjects(videoId, request);
+            await videoDataService.UpdateFramesAndObjects(videoId, request);
+            var interpolateTrackedObjects = configuration.GetValue("Anonymization:InterpolateTrackedObjects", true);
+
             await messagePublisher.PublishAsync(
                 RabbitMQConstants.RoutingKeys.Anonymize,
-                new AnonymizeVideo(jobId, video.Id, DateTime.Now),
+                new AnonymizeVideo(jobId, videoId, DateTime.Now, interpolateTrackedObjects),
                 cancellationToken);
 
             return Ok(new ApiResponse<Guid>

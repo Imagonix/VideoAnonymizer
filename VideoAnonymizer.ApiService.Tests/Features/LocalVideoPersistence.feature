@@ -45,3 +45,115 @@ Feature: Local video persistence
     Given a file-backed local database contains a reviewed video
     When the API services are recreated
     Then the saved video, settings, frame and face are still available
+
+  Scenario: Track-level overrides round-trip and stay nullable
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with custom track settings
+    Then the first face keeps its custom track settings when reopening the video
+    And the second face still has no track overrides
+
+  Scenario: Consecutive segments group adjacent same-track occurrences
+    Given a reviewed video has a track with occurrences in the first, second, and fourth frames and an untracked occurrence in the fifth frame
+    When the reviewer resolves the segment of each occurrence
+    Then the segment of the first occurrence spans the second occurrence
+    And the segment of the second occurrence is unchanged by the missing third frame
+    And the fourth occurrence forms a single-occurrence segment after the gap
+    And the untracked occurrence forms a single-occurrence segment
+
+  Scenario: Joining runs keeps only the outer boundary overrides
+    Given a segment now spans previously separate runs
+    When the reviewer normalizes the segment boundaries
+    Then only the first occurrence stores a pre-buffer override
+    And only the last occurrence stores a post-buffer override
+
+  Scenario: Effective blur size uses the occurrence override with the global default
+    Given a reviewer's video has a global blur size of 120 percent
+    And one face overrides its blur size while another face has no override
+    When the effective blur sizes are resolved
+    Then the overriding face resolves to 150 percent and the other face resolves to 120 percent
+
+  Scenario: Saved video list includes derived statuses
+    Given videos exist in imported analyzed and exported states
+    When the reviewer opens the saved videos list
+    Then the listed videos show statuses "Imported", "Ready to review", and "Exported"
+
+  Scenario: Working copy deletion removes database and standalone files
+    Given a saved video has original and anonymized file paths under standalone storage
+    And the video has editor action history
+    When the reviewer deletes the working copy
+    Then the video is removed from the database
+    And the standalone source and anonymized files are deleted
+    And the delete result reports no file warnings
+
+  Scenario: Working copy deletion removes files under hosted storage layout
+    Given a saved video has original and anonymized file paths under hosted storage
+    When the reviewer deletes the working copy
+    Then the video is removed from the database
+    And the hosted source and anonymized files are deleted
+
+  Scenario: Working copy deletion skips unsafe paths and reports warnings
+    Given a saved video points its source path outside managed storage
+    When the reviewer deletes the working copy
+    Then the video is removed from the database
+    And the delete result reports a skipped source file warning
+
+  Scenario: Upload records the server UTC upload time
+    Given a reviewer uploads "timestamped.mp4" for object detection every 250 ms
+    When the reviewer opens the saved videos list
+    Then the listed video carries a server UTC upload time close to now
+
+  Scenario: Saved videos list orders newest upload first with stable tie-breaking
+    Given imported videos exist with known upload times
+    When the reviewer opens the saved videos list
+    Then the listed videos are ordered newest upload first
+    And upload time ties are broken by file name deterministically
+
+  Scenario: Occurrence blur override round-trips
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with an occurrence blur override
+    Then the first face keeps the occurrence blur override when reopening the video
+    And the second face still has no occurrence override
+
+  Scenario: Effective blur size prefers the occurrence override over the track override
+    Given a reviewer's video has a global blur size of 120 percent
+    And one occurrence overrides its blur while its track carries a different override
+    When the effective blur sizes are resolved
+    Then the occurrence override wins and the track override is the fallback
+
+  Scenario: Segment pre and post inherit the global time buffer directly
+    Given a track with a consecutive segment without boundary overrides
+    When the segment buffers are resolved for the track
+    Then the segment pre and post values are the global time buffer 300 ms
+
+  Scenario: Next gap handling mode UseBuffers round-trips with exact wire name
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with next gap handling mode "UseBuffers"
+    Then the first face keeps next gap handling mode "UseBuffers" when reopening the video
+    And the SQLite-style stored text for that gap mode is "UseBuffers"
+    And the second face still has no next gap handling mode
+
+  Scenario: Next gap handling mode Interpolate round-trips with exact wire name
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with next gap handling mode "Interpolate"
+    Then the first face keeps next gap handling mode "Interpolate" when reopening the video
+    And the SQLite-style stored text for that gap mode is "Interpolate"
+
+  Scenario: Null next gap handling mode remains null and defaults to Interpolate
+    Given a reviewed video has two detected faces
+    When the reviewer saves the first face with a null next gap handling mode
+    Then the first face keeps a null next gap handling mode when reopening the video
+    And a null next gap handling mode resolves to Interpolate
+
+  Scenario: Unsupported next gap handling mode is rejected at the API boundary
+    When the API maps an unsupported next gap handling mode "SomethingElse"
+    Then mapping the gap handling mode fails
+
+  Scenario: Exact UseBuffers wire name maps to the typed GapHandlingMode enum
+    When the API maps next gap handling mode "UseBuffers"
+    Then the mapped entity gap handling mode is UseBuffers
+    And mapping that entity back yields wire name "UseBuffers"
+
+  Scenario: Exact Interpolate wire name maps to the typed GapHandlingMode enum
+    When the API maps next gap handling mode "Interpolate"
+    Then the mapped entity gap handling mode is Interpolate
+    And mapping that entity back yields wire name "Interpolate"

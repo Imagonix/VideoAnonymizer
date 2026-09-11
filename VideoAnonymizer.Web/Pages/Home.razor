@@ -12,34 +12,72 @@
     </MudPaper>
 </MudOverlay>
 
-<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8" Style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
-    <MudStack Spacing="3" Style="flex: 1; min-height: 0;">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="gap: 16px;">
-            <MudText Typo="Typo.h4">Video Anonymizer</MudText>
-            <LocalRuntimeFeedback AppState="InitialAppState" Mode="LocalRuntimeFeedbackMode.Header" />
-        </MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="py-4" data-testid="home-container" Style="flex: 1; min-height: 0; display: flex; flex-direction: column; max-width: none; width: 100%;">
+    <div class="app-shell" data-testid="app-shell" style="flex: 1; min-height: 0; display: flex; flex-direction: row;">
+        <nav class="nav-rail" data-testid="nav-rail" aria-label="Main navigation"
+             style="flex: 0 0 auto; min-width: 56px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 12px 0; border-right: 1px solid var(--mud-palette-lines-default);">
+            <div class="nav-rail-top" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <MudTooltip Text="Import" Placement="Placement.Right">
+                    <MudIconButton Icon="@Icons.Material.Filled.VideoFile"
+                                   aria-label="Import"
+                                   title="Import"
+                                   data-testid="nav-import"
+                                   data-active="@(IsImportActive ? "true" : null)"
+                                   aria-current="@(IsImportActive ? "true" : null)"
+                                   Variant="@(IsImportActive ? Variant.Filled : Variant.Text)"
+                                   Color="@(IsImportActive ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetActiveTab(0))" />
+                </MudTooltip>
+                <MudTooltip Text="Review & Export" Placement="Placement.Right">
+                    <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                   aria-label="Review & Export"
+                                   title="Review & Export"
+                                   data-testid="nav-review"
+                                   data-active="@(IsReviewActive ? "true" : null)"
+                                   aria-current="@(IsReviewActive ? "true" : null)"
+                                   Variant="@(IsReviewActive ? Variant.Filled : Variant.Text)"
+                                   Color="@(IsReviewActive ? Color.Primary : Color.Default)"
+                                   OnClick="@(() => SetActiveTab(1))" />
+                </MudTooltip>
+            </div>
 
-        <MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" @bind-ActivePanelIndex="_activeTabIndex" Style="flex: 1; min-height: 0;">
-            <MudTabPanel Text="Import">
+            <div class="nav-rail-bottom" data-testid="nav-rail-bottom" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                <MudDivider Style="width: 28px;" />
+                <LocalRuntimeFeedback AppState="CurrentAppState"
+                                      Mode="LocalRuntimeFeedbackMode.Compact"
+                                      Class="nav-rail-runtime" />
+            </div>
+        </nav>
+
+        <div class="content-area" data-testid="content-area"
+             style="flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden;">
+            @if (IsImportActive)
+            {
                 <UploadTab @ref="_uploadTab" SelectedFileChanged="OnFileSelected"
                            DetectObjects="DetectObjectsAsync"
                            OnExistingVideoSelected="OnExistingVideoSelected"
+                           OnDeleteWorkingCopy="DeleteWorkingCopyAsync"
                            ExistingVideos="@_existingVideos"
                            SelectedFileName="@SelectedFileName"
                            @bind-DetectionIntervalMs="@DetectionIntervalMs"
                            IsBusy="@IsBusy" />
-            </MudTabPanel>
-
-            <MudTabPanel Text="Review & Export">
+            }
+            else
+            {
                 <ReviewExportTab @ref="_reviewExportTab"
                                  VideoId="@_currentVideoId"
                                  VideoSourceUrl="@_videoSourceUrl"
                                  Frames="@_analyzedFrames"
                                  ShowEditor="@_showEditor"
+                                 InterpolateTrackedObjects="@CurrentAppState.InterpolateTrackedObjects"
                                  @bind-BlurSizePercent="_blurSizePercent"
                                  @bind-TimeBufferMs="_timeBufferMs"
-                                 StartAnonymization="StartAnonymizationAsync"/>
-            </MudTabPanel>
-        </MudTabs>
-    </MudStack>
+                                 ExportResultAvailable="IsAnonymized"
+                                 IsExportRunning="IsExportRunning"
+                                 StartAnonymization="StartAnonymizationAsync"
+                                 DownloadAnonymized="DownloadAsync"
+                                 TrackingCompleted="OnTrackingCompletedAsync"/>
+            }
+        </div>
+    </div>
 </MudContainer>

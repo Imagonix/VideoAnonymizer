@@ -5,11 +5,9 @@ obj
 bin
 /VideoAnonymizer.ObjectDetection/.venv
 /VideoAnonymizer.ApiService/App_Data/Uploads
-/VideoAnonymizer.ObjectDetection/models/FaceDetector.onnx
 /VideoAnonymizer.ObjectDetectionTests/models/FaceDetector.onnx
 /data
 /**/__pycache__
-/VideoAnonymizer.ObjectDetection/models
 /**/.bin
 /**/node_modules
 /**/.vite
@@ -21,3 +19,4 @@ bin
 /tmp
 /docker-data
 /**/artifacts
+*.feature.cs

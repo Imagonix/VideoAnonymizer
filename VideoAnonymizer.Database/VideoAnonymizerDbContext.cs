@@ -11,7 +11,7 @@ namespace VideoAnonymizer.Database
         public DbSet<Video> Videos { get; set; }
         public DbSet<AnalyzedFrame> AnalyzedFrames { get; set; }
         public DbSet<DetectedObject> DetectedObjects { get; set; }
-        public DbSet<SystemSetting> SystemSettings { get; set; }
+        public DbSet<EditorAction> EditorActions { get; set; }
 
         public VideoAnonymizerDbContext(DbContextOptions options) : base(options)
         {
@@ -25,9 +25,9 @@ namespace VideoAnonymizer.Database
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<SystemSetting>()
-                .HasIndex(x => x.Key)
-                .IsUnique();
+            builder.Entity<DetectedObject>()
+                .Property(e => e.NextGapHandlingMode)
+                .HasConversion<string>();
         }
     }
 }

@@ -1,57 +1,59 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-
 defineProps<{
     existingTrackIds: number[];
     trackIdsInCurrentFrame: Set<number>;
+    className?: string;
+    trackId?: 'new' | number;
 }>();
 
 const emit = defineEmits<{
-    (e: 'cancel'): void;
-    (e: 'confirm', className: string, trackId: 'new' | number): void;
+    (e: 'class-changed', value: string): void;
+    (e: 'track-changed', value: 'new' | number): void;
 }>();
 
-const labelClass = ref('face');
-const labelTrackId = ref<'new' | number>('new');
-
-function confirm() {
-    emit('confirm', labelClass.value, labelTrackId.value);
-    labelTrackId.value = 'new';
+function parseTrackId(target: HTMLSelectElement): 'new' | number {
+    const value = target.value;
+    return value === 'new' ? 'new' : Number(value);
 }
 </script>
 
 <template>
-    <div class="label-overlay" @mousedown.self="emit('cancel')">
+    <div class="add-dialog" data-testid="add-box-dialog">
         <div class="label-popup">
-            <select v-model="labelClass" class="label-input-field">
+            <span class="label-field-label">Class</span>
+            <select
+                class="label-input-field"
+                data-testid="add-class-select"
+                :value="className ?? 'other'"
+                @change="emit('class-changed', ($event.target as HTMLSelectElement).value)"
+            >
                 <option value="face">Face</option>
                 <option value="other">Other</option>
             </select>
             <div class="label-field-row">
                 <span class="label-field-label">Track ID</span>
-                <select v-model="labelTrackId" class="label-input-field">
-                    <option :value="'new'">New</option>
+                <select
+                    class="label-input-field"
+                    data-testid="add-track-select"
+                    :value="trackId ?? 'new'"
+                    @change="emit('track-changed', parseTrackId($event.target as HTMLSelectElement))"
+                >
+                    <option value="new">New</option>
                     <option v-for="id in existingTrackIds" :key="id" :value="id"
                       :disabled="trackIdsInCurrentFrame.has(id)"
                     >{{ id }}{{ trackIdsInCurrentFrame.has(id) ? ' (already in this frame)' : '' }}</option>
                 </select>
-            </div>
-            <div class="label-popup-actions">
-                <button class="popup-btn" @click="emit('cancel')">Cancel</button>
-                <button class="popup-btn primary" @click="confirm">Add</button>
             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.label-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 1100;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.add-dialog {
+    position: absolute;
+    top: 12px;
+    right: 68px;
+    z-index: 31;
 }
 
 .label-popup {
@@ -63,7 +65,7 @@ function confirm() {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    min-width: 220px;
+    min-width: 180px;
 }
 
 .label-input-field {
@@ -74,6 +76,7 @@ function confirm() {
     color: var(--mud-palette-text-primary);
     font-size: 0.9rem;
     outline: none;
+    width: 100%;
 }
 
 .label-input-field:focus {
@@ -94,27 +97,5 @@ function confirm() {
 
 .label-field-row .label-input-field {
     flex: 1;
-}
-
-.label-popup-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
-}
-
-.popup-btn {
-    padding: 6px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 500;
-    background: transparent;
-    color: var(--mud-palette-text-primary);
-}
-
-.popup-btn.primary {
-    background: var(--mud-palette-primary);
-    color: var(--mud-palette-primary-contrast-text);
 }
 </style>
